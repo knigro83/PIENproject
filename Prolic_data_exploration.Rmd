@@ -1,0 +1,263 @@
+---
+title: "PIEN data exploration"
+output: html_document
+date: "2023-10-30"
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#load required packages
+library(terra)
+library(ggplot2)
+library(ggspatial)
+library(tidyterra)
+library(dplyr)
+library(stringr)
+library(ClimateNAr)
+library(ggfortify)
+library(RColorBrewer)
+library(tidyr)
+```
+
+#Climate
+
+```{r}
+#read in site and provenance locations
+us <- geodata::gadm(country = "USA",  level = 1, resolution = 2,
+             path = "C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/PIENproject")
+west_states<- c("Arizona","Colorado","Idaho","Montana","Nevada","New Mexico","South Dakota","North Dakota","Nebraska","Utah","Wyoming","California","Oregon","Washington","Kansas","Oklahoma","Texas")
+westernus <- us[match(toupper(west_states),toupper(us$NAME_1)),]
+
+#this includes the plantation lat/long
+provenances <- vect("C:/Users/KatherineNigro/Box/Engelmann Spruce Provenance/Maps-GIS/SourceLocsAdj.shp")
+as.data.frame(provenances)
+
+ggplot()+
+  geom_spatvector(data=westernus)+
+  geom_spatvector(data=provenances, color="maroon")
+
+```
+
+
+```{r}
+#read in climate from climateNA
+
+#first download climate normals from ClimateNA then read in to R
+mastervarList <- c('mat', 'map','td','mcmt','msp','shm','nffd','bFFP','eFFP','mwmt','dd_0','dd5','emt','cmd','pas','PPT_sp','PPT_sm') #these are all the climate variables I want
+
+rasterDownload (region='NA',res='4000m',period='Normal_1961_1990',varList="PPT_sm",sDir='C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/PIENproject/PIENproject/ClimateNA')
+
+normal_clim_rasters <- c()
+for(i in 1:length(mastervarList)){
+  normal_clim_rasters[i]<- paste("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/PIENproject/PIENproject/ClimateNA/NA/4000m/Normal_1961_1990/",mastervarList[i],".tif",sep="")
+}
+
+clim_raster_stack <- rast(normal_clim_rasters)
+
+prov_clim <- terra::extract(clim_raster_stack, provenances, method='simple') %>% cbind(as.data.frame(provenances)) %>% cbind(crds(provenances)) %>% 
+  mutate(smrpb = PPT_sm/PPT_sp, monsoonality = msp/map)
+prov_clim
+
+ggplot(prov_clim, aes(x=monsoonality, y=smrpb))+
+  geom_point()
+
+#nffd x map
+ggplot()+
+  geom_point(data=prov_clim, size=3, aes(x=nffd, y=map), col="aquamarine3")+
+  geom_text(data=prov_clim, aes(x=nffd, y=map, label=ident), vjust=0.5, hjust=-.1)+
+  theme_bw()+
+  theme(legend.position = 'none')
+
+ggplot()+
+  geom_point(data=prov_clim, size=3, aes(x=nffd, y=TD), col="aquamarine3")+
+  geom_text(data=prov_clim, aes(x=nffd, y=TD, label=ident), vjust=1)+
+  theme_bw()+
+  theme(legend.position = 'none')
+```
+
+```{r}
+#make key for provenance names
+prov_names<- data.frame(number = substr(prov_clim$ident,1,4), name = c("Powers Creek","Kidd Creek","Inlet Creek","Cutting Permit 31","Roosevelt NF","Pike NF","San Juan NF","Gunnison NF","Santa Fe NF","Coconino NF","Payette NF","Cache NF","Dixie NF","Okanogan NF","Wenatchee NF","Wallowa-Whitman NF","Larimer 1","Larimer 2","GM-U NF","Gila NF","Plantation"))
+```
+
+#PCA
+
+```{r}
+#make PCA
+
+#first look at correlations in climate variables
+env_vars<- prov_clim %>% 
+  dplyr::select(c(MAT:pas,smrpb))
+
+env_vars %>% 
+  cor() %>% 
+  abs()>0.9
+##CMD is only super correlated to temperature variables and not precipitation variables, which makes me think it is overall more driven by temperature than precipitation
+
+env_vars_cut <- env_vars %>% 
+  dplyr::select(-c(bFFP, eFFP, EMT, pas, dd5, dd_0))
+
+env_vars_cut %>%
+  cor() %>% 
+  abs()>0.9
+```
+
+```{r,eval=FALSE,echo=FALSE}
+#look at linearity of relationships
+
+pairs(env_vars_cut, lower.panel = NULL)
+
+```
+
+```{r, echo = FALSE}
+#run the PCA 
+set.seed(83)
+clim_pca <- prcomp(env_vars_cut,scale.=T) #proceed from correlation matrix, which scales variables--important because our variables have different units
+
+##to get eigenvalues, we do the square of the stdev
+eigenvals <- (clim_pca$sdev)^2
+eigenvals
+sum(eigenvals) #the sum of the eigenvalues = the number of variables (9)
+eigenvals/sum(eigenvals)#this is the proportion variance explained
+summary(clim_pca)
+par(mfrow=c(1,1))
+plot(clim_pca,type="l")
+```
+
+```{r, echo=FALSE}
+as.data.frame(clim_pca$rotation[,1:2]) %>% 
+  tibble::rownames_to_column() %>% 
+  arrange(desc(abs(PC1)))
+as.data.frame(clim_pca$rotation[,1:2]) %>% 
+  tibble::rownames_to_column() %>% 
+  arrange(desc(abs(PC2)))
+as.data.frame(clim_pca$rotation[,1:3]) %>% 
+  tibble::rownames_to_column() %>% 
+  arrange(desc(abs(PC3)))
+```
+
+```{r}
+
+#plot PCA
+prov_pcapts<- clim_pca$x %>% 
+  cbind(prov_clim) %>% 
+  mutate(state = substr(ident,6,7), number = substr(ident, 1,4)) %>% 
+  left_join(prov_names)
+
+autoplot(clim_pca,x=1,y=2,colour="aquamarine3",loadings.colour="red", loadings=T, loadings.label=T, loadings.label.colour="black", scale=0, loadings.label.size=6)+
+  geom_point(data=prov_pcapts, aes(x=PC1, y=PC2, col=state), size=5)+
+  geom_text(data=prov_pcapts, aes(x=PC1, y=PC2, label=name))+
+  scale_color_brewer(palette = "Set1")
+  
+ggplot()+
+  geom_spatvector(data=westernus)+
+  geom_spatvector(data=provenances, color="maroon")+
+  geom_spatvector_text(data=provenances, aes(label=substr(ident,1,4)), hjust=c(rep(c(-0.2,1),2),-.2,-.2,-.2,0,rep(c(-.2,1),5),1,1,1))
+
+
+```
+
+
+#DBH
+
+```{r}
+dbh <- read.csv("C:/Users/KatherineNigro/Box/Engelmann Spruce Provenance/Analysis/RWI_data/DBH_data.csv")
+
+head(dbh)
+
+dbh_long<- dbh %>% 
+  pivot_longer(DBH91:DBH14, names_to = 'year', values_to = 'DBH')
+
+
+
+provs_arranged_lat<- prov_pcapts %>% 
+  mutate(name = gsub(" NF","", prov_pcapts$name)) %>% 
+  arrange(Latitude) %>% 
+  pull(name)
+unique(dbh_long$Provenance)
+provs_arranged_lat
+
+dbh_clim_data <- dbh_long %>% 
+  left_join(prov_pcapts %>% 
+  mutate(name = gsub(" NF","", prov_pcapts$name)), by=c("Provenance" = "name"))
+
+ggplot(dbh_long, aes(x=factor(Provenance, levels=provs_arranged_lat), y=DBH, col=Provenance))+
+  geom_boxplot()+
+  facet_wrap(~factor(year,levels=c("DBH91","DBH96","DBH06","DBH14")), nrow=1)+
+  theme(legend.position = 'none', axis.text.x = element_text(angle=45, hjust=1))
+
+ggplot(dbh_clim_data, aes(x=factor(nffd), y=DBH, col=Provenance))+
+  geom_boxplot()+
+  facet_wrap(~factor(year,levels=c("DBH91","DBH96","DBH06","DBH14")), nrow=1)+
+  theme(legend.position = 'none', axis.text.x = element_text(angle=45, hjust=1))
+
+ggplot(dbh_clim_data, aes(x=factor(cmd), y=DBH, col=Provenance))+
+  geom_boxplot()+
+  facet_wrap(~factor(year,levels=c("DBH91","DBH96","DBH06","DBH14")), nrow=1)+
+  theme(legend.position = 'none', axis.text.x = element_text(angle=45, hjust=1))
+
+ggplot(dbh_clim_data, aes(x=factor(smrpb), y=DBH, col=Provenance))+
+  geom_boxplot()+
+  facet_wrap(~factor(year,levels=c("DBH91","DBH96","DBH06","DBH14")), nrow=1)+
+  theme(legend.position = 'none', axis.text.x = element_text(angle=45, hjust=1))
+```
+
+
+```{r}
+#compare climates of provenances
+prov_vars<- prov_clim %>% 
+  dplyr::select(c(ident,MAT:pas,smrpb)) %>% 
+  dplyr::select(-c(bFFP, eFFP, EMT, pas, dd5, dd_0)) %>% 
+  mutate(number=substr(ident,1,4)) %>% 
+  left_join(prov_names) %>% 
+  pivot_longer(MAT:smrpb, names_to = "var", values_to = "value")
+
+ggplot(prov_vars, aes(x=factor(name,levels=prov_pcapts %>% arrange(Latitude) %>% pull(name)), y=value, color=factor(name,levels=prov_pcapts %>% arrange(Latitude) %>% pull(name))))+
+  geom_point(size=4)+
+  facet_wrap(~var, scales="free")+
+  scale_color_manual(values=heat.colors(21))+
+  theme(axis.text.x = element_text(angle=45,hjust=1), legend.position = 'none')
+```
+
+```{r}
+#difference between first and last DBH
+
+dbh_diffs<- dbh %>% 
+  mutate(diff_total = DBH14 - DBH91, 
+         diff3 = DBH14 - DBH06,
+         diff2 = DBH06 - DBH96,
+         diff1 = DBH96 - DBH91)
+
+dbh_diffs_long <- dbh_diffs %>% 
+  mutate(Provenance = gsub(" NF","", Provenance)) %>% 
+  mutate(Provenance = ifelse(Provenance == "Grand Mesa - Uncompahgre", "GM-U", Provenance)) %>% 
+  pivot_longer(c(DBH91:DBH14,diff_total:diff1)) %>% 
+  left_join(prov_pcapts %>% 
+  mutate(Provenance = gsub(" NF","", prov_pcapts$name)) %>% select(-name), by="Provenance") %>% 
+  filter(!is.na(value))
+  
+ggplot(dbh_diffs_long %>% filter(name %in% c("diff_total","diff1","diff2","diff3")), aes(x=factor(Provenance, levels=provs_arranged_lat), y=value, fill=Provenance))+
+  geom_boxplot()+
+  facet_wrap(~name, scales="free")+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+dbh_diffs_long$Provenance %>% unique()
+```
+
+#RWI
+
+```{r}
+rwi<- read.csv("C:/Users/KatherineNigro/Box/Engelmann Spruce Provenance/Analysis/RWI_data/Prov_resid_long.csv")
+
+ggplot(rwi, aes(x=Year, y=RWI, col=Tree))+
+  geom_point()+
+  geom_line()+
+  theme(legend.position = 'none')
+
+summary(rwi$Year)
+```
