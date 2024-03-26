@@ -1072,7 +1072,6 @@ dbh_cmd_data<- dbh_clim_data %>% filter(year=="DBH14") %>%
 
 mod_dbh_cmd <- lm(ave_dbh14 ~ cmd, data=dbh_cmd_data)
 summary(mod_dbh_cmd)
-
 ```
 
 ##model
@@ -1171,6 +1170,15 @@ TukeyHSD(dbh_aov14)$Provenance %>%
   as.data.frame() %>% 
   filter(`p adj` < 0.05)
 
+prov_clim_states %>% 
+  filter(Provenance %in% c("Gila NF","Cache NF","Cutting Permit 31"))
+
+
+ggplot(prov_clim_long, aes(x=Provenance, y=value, col=Provenance %in% c("Gila NF","Cache NF","Cutting Permit 31")))+
+  geom_point()+
+  facet_wrap(~name, scales="free")+
+  theme(legend.position = "none", axis.text.x = element_text(angle=45,hjust=1))
+
 ##does DBH vary with climate vars?
 
 dbh14_long <- dbh_numeric %>% 
@@ -1182,9 +1190,37 @@ ggplot(dbh14_long, aes(x=value, y=DBH))+
   geom_smooth(method="lm")+
   facet_wrap(~name, scales="free") ##doesn't look like there's much there.
 
-ggplot(dbh14_long, aes(x=Latitude, y=DBH))+
+ggplot(dbh_numeric %>% 
+  filter(year=="DBH14"), aes(x=Latitude, y=DBH))+
   geom_point()+
   geom_smooth(method="lm")
+
+dbh_num14 <- dbh_numeric %>% filter(year=="DBH14")
+
+mod_dbh_lat <- lm(DBH ~ Latitude+ I(Latitude^2), data=dbh_num14)
+summary(mod_dbh_lat)
+
+mod_dbh_nffd <- lm(DBH ~ nffd, data=dbh_num14)
+summary(mod_dbh_nffd)
+
+predicted_scores <- predict(
+  mod_dbh_lat, 
+  newdata = data.frame(
+    Latitude = seq(min(dbh_num14$Latitude), 
+                      max(dbh_num14$Latitude), 
+                      length.out = 100
+                      )
+    )
+  )
+
+plot(dbh_num14$Latitude, dbh_num14$DBH)
+lines( seq(min(dbh_num14$Latitude), 
+                      max(dbh_num14$Latitude), 
+                      length.out = 100
+                      ), predicted_scores, col="red")
+
+ggplot(dbh_num14, aes(x=nffd, y=DBH))+
+  geom_point()
 ```
 
 #Height
@@ -1294,9 +1330,17 @@ tree.num <- ht_data %>%
     name=="HT06" ~ 2006,
     name=="HT14" ~ 2014))
 
+trees.died<- tree.num %>% 
+  left_join(tree.num %>% filter(year==1974) %>% ungroup() %>%  select(Provenance, n) %>% rename(n_74=n)) %>% 
+  mutate(prop = n/n_74)
+
 ggplot(tree.num, aes(x=year, y=n, col=Provenance))+
   geom_point()+
   geom_line()
+
+ggplot(trees.died %>% filter(name=="HT14"), aes(x=Provenance, y=prop))+
+  geom_point()+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
 
 ```
 
@@ -1435,6 +1479,13 @@ ggplot(moniger_data_comb, aes(x=HT91, y=Cones91))+
 ggplot(moniger_data_comb, aes(x=HT96, y=Cones96))+
   geom_jitter(height=0.1)
 ggplot(moniger_data_comb, aes(x=HT06, y=Cones06))+
+  geom_jitter(height=0.1)
+
+ggplot(moniger_data_comb, aes(x=DBH91, y=Cones91))+
+  geom_jitter(height=0.1)
+ggplot(moniger_data_comb, aes(x=DBH96, y=Cones96))+
+  geom_jitter(height=0.1)
+ggplot(moniger_data_comb, aes(x=DBH06, y=Cones06))+
   geom_jitter(height=0.1)
 
 ggplot(cone_sum, aes(x=year, y=prop.w.cones, col=Provenance))+
@@ -1727,7 +1778,7 @@ dbh_rwi_comp <- dbh_age %>%
   arrange(tree) %>% 
   bind_cols(dbh %>% arrange(Series) %>% 
   filter(!is.na(DBH14))) %>% 
-  mutate(lowsum=ifelse(sum<15,"yes","no"))
+  mutate(lowsum=ifelse(sum<16,"yes","no"))
 
 
 dbh_rwi_comp %>% 
@@ -1767,6 +1818,23 @@ ggplot(dbh_age %>% filter(tree=="X49D2"), aes(x=year, y=rw, col=tree))+
   geom_point()+
   facet_wrap(~Provenance)+
   theme(legend.position = "none")
+
+prov_good <- prov_all %>% as.data.frame() %>% 
+  select(-all_of(off_trees %>% substr(2, nchar(off_trees))))
+
+dbh_age_good <- prov_good %>% 
+  as.data.frame() %>% 
+  mutate(year = rownames(prov_all)) %>% 
+  pivot_longer(!year, values_to = "rw", names_to="tree") %>% 
+  mutate(tree=paste("X",tree,sep=""), year=as.integer(year)) %>% 
+  left_join(rwi %>% dplyr::select(Provenance, Tree) %>% unique(), by=c("tree"="Tree"))
+  
+ggplot(dbh_age_good, aes(x=year, y=rw, col=tree))+
+  geom_line()+
+  geom_point()+
+  facet_wrap(~Provenance)+
+  theme(legend.position = "none")
+
 ```
 
 #Distance
