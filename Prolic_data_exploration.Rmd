@@ -18,10 +18,16 @@ library(ggspatial)
 library(tidyterra)
 library(dplyr)
 library(stringr)
-library(ClimateNAr)
+#library(ClimateNAr)
 library(ggfortify)
 library(RColorBrewer)
 library(tidyr)
+library(lme4)
+library(car)
+library(viridis)
+library(dplR)
+library(ggpubr)
+library(ggrepel)
 ```
 
 #Climate
@@ -63,6 +69,9 @@ prov_clim <- terra::extract(clim_raster_stack, provenances, method='simple') %>%
   mutate(smrpb = PPT_sm/PPT_sp, monsoonality = msp/map)
 prov_clim
 
+prov_clim_bilinear <- terra::extract(clim_raster_stack, provenances, method='bilinear') %>% cbind(as.data.frame(provenances)) %>% cbind(crds(provenances)) %>% 
+  mutate(smrpb = PPT_sm/PPT_sp, monsoonality = msp/map)
+
 ggplot(prov_clim, aes(x=monsoonality, y=smrpb))+
   geom_point()
 
@@ -78,6 +87,53 @@ ggplot()+
   geom_text(data=prov_clim, aes(x=nffd, y=TD, label=ident), vjust=1)+
   theme_bw()+
   theme(legend.position = 'none')
+```
+
+
+```{r}
+#make key for provenance names
+prov_names<- data.frame(ident = prov_clim$ident, number = substr(prov_clim$ident,1,4), Provenance = c("Powers Creek","Kidd Creek","Inlet Creek","Cutting Permit 31","Roosevelt NF","Pike NF","San Juan NF","Gunnison NF","Santa Fe NF","Coconino NF","Payette NF","Cache NF","Dixie NF","Okanogan NF","Wenatchee NF","Wallowa-Whitman NF","Larimer 1","Larimer 2","GM-U NF","Gila NF","Plantation"), code = c("PC","KC","IC","CP31","Roo","Pike","SJ","Gunni","SF","Coco","Pay","Cache","Dixie","Oka","Wen","Wall-Whit","Lar1", "Lar2","GMUG","Gila","Plantation"))
+```
+
+```{r}
+#all clim vars
+colnames(prov_clim)
+
+prov_clim_long<- prov_clim %>% 
+  dplyr::select(c(ident,MAT:PPT_sm, Latitude, Longitude, smrpb, monsoonality)) %>% 
+  pivot_longer(MAT:monsoonality) %>% 
+  mutate(type="simple", number=substr(ident,0,4)) %>% 
+  left_join(prov_names)
+
+prov_clim_bilinear_long<- prov_clim_bilinear %>% 
+  dplyr::select(c(ident,MAT:PPT_sm, Latitude, Longitude, smrpb, monsoonality)) %>% 
+  pivot_longer(MAT:monsoonality) %>% 
+  mutate(type="bilinear", number=substr(ident,0,4)) %>% 
+  left_join(prov_names)
+
+##try new coordinates
+adjusted_coords<- read.csv("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/PIENproject/PIEN_corrected_coords.csv")
+
+adjusted_provs<- vect(adjusted_coords, geom=c("long_corrected","lat_corrected"))
+
+prov_clim_adjusted_bi <- terra::extract(clim_raster_stack, adjusted_provs, method='bilinear') %>% cbind(as.data.frame(adjusted_provs)) %>% cbind(crds(adjusted_provs)) %>% 
+  mutate(smrpb = PPT_sm/PPT_sp, monsoonality = msp/map)
+
+prov_clim_adjusted_bi_long<- prov_clim_adjusted_bi %>% 
+  mutate(no=ifelse(is.na(no),"Plan",no)) %>% 
+  dplyr::select(c(Provenance,MAT:PPT_sm, smrpb, monsoonality)) %>% 
+  pivot_longer(MAT:monsoonality) %>% 
+  mutate(type="adj bilinear") 
+
+prov_clim_compare <- bind_rows(prov_clim_bilinear_long, prov_clim_adjusted_bi_long) %>% 
+  mutate(Provenance = ifelse(Provenance == "Grand Mesa-Uncompahgre NF", "GM-U NF", Provenance))
+
+ggplot(prov_clim_compare %>% filter(!name%in%c("Latitude","Longitude")), aes(x=name, y=value, col=type))+
+  geom_point()+
+  facet_wrap(~Provenance, scales="free")+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+
 ```
 
 ```{r}
@@ -119,8 +175,14 @@ climdir <- "C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/
 #   ppt_data_new<-rbind(ppt_data_new,ppt_CN)}
 # }
 # 
-# ppt_comb_plantation <- bind_rows(as.data.frame(ppt_data_old), as.data.frame(ppt_data_new)) %>% filter(CN == "Plantation") %>% 
+# ppt_comb_plantation <- bind_rows(as.data.frame(ppt_data_old), as.data.frame(ppt_data_new)) %>% filter(CN == "Plantation") %>%
 #   mutate(date=as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y"), ppt=as.numeric(ppt))
+# 
+# ppt_comb_all <- bind_rows(as.data.frame(ppt_data_old), as.data.frame(ppt_data_new)) %>%
+#   mutate(date=as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y"), ppt=as.numeric(ppt))
+# 
+# write.csv(ppt_comb_all, "ppt_comb_all.csv")
+# 
 # 
 # ##tmin
 # tmin_data_old<-vector()
@@ -151,8 +213,14 @@ climdir <- "C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/
 #   tmin_data_new<-rbind(tmin_data_new,tmin_CN)}
 # }
 # 
-# tmin_comb_plantation <- bind_rows(as.data.frame(tmin_data_old), as.data.frame(tmin_data_new)) %>% filter(CN == "Plantation") %>% 
+# tmin_comb_plantation <- bind_rows(as.data.frame(tmin_data_old), as.data.frame(tmin_data_new)) %>% filter(CN == "Plantation") %>%
 #   mutate(date=as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y"), tmin=as.numeric(tmin))
+# 
+# tmin_comb_all <- bind_rows(as.data.frame(tmin_data_old), as.data.frame(tmin_data_new)) %>%
+#   mutate(date=as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y"), tmin=as.numeric(tmin))
+# 
+# write.csv(tmin_comb_all, "tmin_comb_all.csv")
+# 
 # 
 # ##tmax
 # tmax_data_old<-vector()
@@ -183,40 +251,13 @@ climdir <- "C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/
 #   tmax_data_new<-rbind(tmax_data_new,tmax_CN)}
 # }
 # 
-# tmax_comb_plantation <- bind_rows(as.data.frame(tmax_data_old), as.data.frame(tmax_data_new)) %>% filter(CN == "Plantation") %>% 
+# tmax_comb_plantation <- bind_rows(as.data.frame(tmax_data_old), as.data.frame(tmax_data_new)) %>% filter(CN == "Plantation") %>%
 #   mutate(date=as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y"), tmax=as.numeric(tmax))
 # 
-# ##tmean
-# tmean_data_old<-vector()
-# for(i in 1:length(years_old)){
-# for(j in 1:length(months)){
-#   raster<-paste(climdir,'/annual/PRISM_tmean_stable_4kmM3_198101_202305_bil/PRISM_tmean_stable_4kmM3_',years_old[i],months[j],'_bil.bil',sep="")
-#   rast <- rast(raster)
-#   ext.poly <- terra::extract(rast, provenances, fun = mean, na.rm=TRUE, df=TRUE)
-#   tmean<-ext.poly[,2]
-#   CN<-provenances$ident
-#   year <- rep(years_old[i],length(ext.poly[,2]))
-#   month <- rep(months[j],length(ext.poly[,2]))
-#   tmean_CN<-cbind(CN,tmean,year,month)
-#   tmean_data_old<-rbind(tmean_data_old,tmean_CN)}
-# }
+# tmax_comb_all <- bind_rows(as.data.frame(tmax_data_old), as.data.frame(tmax_data_new)) %>%
+#   mutate(date=as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y"), tmax=as.numeric(tmax))
 # 
-# tmean_data_new<-vector()
-# for(i in 1:length(years_new)){
-# for(j in 1:length(months)){
-#   raster<-paste(climdir,'/annual/PRISM_tmean_stable_4kmM3_198101_202305_bil/PRISM_tmean_stable_4kmM3_',years_new[i],months[j],'_bil.bil',sep="")
-#   rast <- rast(raster)
-#   ext.poly <- terra::extract(rast, provenances, fun = mean, na.rm=TRUE, df=TRUE)
-#   tmean<-ext.poly[,2]
-#   CN<-provenances$ident
-#   year <- rep(years_new[i],length(ext.poly[,2]))
-#   month <- rep(months[j],length(ext.poly[,2]))
-#   tmean_CN<-cbind(CN,tmean,year,month)
-#   tmean_data_new<-rbind(tmean_data_new,tmean_CN)}
-# }
-# 
-# tmean_comb_plantation <- bind_rows(as.data.frame(tmean_data_old), as.data.frame(tmean_data_new)) %>% filter(CN == "Plantation") %>% 
-#   mutate(date=as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y"), tmean=as.numeric(tmean))
+# write.csv(tmax_comb_all, "tmax_comb_all.csv")
 # 
 # ##tmean
 # tmean_data_old<-vector()
@@ -247,8 +288,14 @@ climdir <- "C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/
 #   tmean_data_new<-rbind(tmean_data_new,tmean_CN)}
 # }
 # 
-# tmean_comb_plantation <- bind_rows(as.data.frame(tmean_data_old), as.data.frame(tmean_data_new)) %>% filter(CN == "Plantation") %>% 
+# tmean_comb_plantation <- bind_rows(as.data.frame(tmean_data_old), as.data.frame(tmean_data_new)) %>% filter(CN == "Plantation") %>%
 #   mutate(date=as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y"), tmean=as.numeric(tmean))
+# 
+# tmean_comb_all <- bind_rows(as.data.frame(tmean_data_old), as.data.frame(tmean_data_new)) %>%
+#   mutate(date=as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y"), tmean=as.numeric(tmean))
+# 
+# write.csv(tmean_comb_all, "tmean_comb_all.csv")
+# 
 # 
 # ##vpdmax
 # vpdmax_data_old<-vector()
@@ -279,10 +326,15 @@ climdir <- "C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/
 #   vpdmax_data_new<-rbind(vpdmax_data_new,vpdmax_CN)}
 # }
 # 
-# vpdmax_comb_plantation <- bind_rows(as.data.frame(vpdmax_data_old), as.data.frame(vpdmax_data_new)) %>% filter(CN == "Plantation") %>% 
+# vpdmax_comb_plantation <- bind_rows(as.data.frame(vpdmax_data_old), as.data.frame(vpdmax_data_new)) %>% filter(CN == "Plantation") %>%
 #   mutate(date=as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y"), vpdmax=as.numeric(vpdmax))
 # 
-
+# vpdmax_comb_all <- bind_rows(as.data.frame(vpdmax_data_old), as.data.frame(vpdmax_data_new)) %>%
+#   mutate(date=as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y"), vpdmax=as.numeric(vpdmax))
+# 
+# write.csv(vpdmax_comb_all, "vpdmax_comb_all.csv")
+# 
+# 
 # ##vpdmin
 # vpdmin_data_old<-vector()
 # for(i in 1:length(years_old)){
@@ -314,7 +366,11 @@ climdir <- "C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/
 # 
 # vpdmin_comb_plantation <- bind_rows(as.data.frame(vpdmin_data_old), as.data.frame(vpdmin_data_new)) %>% filter(CN == "Plantation") %>%
 #   mutate(date=as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y"), vpdmin=as.numeric(vpdmin))
-
+# 
+# vpdmin_comb_all <- bind_rows(as.data.frame(vpdmin_data_old), as.data.frame(vpdmin_data_new)) %>%
+#   mutate(date=as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y"), vpdmin=as.numeric(vpdmin))
+# 
+# write.csv(vpdmin_comb_all, "vpdmin_comb_all.csv")
 
 # ##save extracted climate data files
 # write.csv(ppt_comb_plantation, "ppt_comb_plantation.csv")
@@ -325,6 +381,220 @@ climdir <- "C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/
 # write.csv(vpdmin_comb_plantation, "vpdmin_comb_plantation.csv")
 
 ```
+
+```{r}
+## get PRISM data for adjusted coordinates
+
+# #pull climate for 1970 - 2016 from PRISM
+# ppt_data_old<-vector()
+# for(i in 1:length(years_old)){
+# for(j in 1:length(months)){
+#   raster<-paste(climdir,'/annual/PRISM_ppt_stable_4kmM3_198101_202305_bil/PRISM_ppt_stable_4kmM2_',years_old[i],months[j],'_bil.bil',sep="")
+#   rast <- rast(raster)
+#   ext.poly <- terra::extract(rast, adjusted_provs, fun = mean, na.rm=TRUE, df=TRUE)
+#   ppt<-ext.poly[,2]
+#   CN<-adjusted_provs$ident
+#   year <- rep(years_old[i],length(ext.poly[,2]))
+#   month <- rep(months[j],length(ext.poly[,2]))
+#   ppt_CN<-cbind(CN,ppt,year,month)
+#   ppt_data_old<-rbind(ppt_data_old,ppt_CN)}
+# }
+# 
+# ppt_data_new<-vector()
+# for(i in 1:length(years_new)){
+# for(j in 1:length(months)){
+#   raster<-paste(climdir,'/annual/PRISM_ppt_stable_4kmM3_198101_202305_bil/PRISM_ppt_stable_4kmM3_',years_new[i],months[j],'_bil.bil',sep="")
+#   rast <- rast(raster)
+#   ext.poly <- terra::extract(rast, adjusted_provs, fun = mean, na.rm=TRUE, df=TRUE)
+#   ppt<-ext.poly[,2]
+#   CN<-adjusted_provs$ident
+#   year <- rep(years_new[i],length(ext.poly[,2]))
+#   month <- rep(months[j],length(ext.poly[,2]))
+#   ppt_CN<-cbind(CN,ppt,year,month)
+#   ppt_data_new<-rbind(ppt_data_new,ppt_CN)}
+# }
+# 
+# ppt_comb_all_adj <- bind_rows(as.data.frame(ppt_data_old), as.data.frame(ppt_data_new)) %>%
+#   mutate(date=as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y"), ppt=as.numeric(ppt))
+# 
+# write.csv(ppt_comb_all_adj, "ppt_comb_all_adj.csv")
+# 
+# 
+# ##tmin
+# tmin_data_old<-vector()
+# for(i in 1:length(years_old)){
+# for(j in 1:length(months)){
+#   raster<-paste(climdir,'/annual/PRISM_tmin_stable_4kmM3_198101_202305_bil/PRISM_tmin_stable_4kmM3_',years_old[i],months[j],'_bil.bil',sep="")
+#   rast <- rast(raster)
+#   ext.poly <- terra::extract(rast, adjusted_provs, fun = mean, na.rm=TRUE, df=TRUE)
+#   tmin<-ext.poly[,2]
+#   CN<-adjusted_provs$ident
+#   year <- rep(years_old[i],length(ext.poly[,2]))
+#   month <- rep(months[j],length(ext.poly[,2]))
+#   tmin_CN<-cbind(CN,tmin,year,month)
+#   tmin_data_old<-rbind(tmin_data_old,tmin_CN)}
+# }
+# 
+# tmin_data_new<-vector()
+# for(i in 1:length(years_new)){
+# for(j in 1:length(months)){
+#   raster<-paste(climdir,'/annual/PRISM_tmin_stable_4kmM3_198101_202305_bil/PRISM_tmin_stable_4kmM3_',years_new[i],months[j],'_bil.bil',sep="")
+#   rast <- rast(raster)
+#   ext.poly <- terra::extract(rast, adjusted_provs, fun = mean, na.rm=TRUE, df=TRUE)
+#   tmin<-ext.poly[,2]
+#   CN<-adjusted_provs$ident
+#   year <- rep(years_new[i],length(ext.poly[,2]))
+#   month <- rep(months[j],length(ext.poly[,2]))
+#   tmin_CN<-cbind(CN,tmin,year,month)
+#   tmin_data_new<-rbind(tmin_data_new,tmin_CN)}
+# }
+# 
+# tmin_comb_all_adj <- bind_rows(as.data.frame(tmin_data_old), as.data.frame(tmin_data_new)) %>%
+#   mutate(date=as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y"), tmin=as.numeric(tmin))
+# 
+# write.csv(tmin_comb_all_adj, "tmin_comb_all_adj.csv")
+# 
+# 
+# ##tmax
+# tmax_data_old<-vector()
+# for(i in 1:length(years_old)){
+# for(j in 1:length(months)){
+#   raster<-paste(climdir,'/annual/PRISM_tmax_stable_4kmM3_198101_202305_bil/PRISM_tmax_stable_4kmM3_',years_old[i],months[j],'_bil.bil',sep="")
+#   rast <- rast(raster)
+#   ext.poly <- terra::extract(rast, adjusted_provs, fun = mean, na.rm=TRUE, df=TRUE)
+#   tmax<-ext.poly[,2]
+#   CN<-adjusted_provs$ident
+#   year <- rep(years_old[i],length(ext.poly[,2]))
+#   month <- rep(months[j],length(ext.poly[,2]))
+#   tmax_CN<-cbind(CN,tmax,year,month)
+#   tmax_data_old<-rbind(tmax_data_old,tmax_CN)}
+# }
+# 
+# tmax_data_new<-vector()
+# for(i in 1:length(years_new)){
+# for(j in 1:length(months)){
+#   raster<-paste(climdir,'/annual/PRISM_tmax_stable_4kmM3_198101_202305_bil/PRISM_tmax_stable_4kmM3_',years_new[i],months[j],'_bil.bil',sep="")
+#   rast <- rast(raster)
+#   ext.poly <- terra::extract(rast, adjusted_provs, fun = mean, na.rm=TRUE, df=TRUE)
+#   tmax<-ext.poly[,2]
+#   CN<-adjusted_provs$ident
+#   year <- rep(years_new[i],length(ext.poly[,2]))
+#   month <- rep(months[j],length(ext.poly[,2]))
+#   tmax_CN<-cbind(CN,tmax,year,month)
+#   tmax_data_new<-rbind(tmax_data_new,tmax_CN)}
+# }
+# 
+# tmax_comb_all_adj <- bind_rows(as.data.frame(tmax_data_old), as.data.frame(tmax_data_new)) %>%
+#   mutate(date=as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y"), tmax=as.numeric(tmax))
+# 
+# write.csv(tmax_comb_all_adj, "tmax_comb_all_adj.csv")
+# 
+# ##tmean
+# tmean_data_old<-vector()
+# for(i in 1:length(years_old)){
+# for(j in 1:length(months)){
+#   raster<-paste(climdir,'/annual/PRISM_tmean_stable_4kmM3_198101_202305_bil/PRISM_tmean_stable_4kmM3_',years_old[i],months[j],'_bil.bil',sep="")
+#   rast <- rast(raster)
+#   ext.poly <- terra::extract(rast, adjusted_provs, fun = mean, na.rm=TRUE, df=TRUE)
+#   tmean<-ext.poly[,2]
+#   CN<-adjusted_provs$ident
+#   year <- rep(years_old[i],length(ext.poly[,2]))
+#   month <- rep(months[j],length(ext.poly[,2]))
+#   tmean_CN<-cbind(CN,tmean,year,month)
+#   tmean_data_old<-rbind(tmean_data_old,tmean_CN)}
+# }
+# 
+# tmean_data_new<-vector()
+# for(i in 1:length(years_new)){
+# for(j in 1:length(months)){
+#   raster<-paste(climdir,'/annual/PRISM_tmean_stable_4kmM3_198101_202305_bil/PRISM_tmean_stable_4kmM3_',years_new[i],months[j],'_bil.bil',sep="")
+#   rast <- rast(raster)
+#   ext.poly <- terra::extract(rast, adjusted_provs, fun = mean, na.rm=TRUE, df=TRUE)
+#   tmean<-ext.poly[,2]
+#   CN<-adjusted_provs$ident
+#   year <- rep(years_new[i],length(ext.poly[,2]))
+#   month <- rep(months[j],length(ext.poly[,2]))
+#   tmean_CN<-cbind(CN,tmean,year,month)
+#   tmean_data_new<-rbind(tmean_data_new,tmean_CN)}
+# }
+# 
+# tmean_comb_all_adj <- bind_rows(as.data.frame(tmean_data_old), as.data.frame(tmean_data_new)) %>%
+#   mutate(date=as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y"), tmean=as.numeric(tmean))
+# 
+# write.csv(tmean_comb_all_adj, "tmean_comb_all_adj.csv")
+# 
+# 
+# ##vpdmax
+# vpdmax_data_old<-vector()
+# for(i in 1:length(years_old)){
+# for(j in 1:length(months)){
+#   raster<-paste(climdir,'/annual/PRISM_vpdmax_stable_4kmM3_198101_202305_bil/PRISM_vpdmax_stable_4kmM3_',years_old[i],months[j],'_bil.bil',sep="")
+#   rast <- rast(raster)
+#   ext.poly <- terra::extract(rast, adjusted_provs, fun = mean, na.rm=TRUE, df=TRUE)
+#   vpdmax<-ext.poly[,2]
+#   CN<-adjusted_provs$ident
+#   year <- rep(years_old[i],length(ext.poly[,2]))
+#   month <- rep(months[j],length(ext.poly[,2]))
+#   vpdmax_CN<-cbind(CN,vpdmax,year,month)
+#   vpdmax_data_old<-rbind(vpdmax_data_old,vpdmax_CN)}
+# }
+# 
+# vpdmax_data_new<-vector()
+# for(i in 1:length(years_new)){
+# for(j in 1:length(months)){
+#   raster<-paste(climdir,'/annual/PRISM_vpdmax_stable_4kmM3_198101_202305_bil/PRISM_vpdmax_stable_4kmM3_',years_new[i],months[j],'_bil.bil',sep="")
+#   rast <- rast(raster)
+#   ext.poly <- terra::extract(rast, adjusted_provs, fun = mean, na.rm=TRUE, df=TRUE)
+#   vpdmax<-ext.poly[,2]
+#   CN<-adjusted_provs$ident
+#   year <- rep(years_new[i],length(ext.poly[,2]))
+#   month <- rep(months[j],length(ext.poly[,2]))
+#   vpdmax_CN<-cbind(CN,vpdmax,year,month)
+#   vpdmax_data_new<-rbind(vpdmax_data_new,vpdmax_CN)}
+# }
+# 
+# vpdmax_comb_all_adj <- bind_rows(as.data.frame(vpdmax_data_old), as.data.frame(vpdmax_data_new)) %>%
+#   mutate(date=as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y"), vpdmax=as.numeric(vpdmax))
+# 
+# write.csv(vpdmax_comb_all_adj, "vpdmax_comb_all_adj.csv")
+# 
+# 
+# ##vpdmin
+# vpdmin_data_old<-vector()
+# for(i in 1:length(years_old)){
+# for(j in 1:length(months)){
+#   raster<-paste(climdir,'/annual/PRISM_vpdmin_stable_4kmM3_198101_202305_bil/PRISM_vpdmin_stable_4kmM3_',years_old[i],months[j],'_bil.bil',sep="")
+#   rast <- rast(raster)
+#   ext.poly <- terra::extract(rast, adjusted_provs, fun = mean, na.rm=TRUE, df=TRUE)
+#   vpdmin<-ext.poly[,2]
+#   CN<-adjusted_provs$ident
+#   year <- rep(years_old[i],length(ext.poly[,2]))
+#   month <- rep(months[j],length(ext.poly[,2]))
+#   vpdmin_CN<-cbind(CN,vpdmin,year,month)
+#   vpdmin_data_old<-rbind(vpdmin_data_old,vpdmin_CN)}
+# }
+# 
+# vpdmin_data_new<-vector()
+# for(i in 1:length(years_new)){
+# for(j in 1:length(months)){
+#   raster<-paste(climdir,'/annual/PRISM_vpdmin_stable_4kmM3_198101_202305_bil/PRISM_vpdmin_stable_4kmM3_',years_new[i],months[j],'_bil.bil',sep="")
+#   rast <- rast(raster)
+#   ext.poly <- terra::extract(rast, adjusted_provs, fun = mean, na.rm=TRUE, df=TRUE)
+#   vpdmin<-ext.poly[,2]
+#   CN<-adjusted_provs$ident
+#   year <- rep(years_new[i],length(ext.poly[,2]))
+#   month <- rep(months[j],length(ext.poly[,2]))
+#   vpdmin_CN<-cbind(CN,vpdmin,year,month)
+#   vpdmin_data_new<-rbind(vpdmin_data_new,vpdmin_CN)}
+# }
+# 
+# vpdmin_comb_all_adj <- bind_rows(as.data.frame(vpdmin_data_old), as.data.frame(vpdmin_data_new)) %>%
+#   mutate(date=as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y"), vpdmin=as.numeric(vpdmin))
+# 
+# write.csv(vpdmin_comb_all_adj, "vpdmin_comb_all_adj.csv")
+
+```
+
 ##PRISM plots
 
 ```{r}
@@ -336,6 +606,12 @@ tmean_comb_plantation<- read.csv("tmean_comb_plantation.csv")
 vpdmax_comb_plantation<- read.csv("vpdmax_comb_plantation.csv")
 vpdmin_comb_plantation<- read.csv("vpdmin_comb_plantation.csv")
 
+ppt_comb_all<- read.csv("ppt_comb_all.csv")
+tmax_comb_all<- read.csv("tmax_comb_all.csv")
+tmin_comb_all<- read.csv("tmin_comb_all.csv")
+tmean_comb_all<- read.csv("tmean_comb_all.csv")
+vpdmax_comb_all<- read.csv("vpdmax_comb_all.csv")
+vpdmin_comb_all<- read.csv("vpdmin_comb_all.csv")
 ```
 
 
@@ -347,18 +623,11 @@ ggplot(ppt_comb_plantation, aes(x=as.Date(date), y=ppt))+
   geom_line()+
   geom_hline(yintercept = mean(ppt_comb_plantation$ppt), col="red")
 
-ppt_summed <- as.data.frame(ppt_data_old) %>% 
+ppt_summed <- as.data.frame(ppt_comb_plantation) %>% 
   mutate(ppt = as.numeric(ppt), year=as.integer(year)) %>%
   filter(!is.na(ppt)) %>% 
   group_by(CN, year) %>% 
- dplyr::summarise(ppt = sum(ppt)) %>% 
-  bind_rows(
-    as.data.frame(ppt_data_new) %>% 
-  mutate(ppt = as.numeric(ppt), year=as.integer(year)) %>% 
-  filter(!is.na(ppt)) %>% 
-  group_by(CN, year) %>% 
- dplyr::summarise(ppt = sum(ppt))
-  )
+ dplyr::summarise(ppt = sum(ppt)) 
 
 ggplot(ppt_summed %>% filter(CN=="Plantation"), aes(x=year, y=ppt)) +
   geom_point()+
@@ -370,18 +639,11 @@ ggplot(tmin_comb_plantation, aes(x=as.Date(date), y=tmin))+
   geom_line()+
   geom_hline(yintercept = mean(tmin_comb_plantation$tmin), col="red")
 
-tmin_summed <- as.data.frame(tmin_data_old) %>% 
+tmin_summed <- as.data.frame(tmin_comb_plantation) %>% 
   mutate(tmin = as.numeric(tmin), year=as.integer(year)) %>%
   filter(!is.na(tmin)) %>% 
   group_by(CN, year) %>% 
- dplyr::summarise(tmin = mean(tmin)) %>% 
-  bind_rows(
-    as.data.frame(tmin_data_new) %>% 
-  mutate(tmin = as.numeric(tmin), year=as.integer(year)) %>% 
-  filter(!is.na(tmin)) %>% 
-  group_by(CN, year) %>% 
- dplyr::summarise(tmin = mean(tmin))
-  )
+ dplyr::summarise(tmin = mean(tmin)) 
 
 ggplot(tmin_summed %>% filter(CN=="Plantation"), aes(x=year, y=tmin)) +
   geom_point()+
@@ -393,18 +655,11 @@ ggplot(tmax_comb_plantation, aes(x=as.Date(date), y=tmax))+
   geom_line()+
   geom_hline(yintercept = mean(tmax_comb_plantation$tmax), col="red")
 
-tmax_summed <- as.data.frame(tmax_data_old) %>% 
+tmax_summed <- as.data.frame(tmax_comb_plantation) %>% 
   mutate(tmax = as.numeric(tmax), year=as.integer(year)) %>%
   filter(!is.na(tmax)) %>% 
   group_by(CN, year) %>% 
- dplyr::summarise(tmax = mean(tmax)) %>% 
-  bind_rows(
-    as.data.frame(tmax_data_new) %>% 
-  mutate(tmax = as.numeric(tmax), year=as.integer(year)) %>% 
-  filter(!is.na(tmax)) %>% 
-  group_by(CN, year) %>% 
  dplyr::summarise(tmax = mean(tmax))
-  )
 
 ggplot(tmax_summed %>% filter(CN=="Plantation"), aes(x=year, y=tmax)) +
   geom_point()+
@@ -416,18 +671,11 @@ ggplot(tmean_comb_plantation, aes(x=as.Date(date), y=tmean))+
   geom_line()+
   geom_hline(yintercept = mean(tmean_comb_plantation$tmean), col="red")
 
-tmean_summed <- as.data.frame(tmean_data_old) %>% 
+tmean_summed <- as.data.frame(tmean_comb_plantation) %>% 
   mutate(tmean = as.numeric(tmean), year=as.integer(year)) %>%
   filter(!is.na(tmean)) %>% 
   group_by(CN, year) %>% 
- dplyr::summarise(tmean = mean(tmean)) %>% 
-  bind_rows(
-    as.data.frame(tmean_data_new) %>% 
-  mutate(tmean = as.numeric(tmean), year=as.integer(year)) %>% 
-  filter(!is.na(tmean)) %>% 
-  group_by(CN, year) %>% 
- dplyr::summarise(tmean = mean(tmean))
-  )
+ dplyr::summarise(tmean = mean(tmean)) 
 
 ggplot(tmean_summed %>% filter(CN=="Plantation"), aes(x=year, y=tmean)) +
   geom_point()+
@@ -439,18 +687,11 @@ ggplot(vpdmax_comb_plantation, aes(x=as.Date(date), y=vpdmax))+
   geom_line()+
   geom_hline(yintercept = mean(vpdmax_comb_plantation$vpdmax), col="red")
 
-vpdmax_summed <- as.data.frame(vpdmax_data_old) %>% 
+vpdmax_summed <- as.data.frame(vpdmax_comb_plantation) %>% 
   mutate(vpdmax = as.numeric(vpdmax), year=as.integer(year)) %>%
   filter(!is.na(vpdmax)) %>% 
   group_by(CN, year) %>% 
- dplyr::summarise(vpdmax = mean(vpdmax)) %>% 
-  bind_rows(
-    as.data.frame(vpdmax_data_new) %>% 
-  mutate(vpdmax = as.numeric(vpdmax), year=as.integer(year)) %>% 
-  filter(!is.na(vpdmax)) %>% 
-  group_by(CN, year) %>% 
  dplyr::summarise(vpdmax = mean(vpdmax))
-  )
 
 ggplot(vpdmax_summed %>% filter(CN=="Plantation"), aes(x=year, y=vpdmax)) +
   geom_point()+
@@ -520,12 +761,41 @@ ggplot(FDSI_raw, aes(x=year, y=FDSI))+
 ```
 
 
-```{r}
-#make key for provenance names
-prov_names<- data.frame(number = substr(prov_clim$ident,1,4), name = c("Powers Creek","Kidd Creek","Inlet Creek","Cutting Permit 31","Roosevelt NF","Pike NF","San Juan NF","Gunnison NF","Santa Fe NF","Coconino NF","Payette NF","Cache NF","Dixie NF","Okanogan NF","Wenatchee NF","Wallowa-Whitman NF","Larimer 1","Larimer 2","GM-U NF","Gila NF","Plantation"))
+##CWD calculation
 
-prov.locs
+```{r}
+source("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/cwd_function_v3.r")
+
+#get dem
+dem_plantation <- rast("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/PIENproject/USGS_13_n40w107_20220216.tif")
+
+slpasp <- terrain(dem_plantation, v = c("slope","aspect"))
+
+slpasp_plantation <- terra::extract(slpasp, provenances %>% filter(ident=="Plantation"), method="simple")
+
+plantation_cwd_data <- all_climate %>% left_join(as.data.frame(provenances) %>% filter(ident=="Plantation"), by=c("CN"="ident")) %>% 
+  mutate(soilawc=116.5, foldedaspect = abs(180-abs(slpasp_plantation$aspect - 225)), slope=slpasp_plantation$slope)
+
+plantation_cwd <- cwd_function(site="plantation",slope=plantation_cwd_data$slope, latitude=plantation_cwd_data$Latitude, foldedaspect = plantation_cwd_data$foldedaspect, ppt = plantation_cwd_data$ppt, tmean = plantation_cwd_data$tmean, month = plantation_cwd_data$month, soilawc = plantation_cwd_data$soilawc, year = plantation_cwd_data$year, type="annual")
+
+head(plantation_cwd)
+
+plantation_cwd_annual <- plantation_cwd %>% 
+  group_by(site,year, soilawc) %>% 
+  summarise(ppt_sum = sum(ppt), tmean_ave=mean(tmean), aet_sum=sum(aet), cwd_sum=sum(cwd))
+
+plantation_cwd_annual_long<- plantation_cwd_annual %>% 
+  left_join(FDSI_raw %>% dplyr::select(year,FDSI), by="year") %>% 
+  dplyr::select(-CN) %>% 
+  pivot_longer(ppt_sum:FDSI)
+
+ggplot(plantation_cwd_annual_long %>% filter(name%in%c("cwd_sum","FDSI")), aes(x=year, y=value, col=name))+
+  geom_point()+
+  geom_line()+
+  facet_wrap(~name, scales = "free")
+  
 ```
+
 
 #PCA
 
@@ -591,55 +861,188 @@ prov_pcapts<- clim_pca$x %>%
   mutate(state = substr(ident,6,7), number = substr(ident, 1,4)) %>% 
   left_join(prov_names)
 
+state.colors <- c(brewer.pal(n=9, name="Set1")[-6],"darkolivegreen")
+
 autoplot(clim_pca,x=1,y=2,colour="aquamarine3",loadings.colour="red", loadings=T, loadings.label=T, loadings.label.colour="black", scale=0, loadings.label.size=6)+
   geom_point(data=prov_pcapts, aes(x=PC1, y=PC2, col=state), size=5)+
-  geom_text(data=prov_pcapts, aes(x=PC1, y=PC2, label=name))+
-  scale_color_brewer(palette = "Set1")
+  geom_text_repel(data=prov_pcapts, aes(x=PC1, y=PC2, label=code))+
+  scale_color_manual(values=state.colors)+
+  theme(text=element_text(size=14, color="black"))
   
 ggplot()+
   geom_spatvector(data=westernus)+
   geom_spatvector(data=provenances, color="maroon")+
   geom_spatvector_text(data=provenances, aes(label=substr(ident,1,4)), hjust=c(rep(c(-0.2,1),2),-.2,-.2,-.2,0,rep(c(-.2,1),5),1,1,1))
 
+ggplot()+
+  geom_spatvector(data=westernus)+
+  geom_spatvector(data=provenances, color="maroon")+
+  geom_spatvector_text(data=provenances %>% 
+  left_join(prov_names), aes(label=code, hjust=c(rep(c(-0.2,1),2),-.2,-.2,-.2,0,rep(c(-.2,1),5),1,1,1)))
+
 
 ```
 
 ```{r}
 plantation_pc1<- prov_pcapts %>% 
-  filter(name=="Plantation") %>% 
+  filter(Provenance=="Plantation") %>% 
   pull(PC1)
 
 plantation_pc2<- prov_pcapts %>% 
-  filter(name=="Plantation") %>% 
+  filter(Provenance=="Plantation") %>% 
   pull(PC2)
 
 pca_dist_df <- prov_pcapts %>% 
   mutate(PC1diff = abs(PC1-plantation_pc1), PC2diff = abs(PC2 - plantation_pc2)) %>% 
   mutate(dist.to.plant = sqrt(PC1diff^2 + PC2diff^2)) %>% 
   arrange(dist.to.plant) %>% 
-  filter(!name=="Plantation")
+  filter(!Provenance=="Plantation")
+```
+
+##Engelmann spruce
+
+```{r}
+pien <- rast("C:/Users/KatherineNigro/OneDrive - USDA/Documents/ArcGIS/Projects/SpeciesRanges/pien_range.tif")
+
+us <- geodata::gadm(country = "USA",  level = 1, resolution = 2,
+             path = "C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/maps")
+states=c("Arizona","Colorado","Idaho","Montana","Nevada","New Mexico","South Dakota","North Dakota","Nebraska","Utah","Wyoming","Kansas")
+interiorwest <- us[match(toupper(states),toupper(us$NAME_1)),]
+
+
+pien2 <- classify(pien, cbind(-Inf, 0, NA), right=TRUE)
+plot(pien2)
+
+pien_trim<- trim(pien2)
+plot(pien_trim)
+
+pien_IW<- crop(pien_trim %>% project(crs(interiorwest)), interiorwest)
+plot(pien_IW)
+
+pien_uniform <- classify(pien_IW, cbind(-Inf,Inf,1))
+plot(pien_uniform)
+
+pien_poly <- as.polygons(pien_uniform)
+plot(pien_poly)
+
+# engelmann_clim <- terra::extract(clim_raster_stack, pien_poly %>% project(crs(clim_raster_stack)), method="simple", weights=TRUE)
+# 
+# ##extract PRISM data for summer/spring precip ratio
+# ppt_data_pien<-vector()
+# for(j in 1:length(months)){
+#   raster<-paste(climdir,'/PRISM_ppt_30yr_normal_800mM4_all_bil/PRISM_ppt_30yr_normal_800mM4_',months[j],'_bil.bil',sep="")
+#   rast <- rast(raster)
+#   ext.poly <- terra::extract(rast,pien_poly %>% project(crs(clim_raster_stack)), method="simple", weights = TRUE, df=TRUE)
+#   ppt<-ext.poly[,2]
+#   ID<- seq(1:nrow(ext.poly))
+#   month <- rep(months[j],length(ext.poly[,2]))
+#   ppt_CN<-cbind(ID,ppt,month)
+#   ppt_data_pien<-rbind(ppt_data_pien,ppt_CN)}
+# 
+# pien_ppt_sum<- ppt_data_pien %>%
+#   as.data.frame() %>%
+#   unique() %>%
+#   mutate(ppt=as.numeric(ppt), ID = as.numeric(ID)) %>%
+#   pivot_wider(id_cols=ID, names_from=month, values_from = ppt) %>%
+#   rowwise() %>%
+#   mutate(JA_ppt = sum(`07`,`08`, na.rm=T), smrpb = sum(`07`,`08`,`09`,na.rm=T)/sum(`04`,`05`,`06`, na.rm=T))
+# 
+# saveRDS(pien_ppt_sum, "pien_ppt_sum.RDS")
+# saveRDS(engelmann_clim, "engelmann_clim.RDS")
+
+pien_ppt_sum <- readRDS("pien_ppt_sum.RDS")
+
+#clim_pien <- left_join(engelmann_clim, pien_ppt_sum) ##not sure how to do this with polygons and weights
+
+engelmann_clim <- readRDS("engelmann_clim.RDS")
+
+
+prov_clim_states <- prov_clim %>% 
+    mutate(state = substr(ident,6,7), number = substr(ident, 1,4)) %>% 
+  left_join(prov_names) 
+  
+
+ggplot(engelmann_clim, aes(x=MAT, y=map))+
+  geom_hex(alpha=0.7)+
+  scale_fill_gradientn(colors=c("aquamarine","gold","white"))+
+  geom_point(data=prov_clim_states, aes(x=MAT, y=map, col=state), size=4)+
+  scale_color_manual(values = state.colors)+
+  theme_bw()+
+  theme(text = element_text(size=16, color="black"))
+
+ggplot(engelmann_clim, aes(x=MAT, y=map))+
+  geom_hex(alpha=0.7)+
+  scale_fill_gradientn(colors=c("aquamarine","gold","white"))+
+  geom_point(data=prov_clim_states, aes(x=MAT, y=map, col=state), size=4)+
+  ggrepel::geom_text_repel(data=prov_clim_states, aes(label=code))+
+  scale_color_manual(values = state.colors)+
+  theme_bw()+
+  theme(text = element_text(size=16, color="black"))
+
+```
+
+```{r}
+############### OLD WAY WITH POINTS #####################
+# pien <- rast("C:/Users/KatherineNigro/OneDrive - USDA/Documents/ArcGIS/Projects/SpeciesRanges/pien_range.tif")
+# 
+# pien2 <- clamp(pien, lower=1, value=FALSE)
+# pien3 <- trim(pien2)
+# 
+# engelmann_points <- spatSample(pien3, size=100000000, method="regular", replace=FALSE, na.rm=TRUE, as.points=TRUE, values=TRUE, xy=TRUE)
+# 
+# engelmann_clim <- terra::extract(clim_raster_stack, engelmann_points %>% project(crs(clim_raster_stack)), method="simple")
+# 
+# ##extract PRISM data for summer/spring precip ratio
+# ppt_data_pien<-vector()
+# for(j in 1:length(months)){
+#   raster<-paste(climdir,'/PRISM_ppt_30yr_normal_800mM4_all_bil/PRISM_ppt_30yr_normal_800mM4_',months[j],'_bil.bil',sep="")
+#   rast <- rast(raster)
+#   ext.poly <- terra::extract(rast,engelmann_points %>% project(crs(clim_raster_stack)), method="simple", na.rm=TRUE, df=TRUE)
+#   ppt<-ext.poly[,2]
+#   ID<- seq(1:nrow(engelmann_points))
+#   month <- rep(months[j],length(ext.poly[,2]))
+#   ppt_CN<-cbind(ID,ppt,month)
+#   ppt_data_pien<-rbind(ppt_data_pien,ppt_CN)}
+# 
+# pien_ppt_sum<- ppt_data_pien %>% 
+#   as.data.frame() %>% 
+#   unique() %>% 
+#   mutate(ppt=as.numeric(ppt), ID = as.numeric(ID)) %>% 
+#   pivot_wider(id_cols=ID, names_from=month, values_from = ppt) %>% 
+#   rowwise() %>% 
+#   mutate(JA_ppt = sum(`07`,`08`, na.rm=T), smrpb = sum(`07`,`08`,`09`,na.rm=T)/sum(`04`,`05`,`06`, na.rm=T)) 
+# 
+# clim_pien <- left_join(engelmann_clim, pien_ppt_sum) 
+# 
+# saveRDS(clim_pien, "clim_pien.RDS")
+# 
+# clim_pien <- readRDS("clim_pien.RDS")
 ```
 
 #DBH
 
 ```{r}
+##DBH data is in centimeters
 dbh <- read.csv("C:/Users/KatherineNigro/Box/Engelmann Spruce Provenance/Analysis/RWI_data/DBH_data.csv")
 
 head(dbh)
 
 dbh_long<- dbh %>% 
+    mutate(Provenance = ifelse(Provenance == "Grand Mesa - Uncompahgre", "GM-U", Provenance)) %>% 
+  filter(!is.na(DBH91)) %>% 
   pivot_longer(DBH91:DBH14, names_to = 'year', values_to = 'DBH')
 
 provs_arranged_lat<- prov_pcapts %>% 
-  mutate(name = gsub(" NF","", prov_pcapts$name)) %>% 
+  mutate(Provenance = gsub(" NF","", prov_pcapts$Provenance)) %>% 
   arrange(Latitude) %>% 
-  pull(name)
+  pull(Provenance)
 unique(dbh_long$Provenance)
 provs_arranged_lat
 
 dbh_clim_data <- dbh_long %>% 
+  mutate(Provenance = ifelse(Provenance == "Grand Mesa - Uncompahgre", "GM-U", Provenance)) %>% 
   left_join(prov_pcapts %>% 
-  mutate(name = gsub(" NF","", prov_pcapts$name)), by=c("Provenance" = "name"))
+  mutate(Provenance = gsub(" NF","", prov_pcapts$Provenance)), by="Provenance")
 
 ggplot(dbh_long, aes(x=factor(Provenance, levels=provs_arranged_lat), y=DBH, col=Provenance))+
   geom_boxplot()+
@@ -660,6 +1063,241 @@ ggplot(dbh_clim_data, aes(x=factor(smrpb), y=DBH, col=Provenance))+
   geom_boxplot()+
   facet_wrap(~factor(year,levels=c("DBH91","DBH96","DBH06","DBH14")), nrow=1)+
   theme(legend.position = 'none', axis.text.x = element_text(angle=45, hjust=1))
+
+#model for dbh
+dbh_cmd_data<- dbh_clim_data %>% filter(year=="DBH14") %>% 
+  mutate(DBH=as.numeric(DBH), cmd=as.numeric(cmd)) %>% 
+  group_by(Provenance,cmd) %>% 
+  summarise(ave_dbh14 = mean(DBH, na.rm=T), n=n())
+
+mod_dbh_cmd <- lm(ave_dbh14 ~ cmd, data=dbh_cmd_data)
+summary(mod_dbh_cmd)
+
+```
+
+##model
+
+```{r}
+dbh_numeric <- dbh_clim_data %>% 
+  mutate(num.yr = as.numeric(ifelse(year=="DBH91", 1,
+                         ifelse(year=="DBH96", 6,
+                                ifelse(year=="DBH06", 16,
+                                       ifelse(year=="DBH14", 24, year))))))
+
+dbh_aov <- aov(DBH ~ year*Provenance, data = dbh_numeric)
+summary(dbh_aov)
+dbh_lm <- lm(DBH ~ year*Provenance, data=dbh_numeric)
+summary(dbh_lm)
+car::Anova(dbh_lm, type=3)
+dbh_tukey <- TukeyHSD(dbh_aov)
+dbh_tukey$year
+dbh_tukey$Provenance %>% 
+  as.data.frame() %>% 
+  filter(`p adj` < 0.05)
+
+dbh_tukey_sig<- dbh_tukey$`year:Provenance` %>% 
+  as.data.frame() %>% 
+  filter(`p adj` < 0.05) %>% 
+  mutate(comparison = rownames(dbh_tukey$`year:Provenance` %>%
+  as.data.frame() %>% filter(`p adj` < 0.05)))
+
+dbh_tukey_sig %>% dplyr::select(comparison) %>% arrange(comparison) %>% View()
+
+dbh_sig_comps<- bind_rows(
+as.data.frame(stringr::str_split_fixed(dbh_tukey_sig$comparison, "\\W+", n=6)) %>%
+  mutate(id = seq(1,n())) %>% 
+  dplyr::filter(str_detect(V3, "DBH"))%>% 
+  dplyr::select(id,V1,V3) %>% 
+  dplyr::rename(first = V1, second = V3),
+as.data.frame(stringr::str_split_fixed(dbh_tukey_sig$comparison, "\\W+", n=6)) %>% 
+  mutate(id = seq(1,n())) %>% 
+  dplyr::filter(str_detect(V4, "DBH"))%>% 
+  dplyr::select(id,V1,V4)%>% 
+  dplyr::rename(first = V1, second = V4),
+as.data.frame(stringr::str_split_fixed(dbh_tukey_sig$comparison, "\\W+", n=6)) %>% 
+  mutate(id = seq(1,n())) %>% 
+  dplyr::filter(str_detect(V5, "DBH"))%>% 
+  dplyr::select(id, V1,V5)%>% 
+  dplyr::rename(first = V1, second = V5)
+) %>% arrange(id) 
+
+dbh_sig_comps %>% 
+  mutate(same = dbh_sig_comps$first == dbh_sig_comps$second) %>% 
+  filter(same == "TRUE")
+  
+dbh_tukey_sig[c(16,275,279,309,318),]
+
+prov_dbh_order<- dbh_numeric %>% 
+  filter(year=="DBH14") %>% 
+  group_by(Provenance) %>% 
+  summarise(med_DBH = median(DBH, na.rm=T)) %>% 
+  arrange(med_DBH)
+
+dbh_early<- ggplot(dbh_numeric %>% filter(!year=="DBH14"), aes(x=factor(year, levels=c("DBH91","DBH96","DBH06"), labels=c(1991,1996,2006)), y=DBH, fill=factor(Provenance, levels=prov_dbh_order$Provenance)))+
+  geom_boxplot()+
+  scale_x_discrete(name="Year")+
+  scale_fill_discrete(name="Provenance")
+  
+dbh_2014<- ggplot(dbh_numeric %>% filter(year=="DBH14"), aes(x=factor(year, levels=c("DBH14"), labels=c(2014)), y=DBH, fill=factor(Provenance, levels=prov_dbh_order$Provenance)))+
+  geom_boxplot()+
+  scale_x_discrete(name="Year")+
+  scale_fill_discrete(name="Provenance")
+
+ggarrange(dbh_early,dbh_2014, nrow=2, common.legend = TRUE)
+  
+
+###model each year separately
+dbh_aov91 <- aov(DBH ~ Provenance, data = dbh_numeric %>% filter(year=="DBH91"))
+summary(dbh_aov91)
+TukeyHSD(dbh_aov91)$Provenance %>% 
+  as.data.frame() %>% 
+  filter(`p adj` < 0.05)
+ 
+dbh_aov96 <- aov(DBH ~ Provenance, data = dbh_numeric %>% filter(year=="DBH96"))
+summary(dbh_aov96)
+TukeyHSD(dbh_aov96)$Provenance %>% 
+  as.data.frame() %>% 
+  filter(`p adj` < 0.05)
+  
+dbh_aov06 <- aov(DBH ~ Provenance, data = dbh_numeric %>% filter(year=="DBH06"))
+summary(dbh_aov06)
+TukeyHSD(dbh_aov06)$Provenance %>% 
+  as.data.frame() %>% 
+  filter(`p adj` < 0.05)
+  
+dbh_aov14 <- aov(DBH ~ Provenance, data = dbh_numeric %>% filter(year=="DBH14"))
+summary(dbh_aov14)
+TukeyHSD(dbh_aov14)$Provenance %>% 
+  as.data.frame() %>% 
+  filter(`p adj` < 0.05)
+
+##does DBH vary with climate vars?
+
+dbh14_long <- dbh_numeric %>% 
+  filter(year=="DBH14") %>% 
+  pivot_longer(cols=c(PC1,PC2,PC3))
+
+ggplot(dbh14_long, aes(x=value, y=DBH))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~name, scales="free") ##doesn't look like there's much there.
+
+ggplot(dbh14_long, aes(x=Latitude, y=DBH))+
+  geom_point()+
+  geom_smooth(method="lm")
+```
+
+#Height
+
+```{r}
+moniger_data <- read.csv("past_moniger_data.csv")
+moniger_data_ids <- read.csv("past_moniger_data_ids.csv")
+
+head(moniger_data_ids)
+head(moniger_data)
+
+moniger_data_comb <- moniger_data %>% 
+  left_join(moniger_data_ids, by=c("LOC" = "ID.Code")) %>% 
+  mutate(Provenance = ifelse(Location == "Grand Mesa-Uncompahgre NF", "GM-U NF", 
+                             ifelse(Location == "Larimer County 1","Larimer 1",
+                                    ifelse(Location == "Larimer County 2","Larimer 2",Location)))) %>% 
+  left_join(prov_pcapts)
+
+colnames(moniger_data_comb)
+
+ggplot(moniger_data_comb, aes(x=factor(cmd), y=HT14, fill=Provenance))+
+  geom_boxplot()+
+  theme(legend.position = 'none', axis.text.x = element_text(angle=45, hjust=1))
+
+ht_data <- moniger_data_comb %>% 
+  dplyr::select(c(Provenance,HT74:HT14,Seedling.Ht..from.Nursery)) %>% 
+  pivot_longer(HT74:HT14) %>% 
+  mutate(nursery_ht_m = Seedling.Ht..from.Nursery/39.37) %>% 
+  mutate(rel.ht.m = (value-nursery_ht_m), rel.growth = (value-nursery_ht_m)/nursery_ht_m)
+
+ht_data_clim <- ht_data %>% 
+  left_join(prov_pcapts)
+
+ht.order <- ht_data %>% 
+  filter(name=="HT14") %>% 
+  group_by(Provenance) %>% 
+  summarise(med_rel_growth=median(rel.growth,na.rm=T)) %>% 
+  arrange(med_rel_growth)
+
+ggplot(ht_data %>% filter(!name=="HT74"), aes(x=factor(Provenance, levels=ht.order$Provenance), y=rel.growth, fill=factor(Provenance, levels=ht.order$Provenance)))+
+  geom_boxplot()+
+  facet_wrap(~factor(name, levels=c("HT79","HT85","HT91","HT96","HT06","HT14")), scales="free")+
+  scale_fill_discrete(name="Provenance")+
+  scale_x_discrete(name="Provenance")+
+  theme(axis.text.x = element_blank())
+
+###model each year separately
+
+ht_aov_74 <- aov(rel.growth ~ Provenance, data=ht_data %>% filter(name=="HT74"))
+summary(ht_aov_74)
+TukeyHSD(ht_aov_74)$Provenance %>% 
+  as.data.frame() %>% 
+  filter(`p adj`<0.05)
+
+ht_aov_79 <- aov(rel.growth ~ Provenance, data=ht_data %>% filter(name=="HT79"))
+summary(ht_aov_79)
+TukeyHSD(ht_aov_79)$Provenance %>% 
+  as.data.frame() %>% 
+  filter(`p adj`<0.05)
+
+ht_aov_85 <- aov(rel.growth ~ Provenance, data=ht_data %>% filter(name=="HT85"))
+summary(ht_aov_85)
+TukeyHSD(ht_aov_85)$Provenance %>% 
+  as.data.frame() %>% 
+  filter(`p adj`<0.05)
+
+ht_aov_91 <- aov(rel.growth ~ Provenance, data=ht_data %>% filter(name=="HT91"))
+summary(ht_aov_91)
+TukeyHSD(ht_aov_91)$Provenance %>% 
+  as.data.frame() %>% 
+  filter(`p adj`<0.05)
+
+ht_aov_96 <- aov(rel.growth ~ Provenance, data=ht_data %>% filter(name=="HT96"))
+summary(ht_aov_96)
+TukeyHSD(ht_aov_96)$Provenance %>% 
+  as.data.frame() %>% 
+  filter(`p adj`<0.05)
+
+ht_aov_06 <- aov(rel.growth ~ Provenance, data=ht_data %>% filter(name=="HT06"))
+summary(ht_aov_06)
+TukeyHSD(ht_aov_06)$Provenance %>% 
+  as.data.frame() %>% 
+  filter(`p adj`<0.05)
+
+ht_aov_14 <- aov(rel.growth ~ Provenance, data=ht_data %>% filter(name=="HT14"))
+summary(ht_aov_14)
+TukeyHSD(ht_aov_14)$Provenance %>% 
+  as.data.frame() %>% 
+  filter(`p adj`<0.05)
+
+ggplot(ht_data_clim %>% filter(name=="HT14"), aes(x=Latitude, y=rel.growth, col=Provenance))+
+  geom_point()
+ggplot(ht_data_clim %>% filter(name=="HT14"), aes(x=SHM, y=rel.growth, col=Provenance))+
+  geom_point()
+
+##survival
+tree.num <- ht_data %>% 
+  filter(!is.na(rel.growth)) %>% 
+  group_by(name, Provenance) %>% 
+  summarise(n=n()) %>% 
+  mutate(year = case_when(
+    name=="HT74" ~ 1974,
+    name=="HT79" ~ 1979,
+    name=="HT85" ~ 1985,
+    name=="HT91" ~ 1991,
+    name=="HT96" ~ 1996,
+    name=="HT06" ~ 2006,
+    name=="HT14" ~ 2014))
+
+ggplot(tree.num, aes(x=year, y=n, col=Provenance))+
+  geom_point()+
+  geom_line()
+
 ```
 
 
@@ -672,7 +1310,13 @@ prov_vars<- prov_clim %>%
   left_join(prov_names) %>% 
   pivot_longer(MAT:smrpb, names_to = "var", values_to = "value")
 
-ggplot(prov_vars, aes(x=factor(name,levels=prov_pcapts %>% arrange(Latitude) %>% pull(name)), y=value, color=factor(name,levels=prov_pcapts %>% arrange(Latitude) %>% pull(name))))+
+ggplot(prov_vars, aes(x=factor(Provenance,levels=prov_pcapts %>% arrange(Latitude) %>% pull(Provenance)), y=value, color=factor(Provenance,levels=prov_pcapts %>% arrange(Latitude) %>% pull(Provenance))))+
+  geom_point(size=4)+
+  facet_wrap(~var, scales="free")+
+  scale_color_manual(values=heat.colors(21))+
+  theme(axis.text.x = element_text(angle=45,hjust=1), legend.position = 'none')
+
+ggplot(prov_vars %>% filter(!Provenance=="Gila NF"), aes(x=factor(Provenance,levels=prov_pcapts %>% arrange(Latitude) %>% pull(Provenance)), y=value, color=factor(Provenance,levels=prov_pcapts %>% arrange(Latitude) %>% pull(Provenance))))+
   geom_point(size=4)+
   facet_wrap(~var, scales="free")+
   scale_color_manual(values=heat.colors(21))+
@@ -693,7 +1337,7 @@ dbh_diffs_long <- dbh_diffs %>%
   mutate(Provenance = ifelse(Provenance == "Grand Mesa - Uncompahgre", "GM-U", Provenance)) %>% 
   pivot_longer(c(DBH91:DBH14,diff_total:diff1)) %>% 
   left_join(prov_pcapts %>% 
-  mutate(Provenance = gsub(" NF","", prov_pcapts$name)) %>% select(-name), by="Provenance") %>% 
+  mutate(Provenance = gsub(" NF","", prov_pcapts$Provenance)), by="Provenance") %>% 
   filter(!is.na(value))
   
 ggplot(dbh_diffs_long %>% filter(name %in% c("diff_total","diff1","diff2","diff3")), aes(x=factor(Provenance, levels=provs_arranged_lat), y=value, fill=Provenance))+
@@ -701,10 +1345,112 @@ ggplot(dbh_diffs_long %>% filter(name %in% c("diff_total","diff1","diff2","diff3
   facet_wrap(~name, scales="free")+
   theme(axis.text.x = element_text(angle=45, hjust=1))
 
+
 dbh_diffs_long$Provenance %>% unique()
+
+##models
+diff_total_df <- dbh_diffs_long %>% 
+  filter(name == "diff_total")
+
+dbhdiff_mod <- lmer(value ~ PC1 * PC2 + (1|Provenance), data=diff_total_df)
+plot(dbhdiff_mod)
+lattice::qqmath(dbhdiff_mod)
+summary(dbhdiff_mod)
+Anova(dbhdiff_mod, type="3")
+
+ggplot(dbh_diffs_long, aes(x= PC1, y=value))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~name, scales="free")
+
+dbh_diffs_prov_ave <- dbh_diffs_long %>% 
+  group_by(Provenance, name, PC1, PC2) %>% 
+  summarise(meanvalue = mean(value))
+
+ggplot(dbh_diffs_prov_ave %>% filter(!Provenance=="Gila"), aes(x= PC1, y=meanvalue))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~name, scales="free")
+ggplot(dbh_diffs_prov_ave %>% filter(!Provenance=="Gila"), aes(x= PC2, y=meanvalue))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~name, scales="free")
+
+
+```
+
+#Cones
+
+```{r}
+cone_data <- moniger_data_comb %>% 
+  dplyr::select(c(SORT,Provenance,Cones85:Cones06)) %>% 
+  pivot_longer(Cones85:Cones06) %>% 
+  mutate(year=case_when(name == "Cones85" ~ 1985,
+                        name == "Cones91" ~ 1991,
+                        name == "Cones96" ~ 1996,
+                        name == "Cones06" ~ 2006))
+
+
+cone_sum <- cone_data %>%
+  filter(!is.na(value)) %>% 
+  group_by(Provenance,year) %>% 
+  summarise(value=sum(value), n=n()) %>% 
+  mutate(prop.w.cones = value/n)
+
+ave_hts <- moniger_data_comb %>% 
+  dplyr::select(c(SORT,Provenance,HT85:HT06)) %>% 
+  pivot_longer(HT85:HT06) %>% 
+  mutate(year=case_when(name == "HT85" ~ 1985,
+                        name == "HT91" ~ 1991,
+                        name == "HT96" ~ 1996,
+                        name == "HT06" ~ 2006)) %>% 
+  filter(!is.na(value)) %>% 
+  group_by(Provenance, year) %>% 
+  summarise(ave.ht = mean(value), se.ht = sd(value)/sqrt(n())) %>% 
+  left_join(cone_sum)
+
+ave_dbh <- moniger_data_comb %>% 
+  dplyr::select(c(SORT,Provenance,DBH91:DBH06)) %>% 
+  pivot_longer(DBH91:DBH06) %>% 
+  mutate(year=case_when(name == "DBH91" ~ 1991,
+                        name == "DBH96" ~ 1996,
+                        name == "DBH06" ~ 2006)) %>%
+  filter(!is.na(value)) %>% 
+  group_by(Provenance, year) %>% 
+  summarise(ave.dbh = mean(value), se.dbh = sd(value)/sqrt(n())) %>% 
+  left_join(cone_sum)
+
+ggplot(ave_hts, aes(x=ave.ht, y=prop.w.cones, col=Provenance))+
+  geom_point()+
+  geom_errorbar(aes(xmin=ave.ht - se.ht, xmax=ave.ht+se.ht))
+
+ggplot(ave_dbh, aes(x=ave.dbh, y=prop.w.cones, col=Provenance))+
+  geom_point()+
+  geom_errorbar(aes(xmin=ave.dbh-se.dbh, xmax=ave.dbh+se.dbh))
+
+ggplot(moniger_data_comb, aes(x=HT85, y=Cones85))+
+  geom_jitter(height=0.1)
+ggplot(moniger_data_comb, aes(x=HT91, y=Cones91))+
+  geom_jitter(height=0.1)
+ggplot(moniger_data_comb, aes(x=HT96, y=Cones96))+
+  geom_jitter(height=0.1)
+ggplot(moniger_data_comb, aes(x=HT06, y=Cones06))+
+  geom_jitter(height=0.1)
+
+ggplot(cone_sum, aes(x=year, y=prop.w.cones, col=Provenance))+
+  geom_point()+
+  geom_line()
 ```
 
 #RWI
+
+##Raw
+
+```{r}
+prov_all <- read.rwl("C:/Users/KatherineNigro/Box/Engelmann Spruce Provenance/Ring_widths_raw/prov_all.rwl")
+```
+
+##Standardized
 
 ```{r}
 rwi<- read.csv("C:/Users/KatherineNigro/Box/Engelmann Spruce Provenance/Analysis/RWI_data/Prov_resid_long.csv") %>% 
@@ -742,26 +1488,41 @@ ppt_plantation <- ppt_summed %>%
   filter(CN =="Plantation")
 
 rwi_ppt<- left_join(rwi,ppt_plantation, by=c("Year"="year")) %>% 
-  filter(!is.na(RWI))
+  filter(!is.na(RWI)) %>% 
+  group_by(Provenance,Tree) %>% 
+  summarise(cor=cor(RWI,ppt))
 
 mean_cor<- rwi_ppt %>% 
-  group_by(Provenance,Tree) %>% 
-  summarise(cor=cor(RWI,ppt)) %>% 
   group_by(Provenance) %>% 
   summarise(mean=mean(cor), sd=sd(cor), se=sd(cor)/sqrt(n()))
 
-ggplot(mean_cor,aes(x=factor(Provenance, levels=pca_dist_df$name), y=mean))+
-  geom_point()+
-  geom_errorbar(aes(ymin=mean-se, ymax=mean+se))+
-  geom_hline(yintercept = 0, color="gray")+
+ggplot(rwi_ppt,aes(x=factor(Provenance, levels=prov_pcapts %>% arrange(Latitude) %>% pull(Provenance)), y=cor))+
+  geom_boxplot()+
+  geom_hline(yintercept = 0, color="black")+
+  xlab("Provenance")+
+  ylab("RWI by precip correlation")+
   theme(axis.text.x = element_text(angle=45, hjust=1))
+
+#rwixppt cor vs. PC1 and 2
+rwi_ppt_pcapts<- rwi_ppt %>% 
+  left_join(prov_pcapts, by="Provenance") 
+
+ggplot(rwi_ppt_pcapts,aes(x=factor(PC1), y=cor))+
+  geom_boxplot()+
+  geom_hline(yintercept = 0, color="black")+
+  xlab("PC1")+
+  ylab("RWI by precip correlation")+
+  theme(axis.text.x = element_text(angle=45, hjust=1)) #no real pattern with PC1 and correlation between RWI and ppt
 
 
 #look at site variability in ppt
 
-ppt_cv<- ppt_summed %>% 
+ppt_cv<- ppt_comb_all %>% 
+  filter(!is.na(ppt)) %>% 
+  group_by(CN, year) %>% 
+  summarise(total.ppt = sum(ppt, na.rm=T)) %>% 
   group_by(CN) %>% 
-  summarise(min=min(year), max = max(year), cv=sd(ppt)/mean(ppt)) %>% 
+  summarise(min=min(year), max = max(year), cv=sd(total.ppt)/mean(total.ppt)) %>% 
   mutate(number=substr(CN,0,4)) %>% 
   left_join(prov_names) %>% 
   arrange(cv)
@@ -773,11 +1534,315 @@ ggplot(mean_cor,aes(x=factor(Provenance, levels=ppt_cv$name), y=mean))+
   theme(axis.text.x = element_text(angle=45, hjust=1))
 
 rwi_by_cv <- rwi_ppt %>% 
-  group_by(Provenance,Tree) %>% 
-  summarise(cor=cor(RWI,ppt)) %>% 
-  left_join(ppt_cv, by=c("Provenance" = "name"))
+  left_join(ppt_cv, by="Provenance")
 
 mod_cv <- lm(cor~ cv , data=rwi_by_cv)
 anova(mod_cv)
 
+
+#rwi by fdsi
+
+rwi_fdsi<- left_join(rwi,FDSI_raw, by=c("Year"="year")) %>% 
+  filter(!is.na(RWI)) %>% 
+  filter(!is.na(FDSI))
+
+rwi_fdsi_cor <- rwi_fdsi %>% 
+  group_by(Provenance,Tree) %>% 
+  summarise(cor = cor(RWI,FDSI))
+
+ggplot(rwi_fdsi_cor, aes(x=factor(Provenance, levels=prov_pcapts %>% arrange(Latitude) %>% pull(Provenance)), y=cor))+
+  geom_boxplot()+
+  geom_hline(yintercept = 0, color="gray")+
+  xlab("Provenance")+
+  ylab("Correlation RWI x FDSI")+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+rwi_fdsi_pcapts <- rwi_fdsi_cor %>% 
+  left_join(pca_dist_df, by="Provenance")
+
+ggplot(rwi_fdsi_pcapts,aes(x=factor(PC1), y=cor))+
+  geom_boxplot()+
+  geom_hline(yintercept = 0, color="black")+
+  xlab("PC1")+
+  ylab("RWI by FDSI correlation")+
+  theme(axis.text.x = element_text(angle=45, hjust=1)) #no real pattern with PC1 and correlation between RWI and ppt
+
+ggplot(rwi_fdsi_pcapts,aes(x=factor(dist.to.plant), y=cor))+
+  geom_boxplot()+
+  geom_hline(yintercept = 0, color="black")+
+  xlab("PC1")+
+  ylab("RWI by FDSI correlation")+
+  theme(axis.text.x = element_text(angle=45, hjust=1)) #no real pattern with PC1 and correlation between RWI and ppt
+
+# RWI and CWD
+rwi_cwd<- left_join(rwi,plantation_cwd_annual, by=c("Year"="year")) %>% 
+  filter(!is.na(RWI)) %>% 
+  filter(!is.na(cwd_sum))
+
+rwi_cwd_cor <- rwi_cwd %>% 
+  group_by(Provenance,Tree) %>% 
+  summarise(cor = cor(RWI,cwd_sum))
+
+summary(rwi_fdsi_cor)
+summary(rwi_ppt)
+summary(rwi_cwd_cor)
+
+rwi_ave <- rwi %>% 
+  group_by(Year) %>% 
+  filter(!is.na(RWI)) %>% 
+  summarise(mean_rwi = mean(RWI), sd = sd(RWI), se= sd(RWI)/sqrt(n())) %>% 
+  left_join(plantation_cwd_annual, by=c("Year"="year")) %>% 
+  mutate(cwd_scaled = cwd_sum/100) %>% 
+  pivot_longer(c(mean_rwi, cwd_scaled)) 
+
+ggplot(rwi_ave, aes(x=Year, y=value, col=name))+
+  geom_line()+
+  geom_point()+
+  geom_hline(yintercept = mean(rwi_ave %>% filter(name=="mean_rwi" & Year>1981) %>% pull(value)), col="blue")+
+  geom_hline(yintercept = mean(rwi_ave %>% filter(name=="cwd_scaled") %>% pull(value)), col="red")
+
+# CV of RWI alone
+cv_rwi<- rwi %>% 
+  filter(!is.na(RWI)) %>% 
+  group_by(Tree, Provenance, Lat, Elevation, Source_temp, Source_ppt) %>%
+  summarise(cv_rwi = sd(RWI) / mean(RWI) * 100) 
+  
+ggplot(cv_rwi, aes(x=factor(Provenance, levels=prov_pcapts %>% arrange(monsoonality) %>% pull(Provenance)), y=cv_rwi))+
+  geom_boxplot()+
+  geom_jitter(col="lightblue")+
+  theme(axis.text.x = element_text(angle = 45, hjust=1))
+
 ```
+
+##GLK
+
+```{r}
+rwi_simple<- rwi %>% 
+  filter(!is.na(RWI)) %>% 
+  select(Year, Tree, RWI) %>% 
+  pivot_wider(id_cols=Year, names_from=Tree,values_from = RWI ) %>% 
+  filter(Year > 1987 & Year < 2011) %>% 
+  select(-Year) %>% as.rwl()
+rownames(rwi_simple) <- seq(1988,2010)
+
+glk(rwi_simple,
+  overlap = 50, prob = TRUE)
+```
+
+##BAI
+
+```{r}
+bai_in <- bai.in(prov_all)
+bai_out <- bai.out(prov_all)
+
+bai_in_long<- as.data.frame(bai_in) %>%
+  mutate(year = rownames(bai_in)) %>% 
+  pivot_longer(!year, names_to = "tree", values_to = "bai") %>% 
+  filter(!is.na(bai)) %>% 
+  mutate(tree=paste("X",tree,sep = ""), year=as.integer(year)) %>% 
+  left_join(rwi %>% dplyr::select(c(Tree, Provenance)) %>% unique(), by=c("tree" = "Tree"))
+
+summary(bai_in_long)
+
+ggplot(bai_in_long, aes(x=year, y=bai, col=tree))+
+  geom_line()+
+  geom_point()+
+  facet_wrap(~Provenance, scales = "free")+
+  theme(legend.position = "none")
+
+bai_in_long %>% 
+  filter(bai<10 & year > 2000) %>% View()
+```
+
+##Detrending
+
+```{r}
+
+#plot raw data to look at timeseries length
+plot.rwl(prov_all)
+
+##compare timing of when trees reached 30cm tall (and thus had a growth ring measured)
+dbh_age <- prov_all %>% 
+  as.data.frame() %>% 
+  mutate(year = rownames(prov_all)) %>% 
+  pivot_longer(!year, values_to = "rw", names_to="tree") %>% 
+  mutate(tree=paste("X",tree,sep=""), year=as.integer(year)) %>% 
+  left_join(rwi %>% dplyr::select(Provenance, Tree) %>% unique(), by=c("tree"="Tree"))
+  
+dbh_age_summary <- dbh_age %>%
+  filter(!is.na(rw)) %>% 
+  group_by(Provenance,tree) %>% 
+  summarise(minyr = min(year))
+
+ggplot(dbh_age_summary, aes(x=factor(Provenance, levels=prov_pcapts %>% arrange(Latitude) %>% pull(Provenance)), y=minyr))+
+  geom_boxplot()+
+  geom_point(color="maroon")+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+###
+
+prov_all_nona<- prov_all %>% na.omit()
+colnames(prov_all_nona)
+
+growth.detrended = matrix(nrow=nrow(prov_all_nona), ncol=length(colnames(prov_all_nona)))
+for(i in 1:length(prov_all_nona)){
+obj<- detrend.series(y = prov_all_nona %>% pull(colnames(prov_all_nona)[i]), y.name="growth", method="Spline")
+growth.detrended[,i]<- obj
+}
+colnames(growth.detrended) = colnames(prov_all_nona)
+growth.detrended.df <- growth.detrended %>% 
+  as.data.frame() %>% 
+  mutate(year = rownames(prov_all_nona)) %>% 
+  pivot_longer(!year, values_to = "rw_spline", names_to="tree") %>% 
+  mutate(tree=paste("X",tree,sep=""), year=as.integer(year)) %>% 
+  left_join(rwi %>% dplyr::select(Provenance, Tree) %>% unique(), by=c("tree"="Tree"))
+
+ggplot(growth.detrended.df, aes(x=year, y=rw_spline, col=tree))+
+  geom_line()+
+  geom_point()+
+  facet_wrap(~Provenance, scales = "free")+
+  theme(legend.position = "none")
+
+##raw
+ggplot(dbh_age, aes(x=year, y=rw, col=tree))+
+  geom_line()+
+  geom_point()+
+  facet_wrap(~Provenance)+
+  theme(legend.position = "none")
+
+hist(dbh_age$rw)
+View(dbh_age)
+hist(dbh_age %>% filter(rw<0.5) %>% pull(rw))
+
+
+dbh_age %>% group_by(Provenance) %>% 
+  summarise(n=length(unique(tree))) 
+dbh %>% arrange(Series) %>% 
+  filter(!is.na(DBH14)) %>% group_by(Provenance) %>% 
+  summarise(n=length(unique(Series))) 
+
+dbh_rwi_comp <- dbh_age %>% 
+  filter(!tree=="X32A1") %>% 
+  group_by(Provenance, tree) %>% 
+  summarise(sum=sum(rw, na.rm = TRUE)) %>% 
+  arrange(tree) %>% 
+  bind_cols(dbh %>% arrange(Series) %>% 
+  filter(!is.na(DBH14))) %>% 
+  mutate(lowsum=ifelse(sum<15,"yes","no"))
+
+
+dbh_rwi_comp %>% 
+  filter(lowsum=="yes")
+
+ggplot(dbh_rwi_comp)+
+  geom_point(aes(x=sum, y=DBH14, col=lowsum))
+
+ggplot(dbh_rwi_comp %>% mutate(sum=ifelse(sum<15,sum*10,sum)))+
+  geom_point(aes(x=sum, y=DBH14, col=lowsum))+
+  geom_abline(slope=1/10,intercept = 0)
+
+#find series that are likely off by an order of magnitude
+off_provs<- dbh_age %>% 
+  filter(Provenance %in% c("Cache NF","Coconino NF", "Cutting Permit 31", "Dixie NF", "Gunnison NF","Larimer 2", "Okanogan NF","Powers Creek","Wallowa-Whitman NF","Wenatchee NF"))
+
+ggplot(off_provs, aes(x=year, y=rw, col=tree))+
+  geom_line()+
+  geom_point()+
+  facet_wrap(~Provenance)+
+  theme(legend.position = "none")
+
+off_trees<- dbh_rwi_comp %>% 
+  filter(lowsum=="yes") %>% pull(tree)
+
+dbh_age_corrected <- dbh_age %>% 
+  mutate(rw = ifelse(tree %in% off_trees, rw*10, rw))
+
+ggplot(dbh_age_corrected, aes(x=year, y=rw, col=tree))+
+  geom_line()+
+  geom_point()+
+  facet_wrap(~Provenance)+
+  theme(legend.position = "none")
+
+ggplot(dbh_age %>% filter(tree=="X49D2"), aes(x=year, y=rw, col=tree))+
+  geom_line()+
+  geom_point()+
+  facet_wrap(~Provenance)+
+  theme(legend.position = "none")
+```
+
+#Distance
+
+```{r}
+dbh_diffs_pcapts<- dbh_diffs %>% 
+  mutate(Provenance = gsub(" NF","", Provenance)) %>% 
+  mutate(Provenance = ifelse(Provenance == "Grand Mesa - Uncompahgre", "GM-U", Provenance)) %>% 
+  pivot_longer(c(DBH91:DBH14,diff_total:diff1)) %>% 
+  left_join(pca_dist_df %>% mutate(Provenance = gsub(" NF","", Provenance)) %>% 
+  mutate(Provenance = ifelse(Provenance == "Grand Mesa - Uncompahgre", "GM-U", Provenance)), by=c("Provenance"))
+
+ggplot(dbh_diffs_pcapts, aes(x=dist.to.plant, y=value))+
+  geom_point()+
+  facet_wrap(~name, scales="free")
+```
+
+#Resistance & Resilience
+
+```{r}
+rwi_RR <- rwi %>%
+  mutate(Period=ifelse(Period=="","none",Period)) %>% 
+  group_by(Tree, Provenance, Period, Lat, Elevation) %>% 
+  summarise(mean_rwi=mean(RWI, na.rm=T)) 
+
+  # pivot_wider(values_from=mean_rwi, names_from = Period) %>% 
+  # mutate(resistance = During/Before, resilience = After/Before) %>% 
+  # filter(!is.na(resistance))
+
+ggplot(rwi_RR %>% filter(!Period=="none"), aes(x=factor(Provenance, levels=prov_pcapts %>% arrange(Latitude) %>% pull(Provenance)), y=mean_rwi, fill=factor(Provenance, levels=prov_pcapts %>% arrange(Latitude) %>% pull(Provenance))))+
+  geom_boxplot()+
+  scale_fill_manual(values=viridis(20), name="Provenance (by Lat)")+
+  facet_wrap(~factor(Period, levels=c("Before","During","After")))+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+n_trees <- rwi %>% 
+  group_by(Provenance) %>% 
+  summarise(n=length(unique(Tree)))
+  
+rwi_tree_edit<- rwi %>% 
+  group_by(Provenance, Tree) %>% 
+  summarise(n_years = n()) %>% 
+  left_join(n_trees)
+
+tree_colors<- c(rep(viridis(8),2),viridis(8)[1:7],rep(viridis(8),2),viridis(8)[1:6],viridis(8),rep(viridis(8)[1:7],2), rep(viridis(8),5), viridis(8)[1:7], rep(viridis(8),4), viridis(8)[1:6])
+
+tree_colors<- c(rep(brewer.pal(8,"Dark2"),2),brewer.pal(8,"Dark2")[1:7],rep(brewer.pal(8,"Dark2"),2),brewer.pal(8,"Dark2")[1:6],brewer.pal(8,"Dark2"),rep(brewer.pal(8,"Dark2")[1:7],2), rep(brewer.pal(8,"Dark2"),5), brewer.pal(8,"Dark2")[1:7], rep(brewer.pal(8,"Dark2"),4), brewer.pal(8,"Dark2")[1:6])
+
+ggplot(rwi, aes(x=Year, y=RWI, col=Tree))+
+    geom_rect(aes(xmin=2005,xmax=2009,ymin=-Inf, ymax=Inf), fill="darkgrey", color="black", alpha=0.2)+
+    geom_rect(aes(xmin=2000,xmax=2004,ymin=-Inf, ymax=Inf), fill="lightgrey", color="black", alpha=0.2)+
+    geom_rect(aes(xmin=1995,xmax=1999,ymin=-Inf, ymax=Inf), fill="white", color="black", alpha=0.2)+
+  geom_point()+
+  geom_line()+
+  scale_color_manual(values=tree_colors)+
+  facet_wrap(~Provenance, scales="free")+
+  theme(legend.position = "none")
+  
+
+as.data.frame(provenances) %>% 
+  filter(ident %in% c(tmax_comb_all %>% 
+  filter(is.na(tmax)) %>% pull(CN) %>% unique()))
+  
+##compare average RWI in different time periods
+rwi_periods<- rwi %>% 
+  mutate(Period = ifelse(Year < 1995, "Baseline", Period)) %>% 
+  group_by(Period, Provenance) %>% 
+  filter(!Period=="")
+  
+ggplot(rwi_periods, aes(x=factor(Period, levels=c("Baseline","Before","During","After","")), y=RWI))+
+  geom_boxplot()+
+  facet_wrap(~Provenance, scales="free")
+
+period_model <- lm(RWI ~ Provenance*factor(Period, levels=c("Baseline","Before","During","After","")), data=rwi_periods)
+anova(period_model)
+summary(period_model) #only significant differences between average RWI are between baseline and before period for Inlet creek (increase in before period) & Gila (decrease in before peiod)
+```
+
+
