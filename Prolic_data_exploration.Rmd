@@ -1723,12 +1723,28 @@ dbh_age <- prov_all %>%
 dbh_age_summary <- dbh_age %>%
   filter(!is.na(rw)) %>% 
   group_by(Provenance,tree) %>% 
-  summarise(minyr = min(year))
+  summarise(minyr = min(year), maxyr=max(year), n=n()) %>% 
+  mutate(years.calc = maxyr-minyr+1)
 
 ggplot(dbh_age_summary, aes(x=factor(Provenance, levels=prov_pcapts %>% arrange(Latitude) %>% pull(Provenance)), y=minyr))+
   geom_boxplot()+
   geom_point(color="maroon")+
   theme(axis.text.x = element_text(angle=45, hjust=1))
+
+ggplot(dbh_age_summary, aes(x=Provenance, y=n))+
+  geom_boxplot()+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+dbh_age_summary %>% 
+  group_by(Provenance) %>% 
+  summarise(n=n())
+
+dbh_age_summary2 <- dbh_age_summary %>% 
+  left_join(dbh %>% mutate(Series=paste("X",Series,sep="")), by=c("tree"="Series")) 
+
+ggplot(dbh_age_summary2, aes(x=minyr, y=DBH14, col=Provenance.y))+
+  geom_point()
+
 ###
 
 prov_all_nona<- prov_all %>% na.omit()
@@ -1834,6 +1850,125 @@ ggplot(dbh_age_good, aes(x=year, y=rw, col=tree))+
   geom_point()+
   facet_wrap(~Provenance)+
   theme(legend.position = "none")
+
+ggplot(dbh_age_good, aes(x=year, y=rw, col=tree %in% c(dbh_age_summary %>% filter(maxyr<2016) %>% pull(tree))))+
+  geom_line()+
+  geom_point()+
+  facet_wrap(~Provenance)+
+  theme(legend.position = "bottom")
+
+dbh_age_good %>% filter(tree %in% c(dbh_age_summary %>% filter(maxyr<2016) %>% pull(tree))) %>% 
+  pull(tree) %>% 
+  unique() %>% 
+  length()
+
+dbh_age_good %>% filter(!tree %in% c(dbh_age_summary %>% filter(maxyr<2016) %>% pull(tree))) %>% 
+  pull(tree) %>% 
+  unique() %>% 
+  length()
+
+meanrw<- dbh_age_good %>% 
+  na.omit() %>% 
+  group_by(year) %>% 
+  summarise(meanrw=mean(rw), n=n()) 
+
+ggplot(meanrw, aes(x=year, y=meanrw))+
+  geom_point()
+
+dbh_age_good %>%
+  filter(tree %in% c(dbh_age_summary2 %>% filter(maxyr<2015) %>% pull(tree))) %>% 
+  ggplot(aes(x=year,y=rw, col=tree))+
+  geom_point()+
+  geom_line()+
+  facet_wrap(~Provenance)
+
+
+dbh_age_good %>%
+  filter(!tree %in% c(dbh_age_summary2 %>% filter(maxyr<2015) %>% pull(tree))) %>% 
+  ggplot(aes(x=year,y=rw, col=tree))+
+  geom_point()+
+  geom_line()+
+  xlim(c(1970,2015))+
+  facet_wrap(~Provenance)+
+  theme(legend.position = "none")
+
+##data from Kelsey et al. 2018
+
+kelsey <- read.csv("EngelmannSpruce.csv")
+
+kelsey$Site %>% unique()
+
+ggplot(kelsey %>% filter(Site=="AL1"), aes(x=Year, y=RawGrowth_mm, col=Core_ID))+
+  geom_point()+
+  geom_line()
+
+kelseyrwl<- kelsey %>% 
+  pivot_wider(id_cols = c(Year), names_from = Core_ID, values_from = RawGrowth_mm) %>% 
+  arrange(Year) %>% 
+  tibble::column_to_rownames(var="Year")
+
+row.names(kelseyrwl) = seq(1899,2012,1)
+
+kelseyrwl*1000
+
+write.rwl(kelseyrwl*1000, "kelsey.rwl")
+
+kelseyrwl2 <- read.rwl("kelsey.rwl")
+
+bai_kelsey<- bai.out(kelseyrwl2)
+
+bai_kelsey$al1es0
+
+bai35A1 <- data.frame(bai = bai_out$`35A1`, year=seq(1970,2016,1), tree="35A1")
+
+bai_comb <- data.frame(bai=bai_kelsey$al1es0, year=seq(1899,2012,1), tree="al1es05") %>% 
+  bind_rows(bai35A1)
+
+ggplot(bai_comb, aes(x=year, y=bai, col=tree))+
+  geom_point()+
+  geom_line()
+
+ggplot(dbh_age_good %>% filter(Provenance=="Cutting Permit 31"), aes(x=year, y=rw, col=tree))+
+  geom_point()+
+  geom_line()
+
+ave_rw_prov<- dbh_age_good %>% 
+  na.omit() %>% 
+  group_by(Provenance, year) %>% 
+  summarise(ave_rw=mean(rw), se=sd(rw)/sqrt(n())) 
+
+ggplot(ave_rw_prov, aes(x=year, y=ave_rw, col=Provenance))+
+  geom_point()+
+  geom_line()+
+  geom_errorbar(aes(x=year, ymin=ave_rw-se, ymax=ave_rw+se, col=Provenance))+
+  facet_wrap(~Provenance)
+
+ave_rw_all <- dbh_age_good %>%
+  na.omit() %>% 
+  group_by(year) %>% 
+  summarise(ave_rw=mean(rw), se=sd(rw)/sqrt(n()))
+
+ggplot(ave_rw_all, aes(x=year, y=ave_rw))+
+  geom_point()+
+  geom_errorbar(aes(x=year, ymin=ave_rw-se, ymax=ave_rw+se), col="red")+
+  geom_line()
+
+
+##data from https://doi.org/10.25921/zp2z-av44 - Engelmann spruce in Montana
+mt105 <- read.rwl("mt105.rwl")
+
+bai.
+
+mt105_long <- mt105 %>% 
+  as.data.frame() %>% 
+  tibble::rownames_to_column(var="year") %>%
+  mutate(year=as.numeric(year)) %>% 
+  pivot_longer(cols=`720011`:`720112`,names_to="tree", values_to="rw")
+
+ggplot(mt105_long %>% filter(tree %in% seq(72011,720052,1)), aes(x=year, y=rw, col=tree))+
+  geom_point()+
+  geom_line()+
+  facet_wrap(~tree)
 
 ```
 
