@@ -764,7 +764,7 @@ ggplot(FDSI_raw, aes(x=year, y=FDSI))+
 ##CWD calculation
 
 ```{r}
-source("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/cwd_function_v3.r")
+source("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/grad school/cwd_function_v3.r")
 
 #get dem
 dem_plantation <- rast("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/PIENproject/USGS_13_n40w107_20220216.tif")
@@ -1745,6 +1745,7 @@ dbh_age_summary2 <- dbh_age_summary %>%
 ggplot(dbh_age_summary2, aes(x=minyr, y=DBH14, col=Provenance.y))+
   geom_point()
 
+
 ###
 
 prov_all_nona<- prov_all %>% na.omit()
@@ -1892,6 +1893,25 @@ dbh_age_good %>%
   facet_wrap(~Provenance)+
   theme(legend.position = "none")
 
+##########
+##look at dbh vs. rw sum
+full_join( dbh_age_good %>% select(tree) %>% unique(),
+           dbh %>% 
+             filter(!Series=="") %>% 
+              mutate(tree=paste("X",Series,sep="")) %>% 
+              filter(!tree %in% off_trees) %>% 
+             select(tree) %>% unique()) == dbh_age_good %>% select(tree) %>% unique() 
+
+
+dbh_rw <- dbh_age_good %>% 
+  left_join(dbh %>% 
+              mutate(tree=paste("X",Series,sep="")) %>% 
+              filter(!tree %in% off_trees), by=c("tree","Provenance"))
+
+dbh_rw %>% 
+  filter(year==2006)
+##########
+
 ##data from Kelsey et al. 2018
 
 kelsey <- read.csv("EngelmannSpruce.csv")
@@ -1957,7 +1977,6 @@ ggplot(ave_rw_all, aes(x=year, y=ave_rw))+
 ##data from https://doi.org/10.25921/zp2z-av44 - Engelmann spruce in Montana
 mt105 <- read.rwl("mt105.rwl")
 
-bai.
 
 mt105_long <- mt105 %>% 
   as.data.frame() %>% 
