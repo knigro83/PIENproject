@@ -902,7 +902,7 @@ pca_dist_df <- prov_pcapts %>%
 ##Engelmann spruce
 
 ```{r}
-pien <- rast("C:/Users/KatherineNigro/OneDrive - USDA/Documents/ArcGIS/Projects/SpeciesRanges/pien_range.tif")
+pien <- rast("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ArcGIS/Projects/SpeciesRanges/pien_range.tif")
 
 us <- geodata::gadm(country = "USA",  level = 1, resolution = 2,
              path = "C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/maps")
