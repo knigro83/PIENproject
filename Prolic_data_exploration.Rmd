@@ -634,6 +634,30 @@ ggplot(ppt_summed %>% filter(CN=="Plantation"), aes(x=year, y=ppt)) +
   geom_line()+
   geom_hline(yintercept=mean(ppt_summed %>% filter(CN=="Plantation") %>% pull(ppt)), col="red")
 
+##seasonal ppt
+ppt_seasonal_plantation <- ppt_comb_plantation %>% 
+  filter(month %in% c(6,7,8)) %>% 
+  group_by(CN, year) %>% 
+  summarise(ppt_sm = sum(ppt)) %>% 
+  left_join(ppt_comb_plantation %>% 
+  filter(month %in% c(5,6,7,8,9)) %>% 
+  group_by(CN, year) %>% 
+  summarise(ppt_gs = sum(ppt))) %>% 
+  left_join(ppt_comb_plantation %>% 
+  filter(month %in% c(12,1,2)) %>% 
+  group_by(CN, year) %>% 
+  summarise(ppt_wt = sum(ppt))) %>% 
+  left_join(ppt_comb_plantation %>% 
+  filter(month %in% c(9,10,11)) %>% 
+  group_by(CN, year) %>% 
+  summarise(ppt_fa = sum(ppt))) %>% 
+  left_join(ppt_comb_plantation %>% 
+  filter(month %in% c(3,4,5)) %>% 
+  group_by(CN, year) %>% 
+  summarise(ppt_sp = sum(ppt))) %>% 
+  left_join(ppt_summed) 
+
+
 ##tmin
 ggplot(tmin_comb_plantation, aes(x=as.Date(date), y=tmin))+
   geom_line()+
@@ -682,6 +706,29 @@ ggplot(tmean_summed %>% filter(CN=="Plantation"), aes(x=year, y=tmean)) +
   geom_line()+
   geom_hline(yintercept=mean(tmean_summed %>% filter(CN=="Plantation") %>% pull(tmean)), col="red")
 
+##seasonal temps
+all_temps <- bind_rows(tmean_comb_plantation %>% pivot_longer(tmean), tmin_comb_plantation %>% pivot_longer(tmin), tmax_comb_plantation %>% pivot_longer(tmax))
+
+summertemps <- all_temps %>% filter(month %in% c(6,7,8)) %>% 
+  group_by(CN, year, name) %>% 
+  summarise(value_sm =mean(value))
+falltemps <- all_temps %>% filter(month %in% c(9,10,11)) %>% 
+  group_by(CN, year, name) %>% 
+  summarise(value_fa =mean(value))
+wintertemps <- all_temps %>% filter(month %in% c(12,1,2)) %>% 
+  group_by(CN, year, name) %>% 
+  summarise(value_wt =mean(value))
+springtemps <- all_temps %>% filter(month %in% c(3,4,5)) %>% 
+  group_by(CN, year, name) %>% 
+  summarise(value_sp =mean(value))
+
+plantation_seasonal_temps <- left_join(summertemps,falltemps) %>% 
+  left_join(wintertemps) %>% 
+  left_join(springtemps)
+
+plantation_seasonal_temps_wide<- plantation_seasonal_temps %>% 
+  pivot_wider(values_from = c(value_sm,value_fa,value_wt,value_sp), names_from = name)
+
 ##vpdmax
 ggplot(vpdmax_comb_plantation, aes(x=as.Date(date), y=vpdmax))+
   geom_line()+
@@ -697,6 +744,28 @@ ggplot(vpdmax_summed %>% filter(CN=="Plantation"), aes(x=year, y=vpdmax)) +
   geom_point()+
   geom_line()+
   geom_hline(yintercept=mean(vpdmax_summed %>% filter(CN=="Plantation") %>% pull(vpdmax)), col="red")
+
+vpdmax_seasonal <- as.data.frame(vpdmax_comb_plantation) %>% 
+  mutate(vpdmax = as.numeric(vpdmax), year=as.integer(year)) %>%
+  filter(month %in% c(6,7,8)) %>% 
+  group_by(CN, year) %>% 
+ dplyr::summarise(vpdmax_sm = mean(vpdmax)) %>% 
+  left_join(as.data.frame(vpdmax_comb_plantation) %>% 
+  mutate(vpdmax = as.numeric(vpdmax), year=as.integer(year)) %>%
+  filter(month %in% c(9,10,11)) %>% 
+  group_by(CN, year) %>% 
+ dplyr::summarise(vpdmax_fa = mean(vpdmax))) %>% 
+  left_join(as.data.frame(vpdmax_comb_plantation) %>% 
+  mutate(vpdmax = as.numeric(vpdmax), year=as.integer(year)) %>%
+  filter(month %in% c(12,1,2)) %>% 
+  group_by(CN, year) %>% 
+ dplyr::summarise(vpdmax_wt = mean(vpdmax))) %>% 
+  left_join(as.data.frame(vpdmax_comb_plantation) %>% 
+  mutate(vpdmax = as.numeric(vpdmax), year=as.integer(year)) %>%
+  filter(month %in% c(3,4,5)) %>% 
+  group_by(CN, year) %>% 
+ dplyr::summarise(vpdmax_sp = mean(vpdmax)))
+
 ```
 
 ##FDSI calculation
@@ -794,6 +863,18 @@ ggplot(plantation_cwd_annual_long %>% filter(name%in%c("cwd_sum","FDSI")), aes(x
   geom_line()+
   facet_wrap(~name, scales = "free")
   
+```
+
+```{r}
+#combine all climate vars
+
+plantation_clim <- ppt_seasonal_plantation %>% 
+  left_join(plantation_seasonal_temps_wide) %>% 
+  left_join(vpdmax_seasonal) %>% 
+  left_join(FDSI_raw) %>% 
+  left_join(plantation_cwd_annual)
+
+
 ```
 
 
@@ -1990,6 +2071,108 @@ ggplot(mt105_long %>% filter(tree %in% seq(72011,720052,1)), aes(x=year, y=rw, c
   facet_wrap(~tree)
 
 ```
+
+```{r}
+rw_clim_wide <- left_join(dbh_age_good, plantation_clim)
+colnames(rw_clim_wide)
+
+rw_clim_wide_formodel<- rw_clim_wide %>% select(colnames(rw_clim_wide)[c(2:4,6:27,32,37,38)])
+
+allmod <- lmer(rw ~ ppt_sm + ppt_gs + ppt_wt + ppt_fa + ppt_sp + ppt + value_sm_tmax + value_sm_tmean + value_sm_tmin + value_fa_tmax + value_fa_tmean + value_fa_tmin + value_wt_tmax + value_wt_tmean + value_wt_tmin + value_sp_tmax +value_sp_tmean + value_sp_tmin + vpdmax_sm + vpdmax_fa + vpdmax_wt + vpdmax_sp+FDSI +aet_sum+cwd_sum  + (1|tree) + (1|tree:Provenance), data=rw_clim_wide_formodel)
+summary(allmod)
+
+```
+
+
+```{r}
+dbh_age_good #this is raw ring widths for only trees that don't have weird values.
+prov_good #this is it in wide format
+
+tree_ids <- colnames(prov_good)
+
+rw.detrended = matrix(nrow=nrow(prov_good %>% slice(1:(n()-2))), ncol=length(tree_ids))
+for(i in 1:length(tree_ids)){
+obj<- detrend.series(y = prov_good %>% slice(1:(n()-2)) %>% pull(tree_ids[i]), y.name="rw_detrended", method="Spline")
+rw.detrended[,i]<- obj
+}
+colnames(rw.detrended) = tree_ids
+
+rw.detrend.df <- as.data.frame(rw.detrended) %>% 
+  mutate(year = seq(1970,2014,1)) 
+
+dtrw_clim_long <- rw.detrend.df %>% 
+  mutate(fdsi = FDSI_raw %>% slice(1:(n()-4)) %>% pull(FDSI)) %>% 
+  pivot_longer(`32I2`:`47C2`)
+
+ggplot(dtrw_clim_long, aes(x=fdsi, y=value, col=name))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  theme(legend.position = "none")
+
+ggplot(FDSI_raw, aes(x=year, y=FDSI))+
+  geom_point()+
+  geom_hline(yintercept=0)
+
+mean(FDSI_raw$FDSI,na.rm=T) - 2*sd(FDSI_raw$FDSI,na.rm=T)
+
+FDSI_raw %>% 
+  filter(FDSI < mean(FDSI_raw$FDSI,na.rm=T) - 2*sd(FDSI_raw$FDSI,na.rm=T))
+
+rw.detrend.df.filter <- rw.detrend.df %>%
+  filter(year > 1990 & year <2011) %>% 
+  tibble::column_to_rownames('year')
+
+all.sea <- sea(rw.detrend.df.filter, key=c(2002), lag=5, resample=1000)
+foo <- all.sea$se.unscaled
+names(foo) <- all.sea$lag
+barplot(foo, col = ifelse(all.sea$p < 0.05, "grey30", "grey75"), 
+        ylab = "RWI", xlab = "Superposed Epoch")
+
+fdsi.cor.df <- data.frame()
+for(i in 1:ncol(rw.detrend.df.filter)){
+correlation <- cor(FDSI_raw %>% filter(year > 1990 & year < 2011) %>% pull(FDSI), rw.detrend.df.filter[,i])
+  fdsi.cor.df[i,1]<- correlation
+}
+
+fdsi.cor.df.pops <- fdsi.cor.df %>% 
+  mutate(tree = colnames(rw.detrend.df.filter)) %>% 
+  rename(corr = V1) %>% 
+  left_join(dbh, by=c("tree"="Series"))
+  
+ggplot(fdsi.cor.df.pops, aes(x=Provenance,y=corr)) + 
+  geom_boxplot()+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+corraov <- aov(corr ~ Provenance, data=fdsi.cor.df.pops)
+summary(corraov)
+
+provs <- unique(fdsi.cor.df.pops$Provenance)
+
+sea.list<- list()
+for(i in 1:length(provs)){
+  provn <- rw.detrend.df %>% 
+    select(c(year,fdsi.cor.df.pops %>% filter(Provenance == provs[i]) %>% pull(tree))) %>% 
+    na.omit()
+  
+rownames(provn) = provn$year
+
+provn_noyr = provn %>% select(-year)
+
+temp.sea <- sea(provn_noyr, key=c(2002), lag=4, resample=1000)
+  
+sea.list[[i]]<- temp.sea
+}
+
+par(mfrow=c(5,4))
+for(i in 1:length(sea.list)){
+  plotdata<- sea.list[[i]]$se.unscaled
+  names(plotdata) <- sea.list[[i]]$lag
+  barplot(plotdata, col = ifelse(sea.list[[i]]$p < 0.05, "grey30", "grey75"), 
+        ylab = "RWI", xlab = "Superposed Epoch", main=paste(provs[i]))
+}
+
+```
+
 
 #Distance
 
