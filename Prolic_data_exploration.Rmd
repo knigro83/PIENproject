@@ -849,6 +849,79 @@ plantation_cwd <- cwd_function(site="plantation",slope=plantation_cwd_data$slope
 
 head(plantation_cwd)
 
+cwd_year0 <- plantation_cwd %>% 
+  mutate(date= as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")) %>% 
+  filter(month<9) %>% 
+  group_by(site, year) %>% 
+  summarise(cwd_1_9 = sum(cwd))
+
+cwd_yearminus1 <-  plantation_cwd %>% 
+  mutate(date= as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")) %>% 
+  filter(month>8) %>%
+  mutate(wateryear=year+1) %>% 
+  group_by(site, wateryear) %>% 
+  summarise(cwd_prev = sum(cwd))
+
+wateryear_cwd<- cwd_year0 %>% 
+  left_join(cwd_yearminus1, by=c("year" = "wateryear","site")) %>% 
+  rowwise() %>% 
+  mutate(cwd_wy = sum(cwd_1_9, cwd_prev))
+
+sp_cwd<- plantation_cwd %>% 
+  mutate(date= as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")) %>% 
+  filter(month%in%c(3,4,5)) %>%
+  group_by(site, year) %>% 
+  summarise(cwd_sp = sum(cwd))
+
+fa_cwd<- plantation_cwd %>% 
+  mutate(date= as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")) %>% 
+  filter(month%in%c(9,10,11)) %>%
+  group_by(site, year) %>% 
+  mutate(wateryear = year+1) %>% 
+  summarise(cwd_fa = sum(cwd))
+
+##water year drought
+ggplot(wateryear_cwd, aes(x=year, y=cwd_wy))+
+  geom_point()+
+  geom_line()+
+  geom_point(data= sp_cwd, aes(x=year, y=cwd_sp),col="green4")+
+  geom_line(data= sp_cwd, aes(x=year, y=cwd_sp),col="green4")+
+  geom_point(data= fa_cwd, aes(x=year, y=cwd_fa),col="orange")+
+  geom_line(data= fa_cwd, aes(x=year, y=cwd_fa),col="orange")  ##1970s and 80s droughts were influenced more by fall lack of moisture than 2002 drought. 
+
+
+wateryear_cwd %>% 
+  filter(cwd_wy>quantile(wateryear_cwd$cwd_wy[-1], c(0.75))+ 1.5*IQR(wateryear_cwd$cwd_wy[-1]))
+
+##spring drought
+ggplot( plantation_cwd %>% 
+  mutate(date= as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")) %>% 
+  filter(month%in%c(3,4,5)) %>%
+  group_by(site, year) %>% 
+  summarise(cwd_sp = sum(cwd)), aes(x=year, y=cwd_sp))+
+  geom_point()+
+  geom_line()
+
+##fall drought
+ggplot( plantation_cwd %>% 
+  mutate(date= as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")) %>% 
+  filter(month%in%c(9,10,11)) %>%
+  group_by(site, year) %>% 
+  summarise(cwd_fa = sum(cwd)), aes(x=year, y=cwd_fa))+
+  geom_point()+
+  geom_line()
+
+ggplot(plantation_cwd %>% 
+  mutate(date= as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")) %>% filter(month%in%c(6,7,8)), aes(x=date, y=cwd))+
+  geom_point(aes(col=factor(year)))+
+  geom_line()
+
+plantation_cwd %>% 
+  filter(cwd>0) %>% 
+  group_by(month) %>% 
+  summarise(n=n(), mean=mean(cwd))
+
+
 plantation_cwd_annual <- plantation_cwd %>% 
   group_by(site,year, soilawc) %>% 
   summarise(ppt_sum = sum(ppt), tmean_ave=mean(tmean), aet_sum=sum(aet), cwd_sum=sum(cwd))
@@ -2078,12 +2151,55 @@ colnames(rw_clim_wide)
 
 rw_clim_wide_formodel<- rw_clim_wide %>% select(colnames(rw_clim_wide)[c(2:4,6:27,32,37,38)])
 
-allmod <- lmer(rw ~ ppt_sm + ppt_gs + ppt_wt + ppt_fa + ppt_sp + ppt + value_sm_tmax + value_sm_tmean + value_sm_tmin + value_fa_tmax + value_fa_tmean + value_fa_tmin + value_wt_tmax + value_wt_tmean + value_wt_tmin + value_sp_tmax +value_sp_tmean + value_sp_tmin + vpdmax_sm + vpdmax_fa + vpdmax_wt + vpdmax_sp+FDSI +aet_sum+cwd_sum  + (1|tree) + (1|tree:Provenance), data=rw_clim_wide_formodel)
-summary(allmod)
+tree_clim_cors <- rw_clim_wide%>% 
+  left_join(bai_in_long) %>% 
+  filter(!is.na(rw)) %>% 
+  filter(!year>2015) %>% 
+  pivot_longer(c(ppt_sm:vpdmax_sp,FDSI,aet_sum,cwd_sum)) %>% 
+  group_by(tree,Provenance,name) %>% 
+  summarise(cor_rw=cor(rw,value), cor_bai=cor(bai, value))
 
+ggplot(tree_clim_cors, aes(x=Provenance, y=cor))+
+  geom_boxplot()+
+  facet_wrap(~name, scales="free")+
+  theme(axis.text.x = element_text(angle=45,hjust=1))
+
+tree_clim_cors %>% 
+  group_by(name) %>% 
+  summarise(meancor_rw=mean(cor_rw,na.rm=TRUE), sd_rw=sd(cor_rw, na.rm=TRUE), meancor_bai=mean(cor_bai,na.rm=TRUE), sd_bai=sd(cor_bai, na.rm=TRUE)) %>% 
+  dplyr::arrange(abs(meancor_bai)) %>% 
+  print(n=25) ##summer VPD max has strongest correlation with ring width & summer AET has strongest correlation with BAI
+
+tree_clim_cors %>% 
+  filter(name == "vpdmax_sm") %>% 
+  group_by(Provenance) %>% 
+  summarise(meancor=mean(cor,na.rm=TRUE), sd=sd(cor, na.rm=TRUE)) %>% 
+  dplyr::arrange(meancor) %>% 
+  print(n=25) ##shows provenances with highest correlations between ring width and summer vpd max
+
+ggplot(rw_clim_wide, aes(x=year, y=vpdmax_sm))+
+  geom_point()
+ggplot(rw_clim_wide, aes(x=year, y=cwd_sum))+
+  geom_point()+
+  geom_hline(yintercept=quantile(rw_clim_wide$cwd_sum, c(0.75))  + IQR(rw_clim_wide$cwd_sum)*1.5, col="red")
+
+rw_clim_wide %>% summary()
+
+quantile(rw_clim_wide$cwd_sum, c(0.025,0.5,0.975))
+quantile(rw_clim_wide$cwd_sum, c(0.75))  + IQR(rw_clim_wide$cwd_sum)*1.5
+
+rw_clim_wide %>% 
+  dplyr::select(c("year","cwd_sum")) %>% 
+  unique() %>% 
+  filter(cwd_sum > quantile(rw_clim_wide$cwd_sum, c(0.75))  + IQR(rw_clim_wide$cwd_sum)*1.5)
+
+rw_clim_wide %>% 
+  filter(!is.na(rw)) %>% 
+  group_by(year) %>% 
+  summarise(n=n()) %>% print(n=50)
 ```
 
-
+##SEA
 ```{r}
 dbh_age_good #this is raw ring widths for only trees that don't have weird values.
 prov_good #this is it in wide format
