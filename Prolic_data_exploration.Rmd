@@ -1857,6 +1857,71 @@ ggplot(bai_in_long, aes(x=year, y=bai, col=tree))+
 
 bai_in_long %>% 
   filter(bai<10 & year > 2000) %>% View()
+
+####### try using diameter #########
+##### Ott et al., 2021 data (trees ~140 years old [30-40cm DBH]):
+### average bark thickness = 3.9 +- 0.2 mm
+### average phloem thickness = 5.7 +-0.2 mm
+### total = 9.6mm
+
+##### Pellegrini et al., 2017 data (trees ~10cm in diameter):
+### average bark thickness = 3.99 mm
+
+est_BT_cm = mean(c(9.6,4))/10
+
+dbh %>% 
+  select(Series,Provenance,DBH14) %>% 
+  pull(DBH14) %>% 
+  mean(na.rm=T)  #mean DBH is 14.7cm for our trees
+
+
+
+diam14 <- dbh %>% 
+  select(Series,Provenance,DBH14) %>% 
+  mutate(inner_diam_mm = (DBH14-2*est_BT_cm)*10) %>% 
+  select(Series, Provenance, inner_diam_mm)
+
+diam14$Series == colnames(prov_all)
+
+#calculate BAI with diameter
+diam14_byseries<- prov_all %>% 
+  pivot_longer(`32I2`:`47C2`) %>% 
+  select(name) %>% 
+  unique() %>% 
+  left_join(diam14, by=c("name" = "Series")) %>% 
+  select(-Provenance) %>% 
+  rename(series = name, diam=inner_diam_mm)
+
+c(diam14_byseries$series == colnames(prov_all)) %>% summary()
+
+bai_wdiam14 = bai.out(prov_all[-c(1:16,46,47),], diam= diam14_byseries)
+
+sum(prov_all$`30B3`,na.rm=T)
+diam14_byseries %>% filter(series=="30B3")
+
+diam_data14 <- prov_all %>% 
+  mutate(year=rownames(prov_all)) %>% 
+  pivot_longer(`32I2`:`47C2`) %>% 
+  na.omit() %>% 
+  filter(year <2014) %>% 
+  group_by(name) %>% 
+  summarise(minyr = min(year), maxyr = max(year), n_yrs=n(), sum_rw=sum(value), diam_rw=sum(value)*2) %>% 
+  left_join(diam14, by=c("name" = "Series")) %>% 
+  mutate(innerdbh_minus_rw = (inner_diam_mm - diam_rw)/2) %>% 
+  left_join(dbh, by=c("name"="Series", "Provenance")) %>% 
+  mutate(dbh14_mm=DBH14*10) %>% 
+  mutate(outerdbh_minus_rw = (dbh14_mm - diam_rw)/2) %>% 
+  arrange(n_yrs)
+
+ggplot()+
+  geom_point(data=diam_data14, aes(x=factor(name, levels=diam_data14$name), y=innerdbh_minus_rw, col=innerdbh_minus_rw>0))+
+  geom_hline(yintercept = 0)
+
+ggplot()+
+  geom_point(data=diam_data14, aes(x=factor(name, levels=diam_data14$name), y=outerdbh_minus_rw, col=outerdbh_minus_rw>0))+
+  geom_hline(yintercept = 0)
+  
+
 ```
 
 ##Detrending
@@ -2159,7 +2224,7 @@ tree_clim_cors <- rw_clim_wide%>%
   group_by(tree,Provenance,name) %>% 
   summarise(cor_rw=cor(rw,value), cor_bai=cor(bai, value))
 
-ggplot(tree_clim_cors, aes(x=Provenance, y=cor))+
+ggplot(tree_clim_cors, aes(x=Provenance, y=cor_rw))+
   geom_boxplot()+
   facet_wrap(~name, scales="free")+
   theme(axis.text.x = element_text(angle=45,hjust=1))
@@ -2365,5 +2430,218 @@ period_model <- lm(RWI ~ Provenance*factor(Period, levels=c("Baseline","Before",
 anova(period_model)
 summary(period_model) #only significant differences between average RWI are between baseline and before period for Inlet creek (increase in before period) & Gila (decrease in before peiod)
 ```
+
+
+#Raw vs. Detrended
+
+```{r}
+#do same analysis as Prolic but look at difference between detrending methods.
+
+
+##raw ring widths
+ggplot(data=dbh_age_good %>% filter(year>1994 & year<2010), aes(x=year, y=rw, col=tree))+
+  geom_point()+
+  geom_line()+
+  facet_wrap(~Provenance)+
+  theme(legend.position = "none")
+
+
+drought_rw<- prov_good %>% 
+  mutate(year = rownames(prov_good)) %>% 
+  pivot_longer(-year) %>% 
+  filter(year > 1999 & year < 2005) %>% 
+  group_by(name) %>% 
+  summarise(drought_ave_rw = mean(value))
+
+predrought_rw<- prov_good %>% 
+  mutate(year = rownames(prov_good)) %>% 
+  pivot_longer(-year) %>% 
+  filter(year > 1994 & year < 2000) %>% 
+  group_by(name) %>% 
+  summarise(predrought_ave_rw = mean(value))
+
+postdrought_rw<- prov_good %>% 
+  mutate(year = rownames(prov_good)) %>% 
+  pivot_longer(-year) %>% 
+  filter(year > 2004 & year < 2010) %>% 
+  group_by(name) %>% 
+  summarise(postdrought_ave_rw = mean(value))
+
+raw_calcs <- left_join(drought_rw,predrought_rw) %>% left_join(postdrought_rw) %>% 
+  mutate(resistance = drought_ave_rw/predrought_ave_rw, resilience = postdrought_ave_rw/predrought_ave_rw) %>% 
+  mutate(name=paste("X",name,sep="")) %>% 
+  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
+
+raw_aov_resist <- aov(resistance ~ Provenance, data=raw_calcs)
+summary(raw_aov_resist)
+raw_aov_resil <- aov(resilience ~ Provenance, data=raw_calcs)
+summary(raw_aov_resil)
+TukeyHSD(raw_aov_resil)
+
+ggplot(raw_calcs, aes(x=Provenance, y=resistance))+
+  geom_boxplot()+
+  geom_point()+
+  ggtitle("raw")
+ggplot(raw_calcs, aes(x=Provenance, y=resilience))+
+  geom_boxplot()+
+  geom_point()+
+  ggtitle("raw")
+
+
+####
+
+
+##linear ring widths
+ggplot(data=rwi %>% filter(Year>1994 & Year < 2010) %>% filter(! Tree %in% off_trees) %>% filter(!Tree=="X30L4"), aes(x=Year, y=RWI, col=Tree))+
+  geom_point()+
+  geom_line()+
+  facet_wrap(~Provenance)+
+  theme(legend.position = "none")
+
+
+drought_rw_linear<- rwi %>% 
+  filter(! Tree %in% off_trees) %>% 
+    filter(!Tree=="X30L4") %>% ##excluding Gila tree that has a super high growth ring in 2009
+  filter(Year > 1999 & Year < 2005) %>% 
+  group_by(Tree) %>% 
+  summarise(drought_ave_rw_linear = mean(RWI))
+
+predrought_rw_linear<-  rwi %>% 
+    filter(! Tree %in% off_trees) %>% 
+    filter(!Tree=="X30L4") %>% 
+  filter(Year > 1994 & Year < 2000) %>% 
+  group_by(Tree) %>% 
+  summarise(predrought_ave_rw_linear = mean(RWI))
+
+postdrought_rw_linear<-  rwi %>% 
+    filter(! Tree %in% off_trees) %>% 
+  filter(!Tree=="X30L4") %>% 
+  filter(Year > 2004 & Year < 2010) %>% 
+  group_by(Tree) %>% 
+  summarise(postdrought_ave_rw_linear = mean(RWI))
+
+linear_calcs <- left_join(drought_rw_linear,predrought_rw_linear) %>% left_join(postdrought_rw_linear) %>% 
+  mutate(resistance = drought_ave_rw_linear/predrought_ave_rw_linear, resilience = postdrought_ave_rw_linear/predrought_ave_rw_linear) %>% 
+  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by=c("Tree" = "tree"))
+
+linear_aov_resist <- aov(resistance ~ Provenance, data=linear_calcs)
+summary(linear_aov_resist)
+TukeyHSD(linear_aov_resist)
+linear_aov_resil <- aov(resilience ~ Provenance, data=linear_calcs)
+summary(linear_aov_resil)
+TukeyHSD(linear_aov_resil)
+
+ggplot(linear_calcs, aes(x=Provenance, y=resistance))+
+  geom_boxplot()+
+  geom_point()+
+  ggtitle("linear")
+ggplot(linear_calcs, aes(x=Provenance, y=resilience))+
+  geom_boxplot()+
+  geom_point()+
+  ggtitle("linear")
+
+####
+
+### spline 
+ggplot(data=growth.detrended.df %>% filter(year>1994 & year < 2010) %>% filter(! tree %in% off_trees), aes(x=year, y=rw_spline, col=tree))+
+  geom_point()+
+  geom_line()+
+  facet_wrap(~Provenance)+
+  theme(legend.position = "none")
+
+
+drought_rw_spline<- growth.detrended.df %>% 
+  filter(! tree %in% off_trees) %>% 
+  filter(year > 1999 & year < 2005) %>% 
+  group_by(tree) %>% 
+  summarise(drought_ave_rw_spline = mean(rw_spline))
+
+predrought_rw_spline<-  growth.detrended.df %>% 
+    filter(! tree %in% off_trees) %>% 
+  filter(year > 1994 & year < 2000) %>% 
+  group_by(tree) %>% 
+  summarise(predrought_ave_rw_spline = mean(rw_spline))
+
+postdrought_rw_spline<-  growth.detrended.df %>% 
+    filter(! tree %in% off_trees) %>% 
+  filter(year > 2004 & year < 2010) %>% 
+  group_by(tree) %>% 
+  summarise(postdrought_ave_rw_spline = mean(rw_spline))
+
+spline_calcs <- left_join(drought_rw_spline,predrought_rw_spline) %>% left_join(postdrought_rw_spline) %>% 
+  mutate(resistance = drought_ave_rw_spline/predrought_ave_rw_spline, resilience = postdrought_ave_rw_spline/predrought_ave_rw_spline) %>% 
+  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by=c("tree" = "tree"))
+
+spline_aov_resist <- aov(resistance ~ Provenance, data=spline_calcs)
+summary(spline_aov_resist)
+
+spline_aov_resil <- aov(resilience ~ Provenance, data=spline_calcs)
+summary(spline_aov_resil)
+TukeyHSD(spline_aov_resil)
+##now Gila is not an outlier in terms of resilience. Okanogan is just significantly greater than Inlet Creek.
+
+ggplot(spline_calcs, aes(x=Provenance, y=resistance))+
+  geom_boxplot()+
+  geom_point()+
+  ggtitle("spline")
+ggplot(spline_calcs, aes(x=Provenance, y=resilience))+
+  geom_boxplot()+
+  geom_point()+
+  ggtitle("spline")
+
+##need to test different time periods for pre, post, and drought periods. 
+
+droughtyear = 2002
+buffertime = seq(0,3,1)
+raw_calcs_list<- list()
+for(i in 1:length(buffertime)){
+drought_rw<- prov_good %>% 
+  mutate(year = rownames(prov_good)) %>% 
+  pivot_longer(-year) %>% 
+  filter(year >= droughtyear - buffertime[i] & year <= droughtyear + buffertime[i]) %>% 
+  group_by(name) %>% 
+  summarise(drought_ave_rw = mean(value))
+
+predrought_rw<- prov_good %>% 
+  mutate(year = rownames(prov_good)) %>% 
+  pivot_longer(-year) %>% 
+  filter(year >= droughtyear - buffertime[i] - 1 - buffertime[i]*2 & year <= droughtyear - buffertime[i] - 1) %>% 
+  group_by(name) %>% 
+  summarise(predrought_ave_rw = mean(value))
+
+postdrought_rw<- prov_good %>% 
+  mutate(year = rownames(prov_good)) %>% 
+  pivot_longer(-year) %>% 
+  filter(year >= droughtyear + buffertime[i] + 1  & year <= droughtyear + buffertime[i] + 1 + buffertime[i]*2) %>% 
+  group_by(name) %>% 
+  summarise(postdrought_ave_rw = mean(value))
+
+raw_calcs_list[[i]] <- left_join(drought_rw,predrought_rw) %>% left_join(postdrought_rw) %>% 
+  mutate(resistance = drought_ave_rw/predrought_ave_rw, resilience = postdrought_ave_rw/predrought_ave_rw) %>% 
+  mutate(name=paste("X",name,sep="")) %>% 
+  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
+}
+
+rawmodlist_resistance<- list()
+for(i in 1:length(raw_calcs_list)){
+rawmodlist_resistance[[i]] <- aov(resistance ~ Provenance, data=raw_calcs_list[[i]])
+}
+summary(rawmodlist_resistance[[1]])
+summary(rawmodlist_resistance[[2]])
+summary(rawmodlist_resistance[[3]])
+summary(rawmodlist_resistance[[4]])
+
+rawmodlist_resilience<- list()
+for(i in 1:length(raw_calcs_list)){
+rawmodlist_resilience[[i]] <- aov(resilience ~ Provenance, data=raw_calcs_list[[i]])
+}
+summary(rawmodlist_resilience[[1]])
+summary(rawmodlist_resilience[[2]])
+summary(rawmodlist_resilience[[3]])
+summary(rawmodlist_resilience[[4]]) ##only 5 year periods is significant (p < 0.05). 3 year periods marginally significant
+
+##can also experiment with which year this centers on & choosing even numbered length periods
+```
+
 
 
