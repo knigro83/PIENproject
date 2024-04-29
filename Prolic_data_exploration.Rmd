@@ -939,6 +939,36 @@ ggplot(plantation_cwd_annual_long %>% filter(name%in%c("cwd_sum","FDSI")), aes(x
 ```
 
 ```{r}
+plantation_climatebalance <- plantation_cwd %>% 
+  mutate(ppt_pet = ppt - petm)
+
+library(SPEI)
+
+plantation_spei <- spei(plantation_climatebalance %>% pull(ppt_pet), scale=1)
+plantation_spei$fitted
+summary(plantation_spei)
+
+plantation_spei_sum <- data.frame(year=plantation_climatebalance$year, month=plantation_climatebalance$month, spei = plantation_spei$fitted, date = as.Date(paste(plantation_climatebalance$month,"01",plantation_climatebalance$year, sep="/"), "%m/%d/%Y"))
+
+#   mutate(date=as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y"), ppt=as.numeric(ppt))
+
+
+ggplot(plantation_spei_sum %>% filter(year > 1987 & year <2012), aes(x=date, y=spei, fill=spei>0))+
+  geom_bar(stat = "identity")+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+plantation_spei_annual<- plantation_spei_sum %>% 
+  group_by(year) %>% 
+  summarise(spei_mean = mean(spei), spei_sum=sum(spei))
+
+
+ggplot(plantation_spei_annual %>% filter(year > 1987 & year <2012), aes(x=year, y=spei_sum, fill=spei_sum>0))+
+  geom_bar(stat = "identity")+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+```
+
+```{r}
 #combine all climate vars
 
 plantation_clim <- ppt_seasonal_plantation %>% 
