@@ -1950,13 +1950,13 @@ diam14_byseries<- prov_all %>%
 
 c(diam14_byseries$series == colnames(prov_all)) %>% summary()
 
-bai_wdiam14 = bai.out(prov_all[-c(1:16,46,47),], diam= diam14_byseries)
+#bai_wdiam14 = bai.out(prov_all[-c(1:16,46,47),], diam= diam14_byseries)
 
 sum(prov_all$`30B3`,na.rm=T)
 diam14_byseries %>% filter(series=="30B3")
 
-diam_data14 <- prov_all %>% 
-  mutate(year=rownames(prov_all)) %>% 
+diam_data14 <- prov_good %>% 
+  mutate(year=rownames(prov_good)) %>% 
   pivot_longer(`32I2`:`47C2`) %>% 
   na.omit() %>% 
   filter(year <2014) %>% 
@@ -1977,7 +1977,35 @@ ggplot()+
   geom_point(data=diam_data14, aes(x=factor(name, levels=diam_data14$name), y=outerdbh_minus_rw, col=outerdbh_minus_rw>0))+
   geom_hline(yintercept = 0)
   
+ggplot()+
+  geom_point(data=diam_data14, aes(x=dbh14_mm, y=diam_rw))+
+  geom_abline(slope=1, intercept=0)
 
+ggplot()+
+  geom_point(data=diam_data14, aes(x=inner_diam_mm, y=diam_rw))+
+  geom_abline(slope=1, intercept=0)
+
+
+ggplot(diam_data14, aes(x=n_yrs, y=outerdbh_minus_rw))+
+  geom_point()
+
+ggplot(diam_data14, aes(x=sum_rw, y=dbh14_mm/2, col=n_yrs))+
+  geom_point()+
+  geom_abline(slope=1, intercept=0)
+
+
+diam_data14 %>% 
+  filter(outerdbh_minus_rw<0) %>% 
+  nrow()
+
+diam_data14 %>% 
+  filter(outerdbh_minus_rw>0) %>% 
+  nrow()
+
+diam_data14 %>% 
+  filter(n_yrs < 40) %>% 
+  filter(outerdbh_minus_rw<0) %>% 
+  nrow()
 ```
 
 ##Detrending
@@ -2590,11 +2618,14 @@ TukeyHSD(linear_aov_resil)
 ggplot(linear_calcs, aes(x=Provenance, y=resistance))+
   geom_boxplot()+
   geom_point()+
-  ggtitle("linear")
+  ggtitle("linear")+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
 ggplot(linear_calcs, aes(x=Provenance, y=resilience))+
   geom_boxplot()+
   geom_point()+
-  ggtitle("linear")
+  ggtitle("linear")+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
 
 ####
 
@@ -2639,11 +2670,14 @@ TukeyHSD(spline_aov_resil)
 ggplot(spline_calcs, aes(x=Provenance, y=resistance))+
   geom_boxplot()+
   geom_point()+
-  ggtitle("spline")
+  ggtitle("spline")+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
 ggplot(spline_calcs, aes(x=Provenance, y=resilience))+
   geom_boxplot()+
   geom_point()+
-  ggtitle("spline")
+  ggtitle("spline")+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
 
 ##need to test different time periods for pre, post, and drought periods. 
 
@@ -2959,11 +2993,18 @@ summary(rawmodlist_resilience_9904)
 ################################
 ################################
 
-
-
-
-
 ```
 
+```{r}
+missingyrs <- prov_good %>% 
+  mutate(year=rownames(prov_good)) %>% 
+  pivot_longer(`32I2`:`47C2`) %>% 
+  filter(!is.na(value)) %>% 
+  group_by(name) %>% 
+  summarise(minyr=min(year), maxyr=max(year)) %>% 
+  mutate(missingyrs=as.numeric(minyr) - 1970) 
 
+hist(missingyrs$missingyrs)
+
+```
 
