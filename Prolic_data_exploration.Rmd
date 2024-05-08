@@ -28,6 +28,7 @@ library(viridis)
 library(dplR)
 library(ggpubr)
 library(ggrepel)
+library(ggcorrplot)
 ```
 
 #Climate
@@ -1002,7 +1003,7 @@ ggplot(plantation_clim_long_qs, aes(x=year, y=value, col=name))+
   geom_line(data=plantation_clim_long_qs, aes(x=year, y=out.low), col="black")+
   geom_line(data=plantation_clim_long_qs, aes(x=year, y=out.hi), col="black")
 
-quantile(rw_clim_wide$cwd_sum, c(0.75))  + IQR(rw_clim_wide$cwd_sum)*1.5
+#quantile(rw_clim_wide$cwd_sum, c(0.75))  + IQR(rw_clim_wide$cwd_sum)*1.5
 
 ```
 
@@ -2917,7 +2918,7 @@ drought_rw_0102<- prov_good %>%
 predrought_rw_0102<- prov_good %>% 
   mutate(year = rownames(prov_good)) %>% 
   pivot_longer(-year) %>% 
-  filter(year >= 1998 & year <= 1999) %>% 
+  filter(year >= 1999 & year <= 2000) %>% 
   group_by(name) %>% 
   summarise(predrought_ave_rw = mean(value))
 
@@ -3172,6 +3173,7 @@ nemodlist_resistance[[i]] <- aov(resistance ~ Provenance, data=ne_calcs_list[[i]
 }
 summary(nemodlist_resistance[[1]])
 summary(nemodlist_resistance[[2]]) #significant
+TukeyHSD(nemodlist_resistance[[2]])$Provenance %>% as.data.frame() %>% filter(`p adj` < 0.05)
 summary(nemodlist_resistance[[3]])
 summary(nemodlist_resistance[[4]]) 
 
@@ -3292,6 +3294,454 @@ summary(splinemodlist_resilience[[4]])
 
 ```
 
+##2003
+
+```{r}
+#######
+# calculate different time periods
+#######
+droughtyear = 2003
+buffertime = seq(0,3,1)
+raw_calcs_list03<- list()
+for(i in 1:length(buffertime)){
+drought_rw03<- prov_good %>% 
+  mutate(year = rownames(prov_good)) %>% 
+  pivot_longer(-year) %>% 
+  filter(year >= droughtyear - buffertime[i] & year <= droughtyear + buffertime[i]) %>% 
+  group_by(name) %>% 
+  summarise(drought_ave_rw = mean(value))
+
+predrought_rw03<- prov_good %>% 
+  mutate(year = rownames(prov_good)) %>% 
+  pivot_longer(-year) %>% 
+  filter(year >= droughtyear - buffertime[i] - 1 - buffertime[i]*2 & year <= droughtyear - buffertime[i] - 1) %>% 
+  group_by(name) %>% 
+  summarise(predrought_ave_rw = mean(value))
+
+postdrought_rw03<- prov_good %>% 
+  mutate(year = rownames(prov_good)) %>% 
+  pivot_longer(-year) %>% 
+  filter(year >= droughtyear + buffertime[i] + 1  & year <= droughtyear + buffertime[i] + 1 + buffertime[i]*2) %>% 
+  group_by(name) %>% 
+  summarise(postdrought_ave_rw = mean(value))
+
+raw_calcs_list03[[i]] <- left_join(drought_rw03,predrought_rw03) %>% left_join(postdrought_rw03) %>% 
+  mutate(resistance = drought_ave_rw/predrought_ave_rw, resilience = postdrought_ave_rw/predrought_ave_rw) %>% 
+  mutate(name=paste("X",name,sep="")) %>% 
+  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
+}
+
+rawmodlist_resistance03<- list()
+for(i in 1:length(raw_calcs_list03)){
+rawmodlist_resistance03[[i]] <- aov(resistance ~ Provenance, data=raw_calcs_list03[[i]])
+}
+summary(rawmodlist_resistance03[[1]])
+summary(rawmodlist_resistance03[[2]]) 
+summary(rawmodlist_resistance03[[3]])
+summary(rawmodlist_resistance03[[4]]) 
+
+rawmodlist_resilience03<- list()
+for(i in 1:length(raw_calcs_list03)){
+rawmodlist_resilience03[[i]] <- aov(resilience ~ Provenance, data=raw_calcs_list03[[i]])
+}
+summary(rawmodlist_resilience03[[1]])
+summary(rawmodlist_resilience03[[2]]) ##3 year periods  significant
+TukeyHSD(rawmodlist_resilience03[[2]])$Provenance %>% as.data.frame() %>% filter(`p adj` <0.05)
+summary(rawmodlist_resilience03[[3]]) ##5 year periods is significant (p < 0.05)
+TukeyHSD(rawmodlist_resilience03[[3]])$Provenance %>% as.data.frame() %>% filter(`p adj` <0.05)
+RR_5yrs_0105 <- raw_calcs_list03[[3]] %>% as.data.frame()
+ggplot(RR_5yrs_0105, aes(x=Provenance, y=resilience))+
+  geom_boxplot()
+summary(rawmodlist_resilience03[[4]]) 
+
+####
+## even time periods
+####
+#02-03 - 2 years, not significant
+
+drought_rw_0203<- prov_good %>% 
+  mutate(year = rownames(prov_good)) %>% 
+  pivot_longer(-year) %>% 
+  filter(year >= 2002 & year <= 2003) %>% 
+  group_by(name) %>% 
+  summarise(drought_ave_rw = mean(value))
+
+predrought_rw03_0203<- prov_good %>% 
+  mutate(year = rownames(prov_good)) %>% 
+  pivot_longer(-year) %>% 
+  filter(year >= 2000 & year <= 2001) %>% 
+  group_by(name) %>% 
+  summarise(predrought_ave_rw = mean(value))
+
+postdrought_rw03_0203<- prov_good %>% 
+  mutate(year = rownames(prov_good)) %>% 
+  pivot_longer(-year) %>% 
+  filter(year >= 2004 & year <= 2005) %>% 
+  group_by(name) %>% 
+  summarise(postdrought_ave_rw = mean(value))
+
+raw_calcs_0203 <- left_join(drought_rw_0203,predrought_rw03_0203) %>% left_join(postdrought_rw03_0203) %>% 
+  mutate(resistance = drought_ave_rw/predrought_ave_rw, resilience = postdrought_ave_rw/predrought_ave_rw) %>% 
+  mutate(name=paste("X",name,sep="")) %>% 
+  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
+
+
+rawmodlist_resistance03_0203 <- aov(resistance ~ Provenance, data=raw_calcs_0203)
+
+summary(rawmodlist_resistance03_0203)
+
+rawmodlist_resilience03_0203 <- aov(resilience ~ Provenance, data=raw_calcs_0203)
+
+summary(rawmodlist_resilience03_0203)
+
+#03-04 - 2 years, marginally significant resilience
+
+drought_rw_0304<- prov_good %>% 
+  mutate(year = rownames(prov_good)) %>% 
+  pivot_longer(-year) %>% 
+  filter(year >= 2003 & year <= 2004) %>% 
+  group_by(name) %>% 
+  summarise(drought_ave_rw = mean(value))
+
+predrought_rw03_0304<- prov_good %>% 
+  mutate(year = rownames(prov_good)) %>% 
+  pivot_longer(-year) %>% 
+  filter(year >= 2001 & year <= 2002) %>% 
+  group_by(name) %>% 
+  summarise(predrought_ave_rw = mean(value))
+
+postdrought_rw03_0304<- prov_good %>% 
+  mutate(year = rownames(prov_good)) %>% 
+  pivot_longer(-year) %>% 
+  filter(year >= 2005 & year <= 2006) %>% 
+  group_by(name) %>% 
+  summarise(postdrought_ave_rw = mean(value))
+
+raw_calcs_0304 <- left_join(drought_rw_0304,predrought_rw03_0304) %>% left_join(postdrought_rw03_0304) %>% 
+  mutate(resistance = drought_ave_rw/predrought_ave_rw, resilience = postdrought_ave_rw/predrought_ave_rw) %>% 
+  mutate(name=paste("X",name,sep="")) %>% 
+  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
+
+
+rawmodlist_resistance03_0304 <- aov(resistance ~ Provenance, data=raw_calcs_0304)
+
+summary(rawmodlist_resistance03_0304)
+
+rawmodlist_resilience03_0304 <- aov(resilience ~ Provenance, data=raw_calcs_0304)
+
+summary(rawmodlist_resilience03_0304)
+TukeyHSD(rawmodlist_resilience03_0304)$Provenance %>% as.data.frame %>% filter(`p adj` < 0.05)
+
+#02-05 - 4 years, significant resilience & resistance 
+
+drought_rw_0205<- prov_good %>% 
+  mutate(year = rownames(prov_good)) %>% 
+  pivot_longer(-year) %>% 
+  filter(year >= 2002 & year <= 2005) %>% 
+  group_by(name) %>% 
+  summarise(drought_ave_rw = mean(value))
+
+predrought_rw03_0205<- prov_good %>% 
+  mutate(year = rownames(prov_good)) %>% 
+  pivot_longer(-year) %>% 
+  filter(year >= 1998 & year <= 2001) %>% 
+  group_by(name) %>% 
+  summarise(predrought_ave_rw = mean(value))
+
+postdrought_rw03_0205<- prov_good %>% 
+  mutate(year = rownames(prov_good)) %>% 
+  pivot_longer(-year) %>% 
+  filter(year >= 2006 & year <= 2009) %>% 
+  group_by(name) %>% 
+  summarise(postdrought_ave_rw = mean(value))
+
+raw_calcs_0205 <- left_join(drought_rw_0205,predrought_rw03_0205) %>% left_join(postdrought_rw03_0205) %>% 
+  mutate(resistance = drought_ave_rw/predrought_ave_rw, resilience = postdrought_ave_rw/predrought_ave_rw) %>% 
+  mutate(name=paste("X",name,sep="")) %>% 
+  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
+
+
+rawmodlist_resistance03_0205 <- aov(resistance ~ Provenance, data=raw_calcs_0205)
+
+summary(rawmodlist_resistance03_0205) #significant
+TukeyHSD(rawmodlist_resistance03_0205)$Provenance %>% as.data.frame() %>% filter(`p adj` < 0.05)
+
+rawmodlist_resilience03_0205 <- aov(resilience ~ Provenance, data=raw_calcs_0205)
+
+summary(rawmodlist_resilience03_0205)
+TukeyHSD(rawmodlist_resilience03_0205)$Provenance %>% as.data.frame() %>% filter(`p adj`<0.05)
+RR_4yrs_0205 <- raw_calcs_0205 %>% as.data.frame()
+ggplot(RR_4yrs_0205, aes(x=Provenance, y=resilience))+
+  geom_boxplot()
+
+#01-04 - 4 years, significant resilience only 
+
+drought_rw_0104<- prov_good %>% 
+  mutate(year = rownames(prov_good)) %>% 
+  pivot_longer(-year) %>% 
+  filter(year >= 2001 & year <= 2004) %>% 
+  group_by(name) %>% 
+  summarise(drought_ave_rw = mean(value))
+
+predrought_rw03_0104<- prov_good %>% 
+  mutate(year = rownames(prov_good)) %>% 
+  pivot_longer(-year) %>% 
+  filter(year >= 1997 & year <= 2000) %>% 
+  group_by(name) %>% 
+  summarise(predrought_ave_rw = mean(value))
+
+postdrought_rw03_0104<- prov_good %>% 
+  mutate(year = rownames(prov_good)) %>% 
+  pivot_longer(-year) %>% 
+  filter(year >= 2005 & year <= 2008) %>% 
+  group_by(name) %>% 
+  summarise(postdrought_ave_rw = mean(value))
+
+raw_calcs_0104 <- left_join(drought_rw_0104,predrought_rw03_0104) %>% left_join(postdrought_rw03_0104) %>% 
+  mutate(resistance = drought_ave_rw/predrought_ave_rw, resilience = postdrought_ave_rw/predrought_ave_rw) %>% 
+  mutate(name=paste("X",name,sep="")) %>% 
+  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
+
+rawmodlist_resistance03_0104 <- aov(resistance ~ Provenance, data=raw_calcs_0104)
+
+summary(rawmodlist_resistance03_0104)
+
+rawmodlist_resilience03_0104 <- aov(resilience ~ Provenance, data=raw_calcs_0104)
+
+summary(rawmodlist_resilience03_0104)
+TukeyHSD(rawmodlist_resilience03_0104)$Provenance %>% as.data.frame() %>% filter(`p adj`<0.05)
+RR_4yrs_0104 <- raw_calcs_0104 %>% as.data.frame()
+ggplot(RR_4yrs_0104, aes(x=Provenance, y=resilience))+
+  geom_boxplot()
+
+
+#00-05 - 6 years not significant for either resistance or resilience
+
+drought_rw_0005<- prov_good %>% 
+  mutate(year = rownames(prov_good)) %>% 
+  pivot_longer(-year) %>% 
+  filter(year >= 2000 & year <= 2005) %>% 
+  group_by(name) %>% 
+  summarise(drought_ave_rw = mean(value))
+
+predrought_rw03_0005<- prov_good %>% 
+  mutate(year = rownames(prov_good)) %>% 
+  pivot_longer(-year) %>% 
+  filter(year >= 1994 & year <= 1999) %>% 
+  group_by(name) %>% 
+  summarise(predrought_ave_rw = mean(value))
+
+postdrought_rw03_0005<- prov_good %>% 
+  mutate(year = rownames(prov_good)) %>% 
+  pivot_longer(-year) %>% 
+  filter(year >= 2006 & year <= 2011) %>% 
+  group_by(name) %>% 
+  summarise(postdrought_ave_rw = mean(value))
+
+raw_calcs_0005 <- left_join(drought_rw_0005,predrought_rw03_0005) %>% left_join(postdrought_rw03_0005) %>% 
+  mutate(resistance = drought_ave_rw/predrought_ave_rw, resilience = postdrought_ave_rw/predrought_ave_rw) %>% 
+  mutate(name=paste("X",name,sep="")) %>% 
+  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
+
+
+rawmodlist_resistance03_0005 <- aov(resistance ~ Provenance, data=raw_calcs_0005)
+
+summary(rawmodlist_resistance03_0005)
+
+rawmodlist_resilience03_0005 <- aov(resilience ~ Provenance, data=raw_calcs_0005)
+
+summary(rawmodlist_resilience03_0005)
+
+#01-06 - 6 years 
+
+drought_rw_0106<- prov_good %>% 
+  mutate(year = rownames(prov_good)) %>% 
+  pivot_longer(-year) %>% 
+  filter(year >= 2001 & year <= 2006) %>% 
+  group_by(name) %>% 
+  summarise(drought_ave_rw = mean(value))
+
+predrought_rw03_0106<- prov_good %>% 
+  mutate(year = rownames(prov_good)) %>% 
+  pivot_longer(-year) %>% 
+  filter(year >= 1995 & year <= 2000) %>% 
+  group_by(name) %>% 
+  summarise(predrought_ave_rw = mean(value))
+
+postdrought_rw03_0106<- prov_good %>% 
+  mutate(year = rownames(prov_good)) %>% 
+  pivot_longer(-year) %>% 
+  filter(year >= 2007 & year <= 2012) %>% 
+  group_by(name) %>% 
+  summarise(postdrought_ave_rw = mean(value))
+
+raw_calcs_0106 <- left_join(drought_rw_0106,predrought_rw03_0106) %>% left_join(postdrought_rw03_0106) %>% 
+  mutate(resistance = drought_ave_rw/predrought_ave_rw, resilience = postdrought_ave_rw/predrought_ave_rw) %>% 
+  mutate(name=paste("X",name,sep="")) %>% 
+  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
+
+
+rawmodlist_resistance03_0106 <- aov(resistance ~ Provenance, data=raw_calcs_0106)
+
+summary(rawmodlist_resistance03_0106)
+
+rawmodlist_resilience03_0106 <- aov(resilience ~ Provenance, data=raw_calcs_0106)
+
+summary(rawmodlist_resilience03_0106)
+
+################################
+################################
+
+# calculate different time periods for other detrending methods
+#######
+#ne
+droughtyear = 2003
+buffertime = seq(0,3,1)
+ne_calcs_list03<- list()
+for(i in 1:length(buffertime)){
+drought_rw03<- growth.detrended.ne.df %>% 
+  filter(year >= droughtyear - buffertime[i] & year <= droughtyear + buffertime[i]) %>% 
+  group_by(tree) %>% 
+  summarise(drought_ave_rw = mean(rw_spline))
+
+predrought_rw03<- growth.detrended.ne.df %>% 
+  filter(year >= droughtyear - buffertime[i] - 1 - buffertime[i]*2 & year <= droughtyear - buffertime[i] - 1) %>% 
+  group_by(tree) %>% 
+  summarise(predrought_ave_rw = mean(rw_spline))
+
+postdrought_rw03<- growth.detrended.ne.df %>% 
+  filter(year >= droughtyear + buffertime[i] + 1  & year <= droughtyear + buffertime[i] + 1 + buffertime[i]*2) %>% 
+  group_by(tree) %>% 
+  summarise(postdrought_ave_rw = mean(rw_spline))
+
+ne_calcs_list03[[i]] <- left_join(drought_rw03,predrought_rw03) %>% left_join(postdrought_rw03) %>% 
+  mutate(resistance = drought_ave_rw/predrought_ave_rw, resilience = postdrought_ave_rw/predrought_ave_rw) %>% 
+  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by="tree")
+}
+
+nemodlist_resistance03<- list()
+for(i in 1:length(ne_calcs_list03)){
+nemodlist_resistance03[[i]] <- aov(resistance ~ Provenance, data=ne_calcs_list03[[i]])
+}
+summary(nemodlist_resistance03[[1]])
+summary(nemodlist_resistance03[[2]]) 
+summary(nemodlist_resistance03[[3]]) #significant
+TukeyHSD(nemodlist_resistance03[[3]])$Provenance %>% as.data.frame() %>% filter(`p adj` < 0.05)
+summary(nemodlist_resistance03[[4]]) 
+
+nemodlist_resilience03<- list()
+for(i in 1:length(ne_calcs_list03)){
+nemodlist_resilience03[[i]] <- aov(resilience ~ Provenance, data=ne_calcs_list03[[i]])
+}
+summary(nemodlist_resilience03[[1]])
+summary(nemodlist_resilience03[[2]]) #significant
+TukeyHSD(nemodlist_resilience03[[2]])$Provenance %>% as.data.frame() %>% filter(`p adj` <0.05)
+summary(nemodlist_resilience03[[3]]) ##5 year periods is significant (p < 0.05)
+TukeyHSD(nemodlist_resilience03[[3]])$Provenance %>% as.data.frame() %>% filter(`p adj` <0.05)
+ggplot(as.data.frame(ne_calcs_list03[[3]]), aes(x=Provenance, y=resilience))+
+  geom_boxplot()+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+summary(nemodlist_resilience03[[4]]) #significant
+TukeyHSD(nemodlist_resilience03[[4]])$Provenance %>% as.data.frame() %>% filter(`p adj` <0.05)
+
+#ads
+droughtyear = 2003
+buffertime = seq(0,3,1)
+ads_calcs_list03<- list()
+for(i in 1:length(buffertime)){
+drought_rw03<- growth.detrended.ads.df %>% 
+  filter(year >= droughtyear - buffertime[i] & year <= droughtyear + buffertime[i]) %>% 
+  group_by(tree) %>% 
+  summarise(drought_ave_rw = mean(rw_spline))
+
+predrought_rw03<- growth.detrended.ads.df %>% 
+  filter(year >= droughtyear - buffertime[i] - 1 - buffertime[i]*2 & year <= droughtyear - buffertime[i] - 1) %>% 
+  group_by(tree) %>% 
+  summarise(predrought_ave_rw = mean(rw_spline))
+
+postdrought_rw03<- growth.detrended.ads.df %>% 
+  filter(year >= droughtyear + buffertime[i] + 1  & year <= droughtyear + buffertime[i] + 1 + buffertime[i]*2) %>% 
+  group_by(tree) %>% 
+  summarise(postdrought_ave_rw = mean(rw_spline))
+
+ads_calcs_list03[[i]] <- left_join(drought_rw03,predrought_rw03) %>% left_join(postdrought_rw03) %>% 
+  mutate(resistance = drought_ave_rw/predrought_ave_rw, resilience = postdrought_ave_rw/predrought_ave_rw) %>% 
+  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by="tree")
+}
+
+adsmodlist_resistance03<- list()
+for(i in 1:length(ads_calcs_list03)){
+adsmodlist_resistance03[[i]] <- aov(resistance ~ Provenance, data=ads_calcs_list03[[i]])
+}
+summary(adsmodlist_resistance03[[1]])
+summary(adsmodlist_resistance03[[2]]) 
+summary(adsmodlist_resistance03[[3]]) #significant
+summary(adsmodlist_resistance03[[4]]) 
+
+adsmodlist_resilience03<- list()
+for(i in 1:length(ads_calcs_list03)){
+adsmodlist_resilience03[[i]] <- aov(resilience ~ Provenance, data=ads_calcs_list03[[i]])
+}
+summary(adsmodlist_resilience03[[1]])
+summary(adsmodlist_resilience03[[2]]) #significant
+TukeyHSD(adsmodlist_resilience03[[2]])$Provenance %>% as.data.frame() %>% filter(`p adj` <0.05)
+summary(adsmodlist_resilience03[[3]]) ##5 year periods is significant (p < 0.05)
+TukeyHSD(adsmodlist_resilience03[[3]])$Provenance %>% as.data.frame() %>% filter(`p adj` <0.05)
+ggplot(as.data.frame(ads_calcs_list03[[3]]), aes(x=Provenance, y=resilience))+
+  geom_boxplot()+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+summary(adsmodlist_resilience03[[4]]) #significant
+TukeyHSD(adsmodlist_resilience03[[4]])$Provenance %>% as.data.frame() %>% filter(`p adj` < 0.05)
+ggplot(as.data.frame(ads_calcs_list03[[4]]), aes(x=Provenance, y=resilience))+
+  geom_boxplot()+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+
+#spline
+droughtyear = 2003
+buffertime = seq(0,3,1)
+spline_calcs_list03<- list()
+for(i in 1:length(buffertime)){
+drought_rw03<- growth.detrended.df %>% 
+  filter(year >= droughtyear - buffertime[i] & year <= droughtyear + buffertime[i]) %>% 
+  group_by(tree) %>% 
+  summarise(drought_ave_rw = mean(rw_spline))
+
+predrought_rw03<- growth.detrended.df %>% 
+  filter(year >= droughtyear - buffertime[i] - 1 - buffertime[i]*2 & year <= droughtyear - buffertime[i] - 1) %>% 
+  group_by(tree) %>% 
+  summarise(predrought_ave_rw = mean(rw_spline))
+
+postdrought_rw03<- growth.detrended.df %>% 
+  filter(year >= droughtyear + buffertime[i] + 1  & year <= droughtyear + buffertime[i] + 1 + buffertime[i]*2) %>% 
+  group_by(tree) %>% 
+  summarise(postdrought_ave_rw = mean(rw_spline))
+
+spline_calcs_list03[[i]] <- left_join(drought_rw03,predrought_rw03) %>% left_join(postdrought_rw03) %>% 
+  mutate(resistance = drought_ave_rw/predrought_ave_rw, resilience = postdrought_ave_rw/predrought_ave_rw) %>% 
+  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by="tree")
+}
+
+splinemodlist_resistance03<- list()
+for(i in 1:length(spline_calcs_list03)){
+splinemodlist_resistance03[[i]] <- aov(resistance ~ Provenance, data=spline_calcs_list03[[i]])
+}
+summary(splinemodlist_resistance03[[1]])
+summary(splinemodlist_resistance03[[2]]) 
+summary(splinemodlist_resistance03[[3]]) #significant
+summary(splinemodlist_resistance03[[4]]) 
+
+splinemodlist_resilience03<- list()
+for(i in 1:length(spline_calcs_list03)){
+splinemodlist_resilience03[[i]] <- aov(resilience ~ Provenance, data=spline_calcs_list03[[i]])
+}
+summary(splinemodlist_resilience03[[1]])
+summary(splinemodlist_resilience03[[2]]) 
+summary(splinemodlist_resilience03[[3]]) 
+summary(splinemodlist_resilience03[[4]]) 
+```
+
+
 ```{r}
 missingyrs <- prov_good %>% 
   mutate(year=rownames(prov_good)) %>% 
@@ -3407,7 +3857,7 @@ ggplot(raw_calcs_88_3yr, aes(x=Provenance, y=resilience))+
   theme(axis.text.x = element_text(angle=45, hjust=1))
 
 calcs_2droughts <- raw_calcs_88_3yr %>% 
-  bind_rows(raw_calcs_list[[3]]) %>% 
+  bind_rows(raw_calcs_list03[[3]]) %>% 
   group_by(name,Provenance) %>% 
   summarise(mean_resistance = mean(resistance), mean_resilience = mean(resilience)) 
 
@@ -3699,6 +4149,328 @@ ggplot(recover.rate.ne.df, aes(x=Provenance, y=recover.rate))+
   theme(axis.text.x = element_text(angle=45, hjust=1))
 
 #### next try drought year = 2003
+
+
+```
+
+#Other Metrics 2003
+
+```{r}
+drought_rw_new03<- prov_good %>% 
+  mutate(year = rownames(prov_good)) %>% 
+  pivot_longer(-year) %>% 
+  filter(year == 2003) %>% 
+  group_by(name) %>% 
+  summarise(drought_ave_rw = mean(value))
+
+predrought_rw_new03<- prov_good %>% 
+  mutate(year = rownames(prov_good)) %>% 
+  pivot_longer(-year) %>% 
+  filter(year > 1985 & year <2003) %>% 
+  group_by(name) %>% 
+  summarise(predrought_ave_rw = mean(value, na.rm=T))
+
+#resistance
+new_calcs03 <- left_join(drought_rw_new03,predrought_rw_new03) %>% 
+  mutate(resistance = drought_ave_rw/predrought_ave_rw) %>% 
+  mutate(name=paste("X",name,sep="")) %>% 
+  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
+
+new_aov_resist03 <- aov(resistance ~ Provenance, data=new_calcs03)
+summary(new_aov_resist03) #significant difference in 2003 when compared to average growth 1985-2002
+TukeyHSD(new_aov_resist03)$Provenance %>% as.data.frame() %>% filter(`p adj` < 0.5) #no strong pairwise differences
+
+ggplot(new_calcs03, aes(x=Provenance, y=resistance))+
+  geom_boxplot()+
+  geom_point()+
+  geom_hline(yintercept=1, col="red")+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+#recovery time (only 58 trees recovered out of 114, 22 didn't reduce growth in 2002)
+
+no_reduction03<- prov_good %>% 
+  mutate(year = rownames(prov_good)) %>% 
+  pivot_longer(-year) %>% 
+  filter(year == 2003) %>%
+  left_join(predrought_rw_new03) %>% 
+  mutate(diff = predrought_ave_rw - value) %>% 
+  filter(diff<0) ##22 trees didn't reduce growth in 2002
+
+recover_time03<- prov_good %>% 
+  mutate(year = rownames(prov_good)) %>% 
+  pivot_longer(-year) %>%
+  filter(!name %in% no_reduction03$name) %>% 
+  filter(year > 2002) %>%
+  left_join(predrought_rw_new03) %>% 
+  mutate(diff = value - predrought_ave_rw) %>% 
+  filter(diff>0) %>% 
+  group_by(name) %>% 
+  summarise(minyr = min(year)) %>% 
+  mutate(recoverytime = as.numeric(minyr) - 2003) %>% 
+  mutate(name = paste("X",name,sep="")) %>% 
+  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
+
+
+aov.recover03 <- aov(recoverytime ~ Provenance, data=recover_time03)
+summary(aov.recover03)  #marginal difference in recovery time
+
+ggplot(recover_time03, aes(x=Provenance, y=recoverytime))+
+  geom_boxplot()+
+  geom_point()+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+not_recovered03<- dbh_age_good %>% 
+  filter(! tree %in% paste("X",no_reduction03$name,sep="")) %>% 
+  filter(! tree %in% recover_time03$name)
+
+prop.recovered03 <- dbh_age_good %>% 
+  filter(year>1984 & !tree %in% paste("X",no_reduction03$name,sep="")) %>% 
+  group_by(Provenance) %>% 
+  summarise(ntree = length(unique(tree))) %>% 
+  left_join(not_recovered03 %>% 
+              group_by(Provenance) %>% 
+              summarise(ntree_NR = length(unique(tree)))) %>% 
+  mutate(ntree_NR = ifelse(is.na(ntree_NR),0,ntree_NR)) %>% 
+  pivot_longer(ntree:ntree_NR)
+
+ggplot(prop.recovered03, aes(x=Provenance, y=value, fill=name))+
+  geom_bar(stat="identity")+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+ggplot(not_recovered03 %>% filter(year>1984), aes(x=year, y=rw, col=tree))+
+  geom_point()+
+  geom_line()+
+  facet_wrap(~Provenance, scales="free")
+
+#total growth reduction
+growth_red_df03<- prov_good %>% 
+  mutate(year = rownames(prov_good)) %>% 
+  pivot_longer(-year) %>% 
+  filter(!name %in% no_reduction03$name) %>% 
+  mutate(name=paste("X",name,sep="")) %>% 
+  filter(!name %in% unique(not_recovered03$tree)) %>% 
+  filter(year>2002) %>% 
+  left_join(predrought_rw_new03 %>% mutate(name=paste("X",name,sep=""))) %>% 
+  mutate(growth_red = predrought_ave_rw-value) %>% 
+  filter(growth_red>0) %>% 
+  group_by(name) %>% 
+  summarise(total.growth.red = max(growth_red)) %>% 
+  left_join(recover_time03) %>% 
+  mutate(ave.growth.red = total.growth.red/recoverytime)
+
+aov.tgr03 <- aov(total.growth.red ~ Provenance, data=growth_red_df03)
+summary(aov.tgr03)  #significant differences
+TukeyHSD(aov.tgr03)$Provenance %>% as.data.frame() %>% filter(`p adj` < 0.1)
+
+ggplot(growth_red_df03, aes(x=Provenance, y=total.growth.red))+
+  geom_boxplot()+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+aov.agr03 <- aov(ave.growth.red ~ Provenance, data=growth_red_df03)
+summary(aov.agr03) #significant differences in average growth reduction rate
+TukeyHSD(aov.agr03)$Provenance %>% as.data.frame() %>% filter(`p adj` < 0.1)
+
+
+ggplot(growth_red_df03, aes(x=Provenance, y=ave.growth.red))+
+  geom_boxplot()+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+#average recovery rate
+recover.rate.df03 <- prov_good %>% 
+  mutate(year = rownames(prov_good)) %>% 
+  pivot_longer(-year) %>% 
+  filter(!name %in% no_reduction03$name) %>% 
+  mutate(name=paste("X",name,sep="")) %>% 
+  filter(!name %in% unique(not_recovered03$tree)) %>% 
+  filter(year>2002) %>% 
+  left_join(predrought_rw_new03 %>% mutate(name=paste("X",name,sep=""))) %>% 
+  mutate(growth_red = predrought_ave_rw-value) %>% 
+  filter(year==2003) %>% 
+  left_join(recover_time03) %>% 
+  mutate(recover.rate = (growth_red/recoverytime)/growth_red*100)
+
+aov.arr03 <- aov(recover.rate ~ Provenance, data=recover.rate.df03)
+summary(aov.arr03) #no difference in average growth reduction rate
+
+ggplot(recover.rate.df03, aes(x=Provenance, y=recover.rate))+
+  geom_boxplot()+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+####
+
+
+```
+
+##detrended
+
+```{r}
+
+
+drought_ne_new03<- growth.detrended.ne.df %>% 
+  filter(year == 2003) %>% 
+  group_by(tree) %>% 
+  summarise(drought_ave_ne = mean(rw_spline))
+
+predrought_ne_new03<- growth.detrended.ne.df %>% 
+  filter(year > 1985 & year <2003) %>% 
+  group_by(tree) %>% 
+  summarise(predrought_ave_ne = mean(rw_spline, na.rm=T))
+
+#resistance
+ne_new_calcs03 <- left_join(drought_ne_new03,predrought_ne_new03) %>% 
+  mutate(resistance = drought_ave_ne/predrought_ave_ne) %>% 
+  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by="tree")
+
+ne_new_aov_resist03 <- aov(resistance ~ Provenance, data=ne_new_calcs03)
+summary(ne_new_aov_resist03) #no difference in resistance when compared to average growth 1985-2002
+
+ggplot(ne_new_calcs03, aes(x=Provenance, y=resistance))+
+  geom_boxplot()+
+  geom_point()+
+  geom_hline(yintercept=1, col="red")+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+#recovery time 
+
+ne_no_reduction03<- growth.detrended.ne.df %>% 
+  filter(year == 2003) %>%
+  left_join(predrought_ne_new03) %>% 
+  mutate(diff = predrought_ave_ne - rw_spline) %>% 
+  filter(diff<0) ##31 trees didn't reduce growth in 2002
+
+ne_recover_time03<- growth.detrended.ne.df %>%
+  filter(!tree %in% ne_no_reduction03$tree) %>% 
+  filter(year > 2002) %>%
+  left_join(predrought_ne_new03) %>% 
+  mutate(diff = rw_spline - predrought_ave_ne) %>% 
+  filter(diff>0) %>% 
+  group_by(tree) %>% 
+  summarise(minyr = min(year)) %>% 
+  mutate(recoverytime = as.numeric(minyr) - 2003) %>% 
+  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by="tree")
+
+
+aov.recover03.ne <- aov(recoverytime ~ Provenance, data=ne_recover_time03)
+summary(aov.recover03.ne)  #no difference in recovery time
+
+ggplot(ne_recover_time03, aes(x=Provenance, y=recoverytime))+
+  geom_boxplot()+
+  geom_point()+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+ne_not_recovered03<- dbh_age_good %>% 
+  filter(! tree %in% ne_no_reduction03$tree) %>% 
+  filter(! tree %in% ne_recover_time03$tree)
+
+ne.prop.recovered03 <- dbh_age_good %>% 
+  filter(year>1984 & !tree %in% ne_no_reduction03$tree) %>% 
+  group_by(Provenance) %>% 
+  summarise(ntree = length(unique(tree))) %>% 
+  left_join(ne_not_recovered03 %>% 
+              group_by(Provenance) %>% 
+              summarise(ntree_NR = length(unique(tree)))) %>% 
+  mutate(ntree_NR = ifelse(is.na(ntree_NR),0,ntree_NR)) %>% 
+  left_join(ne_no_reduction03 %>% group_by(Provenance) %>% summarise(n_nored = n())) %>% 
+  mutate(n_nored = ifelse(is.na(n_nored),0,n_nored)) %>% 
+  mutate(n_recovered = ntree-ntree_NR) %>% 
+  mutate(prop.recovered = n_recovered/ntree, prop.nored = n_nored/(n_nored+ntree)) %>% 
+  pivot_longer(ntree_NR:n_recovered)
+
+prop.recovered.order<- unique(ne.prop.recovered03 %>% select(Provenance,prop.recovered, prop.nored)) %>% arrange(prop.recovered)
+
+prop.nored.order<- unique(ne.prop.recovered03 %>% select(Provenance,prop.recovered, prop.nored)) %>% arrange(prop.nored)
+
+
+dbh_age_good %>% 
+  group_by(Provenance) %>% 
+  summarise(ntree = length(unique(tree))) 
+
+ggplot(ne.prop.recovered03, aes(x=factor(Provenance, levels = prop.nored.order$Provenance), y=value, fill=name))+
+  geom_bar(stat="identity")+
+  scale_fill_manual(values=c("darkgreen","lightblue","black"))+
+  ylab("number of trees")+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+ggplot(ne_not_recovered03 %>% filter(year>1984), aes(x=year, y=rw, col=tree))+
+  geom_point()+
+  geom_line()+
+  facet_wrap(~Provenance, scales="free")
+
+#total growth reduction
+growth_red_ne_df03<- growth.detrended.ne.df %>% 
+  filter(!tree %in% ne_no_reduction03$tree) %>% 
+  filter(!tree %in% unique(ne_not_recovered03$tree)) %>% 
+  filter(year>2002) %>% 
+  left_join(predrought_ne_new03) %>% 
+  mutate(growth_red = predrought_ave_ne-rw_spline) %>% 
+  filter(growth_red>0) %>% 
+  group_by(tree) %>% 
+  summarise(total.growth.red = sum(growth_red)) %>% 
+  left_join(ne_recover_time03) %>% 
+  mutate(ave.growth.red = total.growth.red/recoverytime)
+
+aov.tgr03.ne <- aov(total.growth.red ~ Provenance, data=growth_red_ne_df03)
+summary(aov.tgr03.ne)  
+
+ggplot(growth_red_ne_df03, aes(x=Provenance, y=total.growth.red))+
+  geom_boxplot()+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+aov.agr03.ne <- aov(ave.growth.red ~ Provenance, data=growth_red_ne_df03)
+summary(aov.agr03.ne) #no difference in average growth reduction rate
+
+ggplot(growth_red_ne_df03, aes(x=Provenance, y=ave.growth.red))+
+  geom_boxplot()+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+#average recovery rate
+recover.rate.ne.df03 <- growth.detrended.ne.df %>% 
+  filter(!tree %in% ne_no_reduction03$tree) %>% 
+  filter(!tree %in% unique(ne_not_recovered03$tree)) %>% 
+  filter(year>2002) %>% 
+  left_join(predrought_ne_new03) %>% 
+  mutate(growth_red = predrought_ave_ne-rw_spline) %>% 
+  filter(year==2003) %>% 
+  left_join(ne_recover_time03) %>% 
+  mutate(recover.rate = (growth_red/recoverytime)/growth_red*100)
+
+aov.ne.arr03 <- aov(recover.rate ~ Provenance, data=recover.rate.ne.df03)
+summary(aov.ne.arr03) #no difference in average growth reduction rate
+
+ggplot(recover.rate.ne.df03, aes(x=Provenance, y=recover.rate))+
+  geom_boxplot()+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+```
+
+#Model growth-climate relationship
+
+```{r}
+##maybe try a moving window analysis here or just use climate vars that have been shown to effect PIEN growth in past studies
+
+
+plantation_clim_minus1<- plantation_clim %>% mutate(year = year+1) %>% 
+  select(c(CN:year,ppt_gs:ppt_sp, vpdmax_sm:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum))
+
+colnames(plantation_clim_minus1)<- paste("prior_",colnames(plantation_clim_minus1),sep="")
+
+growth.detrended.ne.df %>% 
+  left_join(plantation_clim) %>% 
+  left_join(plantation_clim_minus1, by=c("year" = "prior_year", "CN" = "prior_CN")) %>% View()
+
+plantation_clim_cor<- plantation_clim %>% 
+  select(c(CN:year,ppt_gs:ppt_sp, vpdmax_sm:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum)) %>% 
+  left_join(plantation_clim_minus1, by=c("year" = "prior_year", "CN" = "prior_CN")) %>% 
+  ungroup() %>% 
+  filter(year>1970) %>% 
+  select(-c(CN,year)) %>% 
+  cor()
+
+plantation_clim_cor>0.7
+
+ggcorrplot(plantation_clim_cor, type="lower", insig = "blank", lab=TRUE)
+
+lm(rw_spline ~ data=growth.detrended.ne.df)
 
 
 ```
