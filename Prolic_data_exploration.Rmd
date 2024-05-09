@@ -2325,7 +2325,7 @@ tree_clim_cors %>%
 tree_clim_cors %>% 
   filter(name == "vpdmax_sm") %>% 
   group_by(Provenance) %>% 
-  summarise(meancor=mean(cor,na.rm=TRUE), sd=sd(cor, na.rm=TRUE)) %>% 
+  summarise(meancor=mean(cor_rw,na.rm=TRUE), sd=sd(cor_rw, na.rm=TRUE)) %>% 
   dplyr::arrange(meancor) %>% 
   print(n=25) ##shows provenances with highest correlations between ring width and summer vpd max
 
@@ -4470,7 +4470,57 @@ plantation_clim_cor>0.7
 
 ggcorrplot(plantation_clim_cor, type="lower", insig = "blank", lab=TRUE)
 
+growth_climate_df_ne <- growth.detrended.ne.df %>% 
+  left_join(plantation_clim) %>% 
+  select(c(CN:year,ppt_gs:ppt_sp, vpdmax_sm:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum)) %>% 
+  left_join(plantation_clim_minus1, by=c("year" = "prior_year", "CN" = "prior_CN")) %>% 
+  ungroup() %>% 
+  filter(year>1970)
+
+growth_climate_df_ne$rw_spline
+
+climvars <- colnames(growth_climate_df_ne %>% dplyr::select(-c(CN:year)))
+
+gc_cor_df_ne<-data.frame()
+for(i in 1:length(climvars)){
+  clim <- growth_climate_df_ne %>% dplyr::select(climvars[i])
+  gc.cor <- cor(clim, growth_climate_df_ne$rw_spline)
+  row <- cbind(climvars[i], gc.cor) %>% as.data.frame()
+  gc_cor_df_ne <- bind_rows(gc_cor_df_ne, row)
+}
+
+gc_cor_df_ne %>% arrange(V2)
+
+  group_by(tree) %>% 
+  summarise(cor = cor(rw_spline, ppt_gs))
+
 lm(rw_spline ~ data=growth.detrended.ne.df)
+
+raw_growth <- prov_good_nona %>%
+  mutate(year=as.numeric(row.names(prov_good_nona))) %>% 
+  pivot_longer(`32I2`:`47C2`)
+
+
+growth_climate_df_raw <- raw_growth %>% 
+  left_join(plantation_clim) %>% 
+  select(c(CN:year,ppt_gs:ppt_sp, vpdmax_sm:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum)) %>% 
+  left_join(plantation_clim_minus1, by=c("year" = "prior_year", "CN" = "prior_CN")) %>% 
+  ungroup() %>% 
+  filter(year>1970)
+
+climvars_raw <- colnames(growth_climate_df_raw %>% dplyr::select(-c(CN:year)))
+
+gc_cor_df_raw<-data.frame()
+for(i in 1:length(climvars_raw)){
+  clim <- growth_climate_df_raw %>% dplyr::select(climvars_raw[i])
+  gc.cor <- cor(clim, growth_climate_df_raw$value)
+  row <- cbind(climvars[i], gc.cor) %>% as.data.frame()
+  gc_cor_df_raw <- bind_rows(gc_cor_df_raw, row)
+}
+
+gc_cor_df_raw %>% arrange(V2)
+
+##why are none of these correlating very well with growth? look at what other correlations have been.
 
 
 ```
