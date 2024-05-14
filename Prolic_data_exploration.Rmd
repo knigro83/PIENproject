@@ -4875,3 +4875,48 @@ ggplot(data=modresultdf %>% filter(Provenance==provnames[3]), aes(x=year, y=valu
 
 
 ```
+
+```{r}
+predrought_nedata<- growth_climate_df_ne %>% 
+  select(tree, year, rw_spline) %>% 
+  filter(year > 1991) %>% 
+  left_join(growth_climate_df_ne %>% 
+  select(year, FDSI) %>% unique() %>% 
+  mutate(year = year+1) %>% 
+  rename(FDSI_prior = FDSI) %>% 
+  filter(year <2011)) %>% 
+  filter(year<2003) %>% 
+  left_join(dbh_age_good %>% select(tree,Provenance) %>% unique(), by="tree")
+
+postdrought_nedata<- growth_climate_df_ne %>% 
+  select(tree, year, rw_spline) %>% 
+  filter(year > 1991) %>% 
+  left_join(growth_climate_df_ne %>% 
+  select(year, FDSI) %>% unique() %>% 
+  mutate(year = year+1) %>% 
+  rename(FDSI_prior = FDSI) %>% 
+  filter(year <2011)) %>% 
+  filter(year>2002) %>% 
+  mutate(tree=paste("X",tree,sep="")) %>% 
+  left_join(dbh_age_good %>% select(tree,Provenance) %>% unique(), by="tree")
+
+
+ggplot(predrought_nedata, aes(x=FDSI_prior, y=rw_spline, col=tree))+
+  geom_point()+
+  geom_smooth(method="lm")
+
+treenames<- unique(predrought_nedata$tree)
+
+modresultdf_ne<- data.frame()
+for(i in 1:length(treenames)){
+  predata = predrought_nedata %>% filter(tree==treenames[i])
+  postdata = postdrought_nedata %>% filter(tree==treenames[i])
+  mod = lm(rw_spline ~ FDSI_prior, data=predata)
+  adjrsquared<- summary(mod)$adj.r.squared
+  newdata <-  predata %>% bind_cols(prediction= predict(mod)) %>% 
+  bind_rows(postdata %>% left_join(data.frame(year=seq(2003,2010,1), prediction=predict(mod, postdata)))) %>% 
+    mutate(adjrsquared = adjrsquared)
+modresultdf_ne<- bind_rows(modresultdf_ne,newdata)
+}
+
+```
