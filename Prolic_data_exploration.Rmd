@@ -717,6 +717,8 @@ falltemps <- all_temps %>% filter(month %in% c(9,10,11)) %>%
   group_by(CN, year, name) %>% 
   summarise(value_fa =mean(value))
 wintertemps <- all_temps %>% filter(month %in% c(12,1,2)) %>% 
+  mutate(year = ifelse(month=="12",year+1,year)) %>% 
+  filter(!year %in% c(1970,2017)) %>% 
   group_by(CN, year, name) %>% 
   summarise(value_wt =mean(value))
 springtemps <- all_temps %>% filter(month %in% c(3,4,5)) %>% 
@@ -759,6 +761,8 @@ vpdmax_seasonal <- as.data.frame(vpdmax_comb_plantation) %>%
   left_join(as.data.frame(vpdmax_comb_plantation) %>% 
   mutate(vpdmax = as.numeric(vpdmax), year=as.integer(year)) %>%
   filter(month %in% c(12,1,2)) %>% 
+  mutate(year = ifelse(month == "12", year+1, year)) %>% 
+  filter(!year %in% c(1970,2017)) %>% 
   group_by(CN, year) %>% 
  dplyr::summarise(vpdmax_wt = mean(vpdmax))) %>% 
   left_join(as.data.frame(vpdmax_comb_plantation) %>% 
@@ -766,6 +770,7 @@ vpdmax_seasonal <- as.data.frame(vpdmax_comb_plantation) %>%
   filter(month %in% c(3,4,5)) %>% 
   group_by(CN, year) %>% 
  dplyr::summarise(vpdmax_sp = mean(vpdmax)))
+
 
 ```
 
@@ -1955,58 +1960,58 @@ c(diam14_byseries$series == colnames(prov_all)) %>% summary()
 
 sum(prov_all$`30B3`,na.rm=T)
 diam14_byseries %>% filter(series=="30B3")
-
-diam_data14 <- prov_good %>% 
-  mutate(year=rownames(prov_good)) %>% 
-  pivot_longer(`32I2`:`47C2`) %>% 
-  na.omit() %>% 
-  filter(year <2014) %>% 
-  group_by(name) %>% 
-  summarise(minyr = min(year), maxyr = max(year), n_yrs=n(), sum_rw=sum(value), diam_rw=sum(value)*2) %>% 
-  left_join(diam14, by=c("name" = "Series")) %>% 
-  mutate(innerdbh_minus_rw = (inner_diam_mm - diam_rw)/2) %>% 
-  left_join(dbh, by=c("name"="Series", "Provenance")) %>% 
-  mutate(dbh14_mm=DBH14*10) %>% 
-  mutate(outerdbh_minus_rw = (dbh14_mm - diam_rw)/2) %>% 
-  arrange(n_yrs)
-
-ggplot()+
-  geom_point(data=diam_data14, aes(x=factor(name, levels=diam_data14$name), y=innerdbh_minus_rw, col=innerdbh_minus_rw>0))+
-  geom_hline(yintercept = 0)
-
-ggplot()+
-  geom_point(data=diam_data14, aes(x=factor(name, levels=diam_data14$name), y=outerdbh_minus_rw, col=outerdbh_minus_rw>0))+
-  geom_hline(yintercept = 0)
-  
-ggplot()+
-  geom_point(data=diam_data14, aes(x=dbh14_mm, y=diam_rw))+
-  geom_abline(slope=1, intercept=0)
-
-ggplot()+
-  geom_point(data=diam_data14, aes(x=inner_diam_mm, y=diam_rw))+
-  geom_abline(slope=1, intercept=0)
-
-
-ggplot(diam_data14, aes(x=n_yrs, y=outerdbh_minus_rw))+
-  geom_point()
-
-ggplot(diam_data14, aes(x=sum_rw, y=dbh14_mm/2, col=n_yrs))+
-  geom_point()+
-  geom_abline(slope=1, intercept=0)
-
-
-diam_data14 %>% 
-  filter(outerdbh_minus_rw<0) %>% 
-  nrow()
-
-diam_data14 %>% 
-  filter(outerdbh_minus_rw>0) %>% 
-  nrow()
-
-diam_data14 %>% 
-  filter(n_yrs < 40) %>% 
-  filter(outerdbh_minus_rw<0) %>% 
-  nrow()
+# 
+# diam_data14 <- prov_good %>% 
+#   mutate(year=rownames(prov_good)) %>% 
+#   pivot_longer(`32I2`:`47C2`) %>% 
+#   na.omit() %>% 
+#   filter(year <2014) %>% 
+#   group_by(name) %>% 
+#   summarise(minyr = min(year), maxyr = max(year), n_yrs=n(), sum_rw=sum(value), diam_rw=sum(value)*2) %>% 
+#   left_join(diam14, by=c("name" = "Series")) %>% 
+#   mutate(innerdbh_minus_rw = (inner_diam_mm - diam_rw)/2) %>% 
+#   left_join(dbh, by=c("name"="Series", "Provenance")) %>% 
+#   mutate(dbh14_mm=DBH14*10) %>% 
+#   mutate(outerdbh_minus_rw = (dbh14_mm - diam_rw)/2) %>% 
+#   arrange(n_yrs)
+# 
+# ggplot()+
+#   geom_point(data=diam_data14, aes(x=factor(name, levels=diam_data14$name), y=innerdbh_minus_rw, col=innerdbh_minus_rw>0))+
+#   geom_hline(yintercept = 0)
+# 
+# ggplot()+
+#   geom_point(data=diam_data14, aes(x=factor(name, levels=diam_data14$name), y=outerdbh_minus_rw, col=outerdbh_minus_rw>0))+
+#   geom_hline(yintercept = 0)
+#   
+# ggplot()+
+#   geom_point(data=diam_data14, aes(x=dbh14_mm, y=diam_rw))+
+#   geom_abline(slope=1, intercept=0)
+# 
+# ggplot()+
+#   geom_point(data=diam_data14, aes(x=inner_diam_mm, y=diam_rw))+
+#   geom_abline(slope=1, intercept=0)
+# 
+# 
+# ggplot(diam_data14, aes(x=n_yrs, y=outerdbh_minus_rw))+
+#   geom_point()
+# 
+# ggplot(diam_data14, aes(x=sum_rw, y=dbh14_mm/2, col=n_yrs))+
+#   geom_point()+
+#   geom_abline(slope=1, intercept=0)
+# 
+# 
+# diam_data14 %>% 
+#   filter(outerdbh_minus_rw<0) %>% 
+#   nrow()
+# 
+# diam_data14 %>% 
+#   filter(outerdbh_minus_rw>0) %>% 
+#   nrow()
+# 
+# diam_data14 %>% 
+#   filter(n_yrs < 40) %>% 
+#   filter(outerdbh_minus_rw<0) %>% 
+#   nrow()
 ```
 
 ##Detrending
@@ -2055,26 +2060,6 @@ ggplot(dbh_age_summary2, aes(x=minyr, y=DBH14, col=Provenance.y))+
 prov_all_nona<- prov_all %>% na.omit()
 colnames(prov_all_nona)
 
-prov_good_nona <- prov_all_nona %>% select(-all_of(substr(off_trees, 2,nchar(off_trees))))
-
-growth.detrended = matrix(nrow=nrow(prov_good_nona), ncol=length(colnames(prov_good_nona)))
-for(i in 1:length(prov_good_nona)){
-obj<- detrend.series(y = prov_all_nona %>% pull(colnames(prov_good_nona)[i]), y.name="growth", method="Spline")
-growth.detrended[,i]<- obj
-}
-colnames(growth.detrended) = colnames(prov_good_nona)
-growth.detrended.df <- growth.detrended %>% 
-  as.data.frame() %>% 
-  mutate(year = rownames(prov_good_nona)) %>% 
-  pivot_longer(!year, values_to = "rw_spline", names_to="tree") %>% 
-  mutate(tree=paste("X",tree,sep=""), year=as.integer(year)) %>% 
-  left_join(rwi %>% dplyr::select(Provenance, Tree) %>% unique(), by=c("tree"="Tree"))
-
-ggplot(growth.detrended.df, aes(x=year, y=rw_spline, col=tree))+
-  geom_line()+
-  geom_point()+
-  facet_wrap(~Provenance, scales = "free")+
-  theme(legend.position = "none")
 
 ##raw
 ggplot(dbh_age, aes(x=year, y=rw, col=tree))+
@@ -2126,6 +2111,27 @@ ggplot(off_provs, aes(x=year, y=rw, col=tree))+
 
 off_trees<- dbh_rwi_comp %>% 
   filter(lowsum=="yes") %>% pull(tree) %>% c("X58A4") #this is the weird tree that's half and half
+
+prov_good_nona <- prov_all_nona %>% select(-all_of(substr(off_trees, 2,nchar(off_trees))))
+
+growth.detrended = matrix(nrow=nrow(prov_good_nona), ncol=length(colnames(prov_good_nona)))
+for(i in 1:length(prov_good_nona)){
+obj<- detrend.series(y = prov_all_nona %>% pull(colnames(prov_good_nona)[i]), y.name="growth", method="Spline")
+growth.detrended[,i]<- obj
+}
+colnames(growth.detrended) = colnames(prov_good_nona)
+growth.detrended.df <- growth.detrended %>% 
+  as.data.frame() %>% 
+  mutate(year = rownames(prov_good_nona)) %>% 
+  pivot_longer(!year, values_to = "rw_spline", names_to="tree") %>% 
+  mutate(tree=paste("X",tree,sep=""), year=as.integer(year)) %>% 
+  left_join(rwi %>% dplyr::select(Provenance, Tree) %>% unique(), by=c("tree"="Tree"))
+
+ggplot(growth.detrended.df, aes(x=year, y=rw_spline, col=tree))+
+  geom_line()+
+  geom_point()+
+  facet_wrap(~Provenance, scales = "free")+
+  theme(legend.position = "none")
 
 dbh_age_corrected <- dbh_age %>% 
   mutate(rw = ifelse(tree %in% off_trees, rw*10, rw))
@@ -2237,7 +2243,7 @@ row.names(kelseyrwl) = seq(1899,2012,1)
 
 kelseyrwl*1000
 
-write.rwl(kelseyrwl*1000, "kelsey.rwl")
+#write.rwl(kelseyrwl*1000, "kelsey.rwl")
 
 kelseyrwl2 <- read.rwl("kelsey.rwl")
 
@@ -4461,6 +4467,7 @@ growth.detrended.ne.df %>%
 plantation_clim_cor<- plantation_clim %>% 
   select(c(CN:year,ppt_gs:ppt_sp, vpdmax_sm:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum)) %>% 
   left_join(plantation_clim_minus1, by=c("year" = "prior_year", "CN" = "prior_CN")) %>% 
+  filter(! year %in% c(1971)) %>% 
   ungroup() %>% 
   filter(year>1970) %>% 
   select(-c(CN,year)) %>% 
@@ -4469,6 +4476,17 @@ plantation_clim_cor<- plantation_clim %>%
 plantation_clim_cor>0.7
 
 ggcorrplot(plantation_clim_cor, type="lower", insig = "blank", lab=TRUE)
+
+plantation_clim_cor_yrof<- plantation_clim %>% 
+  select(c(CN:year,ppt_gs:ppt_sp, vpdmax_sm:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum)) %>% 
+  filter(! year %in% c(1970)) %>% 
+  ungroup() %>% 
+  filter(year>1970) %>% 
+  select(-c(CN,year)) %>% 
+  cor()
+
+ggcorrplot(plantation_clim_cor_yrof, type="lower", insig = "blank", lab=TRUE)
+
 
 growth_climate_df_ne <- growth.detrended.ne.df %>% 
   left_join(plantation_clim) %>% 
@@ -4480,21 +4498,44 @@ growth_climate_df_ne <- growth.detrended.ne.df %>%
 growth_climate_df_ne$rw_spline
 
 climvars <- colnames(growth_climate_df_ne %>% dplyr::select(-c(CN:year)))
+tree_ids_ne <- unique(growth_climate_df_ne$tree)
+
 
 gc_cor_df_ne<-data.frame()
 for(i in 1:length(climvars)){
-  clim <- growth_climate_df_ne %>% dplyr::select(climvars[i])
-  gc.cor <- cor(clim, growth_climate_df_ne$rw_spline)
-  row <- cbind(climvars[i], gc.cor) %>% as.data.frame()
+  for(j in 1:length(tree_ids_ne)){
+  clim <- growth_climate_df_ne %>% dplyr::filter(tree == tree_ids_ne[j]) %>% dplyr::select(climvars[i])
+  tree <- growth_climate_df_ne %>% dplyr::filter(tree == tree_ids_ne[j]) %>% select(rw_spline)
+  gc.cor <- cor(clim, tree)
+  row <- cbind(climvars[i], tree_ids_ne[j], gc.cor) %>% as.data.frame()
   gc_cor_df_ne <- bind_rows(gc_cor_df_ne, row)
-}
+}}
 
 gc_cor_df_ne %>% arrange(V2)
 
-  group_by(tree) %>% 
-  summarise(cor = cor(rw_spline, ppt_gs))
+gc_cor_df_ne %>% 
+  group_by(V2) %>% 
+  summarise(maxcor = max(rw_spline)) %>% 
+  left_join(gc_cor_df_ne) %>% 
+  group_by(V1) %>% 
+  summarise(n=n())
 
-lm(rw_spline ~ data=growth.detrended.ne.df)
+gc_cor_df_ne %>% 
+  group_by(V2) %>% 
+  summarise(mincor = min(rw_spline)) %>% 
+  left_join(gc_cor_df_ne) %>% 
+  arrange(desc(mincor)) %>% 
+  print(n=35)
+
+fdsi_cor_ne_provs<- gc_cor_df_ne %>% 
+  filter(V1 == "FDSI") %>% 
+  left_join(dbh_age_good %>% select(tree, Provenance) %>% unique(), by=c("V2"="tree")) %>% 
+  mutate(cor=as.numeric(rw_spline))
+  
+ggplot(fdsi_cor_ne_provs, aes(x=factor(Provenance, levels=prov_clim_states %>% arrange(Latitude) %>% pull(Provenance)), y=cor, fill=Provenance))+
+  geom_boxplot()
+
+
 
 raw_growth <- prov_good_nona %>%
   mutate(year=as.numeric(row.names(prov_good_nona))) %>% 
@@ -4509,18 +4550,207 @@ growth_climate_df_raw <- raw_growth %>%
   filter(year>1970)
 
 climvars_raw <- colnames(growth_climate_df_raw %>% dplyr::select(-c(CN:year)))
+tree_ids <- unique(growth_climate_df_raw$name)
 
 gc_cor_df_raw<-data.frame()
 for(i in 1:length(climvars_raw)){
-  clim <- growth_climate_df_raw %>% dplyr::select(climvars_raw[i])
-  gc.cor <- cor(clim, growth_climate_df_raw$value)
-  row <- cbind(climvars[i], gc.cor) %>% as.data.frame()
+  for(j in 1:length(tree_ids)){
+  clim <- growth_climate_df_raw %>% dplyr::filter(name == tree_ids[j]) %>% dplyr::select(climvars_raw[i])
+  tree <- growth_climate_df_raw %>% dplyr::filter(name == tree_ids[j]) %>% select(value)
+  gc.cor <- cor(clim, tree)
+  row <- cbind(climvars_raw[i], tree_ids[j], gc.cor) %>% as.data.frame()
   gc_cor_df_raw <- bind_rows(gc_cor_df_raw, row)
+}}
+
+gc_cor_df_raw %>% arrange(desc(value))
+
+gc_cor_df_raw %>% 
+  group_by(V2) %>% 
+  summarise(value = max(value)) %>% 
+  left_join(gc_cor_df_raw) %>% 
+  group_by(V1) %>% 
+  summarise(n=n())
+
+gc_cor_df_raw %>% 
+  group_by(V2) %>% 
+  summarise(value = min(value)) %>% 
+  left_join(gc_cor_df_raw) %>% 
+  arrange(desc(value)) %>% 
+  print(n=35)
+
+fdsi_cor_provs<- gc_cor_df_raw %>% 
+  filter(V1 == "FDSI") %>% 
+  mutate(tree=paste("X",V2, sep="")) %>% 
+  left_join(dbh_age_good %>% select(tree, Provenance) %>% unique()) %>% 
+  mutate(value=as.numeric(value))
+  
+ggplot(fdsi_cor_provs, aes(x=factor(Provenance, levels=prov_clim_states %>% arrange(Latitude) %>% pull(Provenance)), y=value, fill=Provenance))+
+  geom_boxplot()
+
+unique(fdsi_cor_provs$Provenance)
+
+unique(prov_clim_states$Provenance)
+
+##try correlating growth in year with climate in year - 1
+
+gc_cor_lag_df_raw<-data.frame()
+for(i in 1:length(climvars_raw)){
+  for(j in 1:length(tree_ids)){
+  clim <- growth_climate_df_raw %>% dplyr::filter(name == tree_ids[j]) %>% mutate(year = year+1) %>% filter(year<2011) %>%  dplyr::select(climvars_raw[i]) 
+  tree <- growth_climate_df_raw %>% dplyr::filter(name == tree_ids[j]) %>% filter(year > 1991) %>% select(value)
+  gc.cor <- cor(clim, tree)
+  row <- cbind(climvars_raw[i], tree_ids[j], gc.cor) %>% as.data.frame()
+  gc_cor_lag_df_raw <- bind_rows(gc_cor_lag_df_raw, row)
+  }}
+
+gc_cor_lag_df_raw
+
+fdsi_cor_lag_provs<- gc_cor_lag_df_raw %>% 
+  filter(V1 == "FDSI") %>% 
+  mutate(tree=paste("X",V2, sep="")) %>% 
+  left_join(dbh_age_good %>% select(tree, Provenance) %>% unique()) %>% 
+  mutate(value=as.numeric(value))
+  
+ggplot(fdsi_cor_lag_provs, aes(x=factor(Provenance, levels=prov_clim_states %>% arrange(Latitude) %>% pull(Provenance)), y=value, fill=Provenance))+
+  geom_boxplot()+
+  geom_point()
+
+ggplot(data=growth_climate_df_raw %>% mutate(tree=paste("X",tree,sep="")) %>% left_join(dbh_age_good %>% select(tree,Provenance) %>% unique(), by="tree"))+
+  geom_point(aes(x=year, y=value, col=name))+
+  #geom_line(data=growth_climate_df_raw, aes(x=year, y=value, col=name))+
+  #geom_line(data=growth_climate_df_raw, aes(x=year, y=FDSI), col="black")+
+  facet_grid(~Provenance, scales="free")
+```
+
+##linear models
+```{r}
+  
+####try just modeling one tree's growth on last year's FDSI
+testdata<- growth_climate_df_raw %>% 
+  filter(name=="32I2") %>% 
+  select(year, value) %>% 
+  filter(year > 1991) %>% 
+  left_join(growth_climate_df_raw %>% 
+  select(year, FDSI) %>% unique() %>% 
+  mutate(year = year+1) %>% 
+  rename(FDSI_prior = FDSI) %>% 
+  filter(year <2011)) %>% 
+  filter(year<2003)
+
+testmod1 <- lm(value ~ FDSI_prior, data=testdata)
+summary(testmod1)
+
+
+newdata <- growth_climate_df_raw %>% 
+  filter(name=="32I2") %>% 
+  select(year, value) %>% 
+  filter(year > 1991) %>% 
+  left_join(growth_climate_df_raw %>% 
+  select(year, FDSI) %>% unique() %>% 
+  mutate(year = year+1) %>% 
+  rename(FDSI_prior = FDSI) %>% 
+  filter(year <2011)) %>% 
+  filter(year>2002)
+
+
+testdata_predictions<- testdata %>% bind_cols(prediction= predict(testmod1)) %>% 
+  bind_rows(newdata %>% left_join(data.frame(year=seq(2003,2010,1), prediction=predict(testmod1, newdata))))
+
+ggplot(data=testdata_predictions, aes(x=year, y=value))+
+  geom_point()+
+  geom_line(col="black")+
+  geom_line(data=testdata_predictions, aes(x=year, y=prediction), col="red")+
+  geom_point(data=testdata_predictions, aes(x=year, y=prediction), col="red")+
+  geom_bar(stat="identity", aes(x=year, y=FDSI_prior))
+
+##
+predrought_rawdata<- growth_climate_df_raw %>% 
+  select(name, year, value) %>% 
+  filter(year > 1991) %>% 
+  left_join(growth_climate_df_raw %>% 
+  select(year, FDSI) %>% unique() %>% 
+  mutate(year = year+1) %>% 
+  rename(FDSI_prior = FDSI) %>% 
+  filter(year <2011)) %>% 
+  filter(year<2003) %>% 
+  mutate(tree=paste("X",name,sep="")) %>% 
+  left_join(dbh_age_good %>% select(tree,Provenance) %>% unique(), by="tree")
+
+postdrought_rawdata<- growth_climate_df_raw %>% 
+  select(name, year, value) %>% 
+  filter(year > 1991) %>% 
+  left_join(growth_climate_df_raw %>% 
+  select(year, FDSI) %>% unique() %>% 
+  mutate(year = year+1) %>% 
+  rename(FDSI_prior = FDSI) %>% 
+  filter(year <2011)) %>% 
+  filter(year>2002) %>% 
+  mutate(tree=paste("X",name,sep="")) %>% 
+  left_join(dbh_age_good %>% select(tree,Provenance) %>% unique(), by="tree")
+
+
+ggplot(predrought_rawdata, aes(x=FDSI_prior, y=value, col=tree))+
+  geom_point()+
+  geom_smooth(method="lm")
+
+treenames<- unique(predrought_rawdata$name)
+
+modresultdf<- data.frame()
+for(i in 1:length(treenames)){
+  predata = predrought_rawdata %>% filter(name==treenames[i])
+  postdata = postdrought_rawdata %>% filter(name==treenames[i])
+  mod = lm(value ~ FDSI_prior, data=predata)
+  adjrsquared<- summary(mod)$adj.r.squared
+  newdata <-  predata %>% bind_cols(prediction= predict(mod)) %>% 
+  bind_rows(postdata %>% left_join(data.frame(year=seq(2003,2010,1), prediction=predict(mod, postdata)))) %>% 
+    mutate(adjrsquared = adjrsquared)
+modresultdf<- bind_rows(modresultdf,newdata)
 }
 
-gc_cor_df_raw %>% arrange(V2)
 
-##why are none of these correlating very well with growth? look at what other correlations have been.
+ggplot(data=modresultdf %>% filter(adjrsquared>0.2), aes(x=year, y=value))+
+  geom_point()+
+  geom_line(col="black")+
+  geom_line(data=modresultdf %>% filter(adjrsquared>0.2), aes(x=year, y=prediction), col="red")+
+  geom_point(data=modresultdf %>% filter(adjrsquared>0.2), aes(x=year, y=prediction), col="red")+
+  geom_bar(stat="identity", aes(x=year, y=FDSI_prior, fill=Provenance))+
+  geom_text(data= data.frame(name=modresultdf %>% filter(adjrsquared>0.2) %>% pull(name) %>% unique(), year=1993,value=max(modresultdf %>% filter(adjrsquared>0.2) %>% pull(value)), label=modresultdf %>% filter(adjrsquared>0.2) %>% pull(adjrsquared) %>% unique()), aes(label=paste("adj r2 =", round(label,1))))+
+  geom_vline(xintercept=2003, col="darkred")+
+  facet_wrap(~name)
+
+provnames<- unique(modresultdf$Provenance)
+
+ggplot(data=modresultdf %>% filter(Provenance==provnames[1]), aes(x=year, y=value))+
+  geom_point()+
+  geom_line(col="black")+
+  geom_line(data=modresultdf %>% filter(Provenance==provnames[1]), aes(x=year, y=prediction), col="red")+
+  geom_point(data=modresultdf %>% filter(Provenance==provnames[1]), aes(x=year, y=prediction), col="red")+
+  geom_bar(stat="identity", aes(x=year, y=FDSI_prior))+
+  geom_text(data= data.frame(name=modresultdf %>% filter(Provenance==provnames[1]) %>% pull(name) %>% unique(), year=1993,value=max(modresultdf %>% filter(Provenance==provnames[1]) %>% pull(value)), label=modresultdf %>% filter(Provenance==provnames[1]) %>% pull(adjrsquared) %>% unique()), aes(label=paste("adj r2 =", round(label,1))))+
+  facet_wrap(~name)+
+  ggtitle(provnames[1])
+
+ggplot(data=modresultdf %>% filter(Provenance==provnames[2]), aes(x=year, y=value))+
+  geom_point()+
+  geom_line(col="black")+
+  geom_line(data=modresultdf %>% filter(Provenance==provnames[2]), aes(x=year, y=prediction), col="red")+
+  geom_point(data=modresultdf %>% filter(Provenance==provnames[2]), aes(x=year, y=prediction), col="red")+
+  geom_bar(stat="identity", aes(x=year, y=FDSI_prior))+
+  geom_text(data= data.frame(name=modresultdf %>% filter(Provenance==provnames[2]) %>% pull(name) %>% unique(), year=1993,value=max(modresultdf %>% filter(Provenance==provnames[2]) %>% pull(value)), label=modresultdf %>% filter(Provenance==provnames[2]) %>% pull(adjrsquared) %>% unique()), aes(label=paste("adj r2 =", round(label,2))))+
+  facet_wrap(~name)+
+  ggtitle(provnames[2])
+
+ggplot(data=modresultdf %>% filter(Provenance==provnames[3]), aes(x=year, y=value))+
+  geom_point()+
+  geom_line(col="black")+
+  geom_line(data=modresultdf %>% filter(Provenance==provnames[3]), aes(x=year, y=prediction), col="red")+
+  geom_point(data=modresultdf %>% filter(Provenance==provnames[3]), aes(x=year, y=prediction), col="red")+
+  geom_bar(stat="identity", aes(x=year, y=FDSI_prior))+
+  geom_text(data= data.frame(name=modresultdf %>% filter(Provenance==provnames[3]) %>% pull(name) %>% unique(), year=1993,value=max(modresultdf %>% filter(Provenance==provnames[3]) %>% pull(value)), label=modresultdf %>% filter(Provenance==provnames[3]) %>% pull(adjrsquared) %>% unique()), aes(label=paste("adj r2 =", round(label,2))))+
+  facet_wrap(~name)+
+  ggtitle(provnames[3])
+
+
 
 
 ```
