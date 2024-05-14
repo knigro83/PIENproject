@@ -10,6 +10,8 @@ editor_options:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+#Set up 
+
 ```{r}
 #load required packages
 library(terra)
@@ -4456,7 +4458,7 @@ ggplot(recover.rate.ne.df03, aes(x=Provenance, y=recover.rate))+
 
 
 plantation_clim_minus1<- plantation_clim %>% mutate(year = year+1) %>% 
-  select(c(CN:year,ppt_gs:ppt_sp, vpdmax_sm:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum))
+  select(c(CN:year,ppt_gs:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum))
 
 colnames(plantation_clim_minus1)<- paste("prior_",colnames(plantation_clim_minus1),sep="")
 
@@ -4465,7 +4467,7 @@ growth.detrended.ne.df %>%
   left_join(plantation_clim_minus1, by=c("year" = "prior_year", "CN" = "prior_CN")) %>% View()
 
 plantation_clim_cor<- plantation_clim %>% 
-  select(c(CN:year,ppt_gs:ppt_sp, vpdmax_sm:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum)) %>% 
+  select(c(CN:year,ppt_gs:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum)) %>% 
   left_join(plantation_clim_minus1, by=c("year" = "prior_year", "CN" = "prior_CN")) %>% 
   filter(! year %in% c(1971)) %>% 
   ungroup() %>% 
@@ -4478,7 +4480,7 @@ plantation_clim_cor>0.7
 ggcorrplot(plantation_clim_cor, type="lower", insig = "blank", lab=TRUE)
 
 plantation_clim_cor_yrof<- plantation_clim %>% 
-  select(c(CN:year,ppt_gs:ppt_sp, vpdmax_sm:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum)) %>% 
+  select(c(CN:year,ppt_gs:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum)) %>% 
   filter(! year %in% c(1970)) %>% 
   ungroup() %>% 
   filter(year>1970) %>% 
@@ -4544,7 +4546,7 @@ raw_growth <- prov_good_nona %>%
 
 growth_climate_df_raw <- raw_growth %>% 
   left_join(plantation_clim) %>% 
-  select(c(CN:year,ppt_gs:ppt_sp, vpdmax_sm:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum)) %>% 
+  select(c(CN:year,ppt_gs:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum)) %>% 
   left_join(plantation_clim_minus1, by=c("year" = "prior_year", "CN" = "prior_CN")) %>% 
   ungroup() %>% 
   filter(year>1970)
@@ -4662,6 +4664,125 @@ ggplot(data=testdata_predictions, aes(x=year, y=value))+
   geom_line(data=testdata_predictions, aes(x=year, y=prediction), col="red")+
   geom_point(data=testdata_predictions, aes(x=year, y=prediction), col="red")+
   geom_bar(stat="identity", aes(x=year, y=FDSI_prior))
+
+##build a bigger model
+testdata_big <- growth_climate_df_raw %>% 
+  filter(name=="32I2") %>% 
+  select(year, value) %>% 
+  filter(year > 1991) %>% 
+  left_join(growth_climate_df_raw) %>% 
+  mutate(age = year - 1970) 
+
+testbigmod <- lm(value ~ ppt_wt + ppt_fa + ppt_gs + value_sm_tmax +  value_sp_tmax + value_fa_tmax  + age, data=testdata_big)
+
+testdata_big %>% 
+select(c(ppt_wt , ppt_fa , ppt_gs , ppt_sp , value_sm_tmin , value_sm_tmax , value_sp_tmin , value_sp_tmax , value_wt_tmin , value_wt_tmax , value_fa_tmin , value_fa_tmax)) %>% 
+  cor() %>% 
+  ggcorrplot(type="lower", insig = "blank", lab=TRUE)
+
+summary(testbigmod)
+vif(testbigmod)
+
+testbigmod_prior <- lm(value ~ prior_ppt_wt +  prior_ppt_fa +  prior_ppt_gs +  prior_value_sm_tmax +   prior_value_sp_tmax +  prior_value_fa_tmax  + age, data=testdata_big)
+
+summary(testbigmod_prior)
+vif(testbigmod_prior)
+
+testbigmod_both <- lm(value ~ ppt_wt + ppt_fa + ppt_gs + value_sm_tmax +  value_sp_tmax + value_fa_tmax + prior_ppt_wt +  prior_ppt_fa +  prior_ppt_gs +  prior_value_sm_tmax +   prior_value_sp_tmax +  prior_value_fa_tmax  + age, data=testdata_big)
+
+summary(testbigmod_both)
+vif(testbigmod_both)
+
+testdata_big %>% 
+select(c(ppt_wt , ppt_fa , ppt_gs , value_sm_tmax ,  value_sp_tmax , value_fa_tmax , prior_ppt_wt ,  prior_ppt_fa ,  prior_ppt_gs ,  prior_value_sm_tmax ,   prior_value_sp_tmax ,  prior_value_fa_tmax)) %>% 
+  cor() %>% 
+  ggcorrplot(type="lower", insig = "blank", lab=TRUE)
+
+##vpd model
+testvpdmod <- lm(value ~ vpdmax_sm + vpdmax_fa + vpdmax_wt + age, data=testdata_big)
+summary(testvpdmod)
+vif(testvpdmod)
+
+testvpdmod_both <- lm(value ~ vpdmax_sm + vpdmax_fa + vpdmax_wt  +  prior_vpdmax_sm + prior_vpdmax_fa + prior_vpdmax_wt + age, data=testdata_big)
+summary(testvpdmod_both)
+vif(testvpdmod_both)
+
+testdata_big %>% 
+select(c(vpdmax_sm , vpdmax_fa , vpdmax_wt , vpdmax_sp ,  prior_vpdmax_sm , prior_vpdmax_fa , prior_vpdmax_wt , prior_vpdmax_sp )) %>% 
+  cor() %>% 
+  ggcorrplot(type="lower", insig = "blank", lab=TRUE)
+
+##model with aggregate variables
+testdata_big %>% 
+select(c(FDSI, aet_sum, cwd_wy, spei_sum)) %>% 
+  cor() %>% 
+  ggcorrplot(type="lower", insig = "blank", lab=TRUE)
+
+testmod_agg <- lm(value ~ FDSI + aet_sum + cwd_wy + spei_sum + age, data=testdata_big)
+
+summary(testmod_agg)
+
+##try with detrended data
+testdata_ne <- growth_climate_df_ne %>% 
+  filter(tree=="X32I2") %>% 
+  select(year, rw_spline) %>% 
+  left_join(growth_climate_df_ne) %>% 
+  mutate(age = year - 1970) 
+
+testmod_agg_ne <- lm(rw_spline ~ FDSI + aet_sum + cwd_wy, data=testdata_ne)
+summary(testmod_agg_ne)
+vif(testmod_agg_ne)
+
+testmod_agg_ne_prior <- lm(rw_spline ~ prior_FDSI + prior_aet_sum + prior_cwd_wy, data=testdata_ne)
+summary(testmod_agg_ne_prior)
+vif(testmod_agg_ne_prior)
+
+testmod_agg_ne_both <- lm(rw_spline ~ FDSI + aet_sum + cwd_wy + prior_FDSI + prior_aet_sum + prior_cwd_wy, data=testdata_ne)
+summary(testmod_agg_ne_both)
+vif(testmod_agg_ne_both)
+
+##vpd
+testvpdmod_ne <- lm(rw_spline ~ vpdmax_sm + vpdmax_fa + vpdmax_wt  + age, data=testdata_ne)
+summary(testvpdmod_ne)
+vif(testvpdmod_ne)
+
+testvpdmod_both_ne <- lm(rw_spline ~ vpdmax_sm + vpdmax_fa + vpdmax_wt  +  prior_vpdmax_sm + prior_vpdmax_fa + prior_vpdmax_wt  + age, data=testdata_ne)
+summary(testvpdmod_both_ne)
+vif(testvpdmod_both_ne)
+
+##do these detrended models for pre drought
+testdata_ne_predrought<- testdata_ne %>% 
+  filter(year<2002)
+
+#agg
+testmod_agg_ne_pre <- lm(rw_spline ~ FDSI + aet_sum + cwd_wy, data=testdata_ne_predrought)
+summary(testmod_agg_ne_pre)
+vif(testmod_agg_ne_pre)
+
+#vpd
+testvpdmod_ne_pre <- lm(rw_spline ~ vpdmax_sm + vpdmax_fa + vpdmax_wt  + age, data=testdata_ne_predrought)
+summary(testvpdmod_ne_pre)
+vif(testvpdmod_ne_pre)
+
+#vpd both
+testvpdmod_both_ne_pre <- lm(rw_spline ~ vpdmax_sm + vpdmax_fa + vpdmax_wt  +  prior_vpdmax_sm  + prior_vpdmax_wt + age, data=testdata_ne_predrought)
+summary(testvpdmod_both_ne_pre)
+vif(testvpdmod_both_ne_pre)
+
+##try these models for all data with random nested effect of tree within provenance
+gc_alltrees_ne <- growth_climate_df_ne %>% 
+  mutate(age = year - 1970) 
+
+aggmod_ne <- lmer(rw_spline ~ FDSI + aet_sum + cwd_wy + (1|Provenance) + (1|Provenance:tree), data=gc_alltrees_ne)
+summary(aggmod_ne)
+plot(aggmod_ne)
+
+vif(aggmod_ne)
+
+vpdmod_ne <- lmer(rw_spline ~ vpdmax_sm + vpdmax_fa + vpdmax_wt + (1|Provenance) + (1|Provenance:tree), data=gc_alltrees_ne)
+summary(vpdmod_ne)
+vif(vpdmod_ne)
+
 
 ##
 predrought_rawdata<- growth_climate_df_raw %>% 
