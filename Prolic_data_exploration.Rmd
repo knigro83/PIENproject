@@ -31,6 +31,12 @@ library(dplR)
 library(ggpubr)
 library(ggrepel)
 library(ggcorrplot)
+library(MuMIn)
+
+library(vegan)
+library(cluster)
+library(MASS)
+library(indicspecies)
 ```
 
 #Climate
@@ -135,6 +141,63 @@ ggplot(prov_clim_compare %>% filter(!name%in%c("Latitude","Longitude")), aes(x=n
   geom_point()+
   facet_wrap(~Provenance, scales="free")+
   theme(axis.text.x = element_text(angle=45, hjust=1))
+
+
+```
+
+#K Means
+
+```{r}
+prov_clim_adjusted_bi_wide <- prov_clim_adjusted_bi %>% 
+  mutate(no=ifelse(is.na(no),"Plan",no)) %>% 
+  dplyr::select(c(Provenance,MAT:PPT_sm, smrpb, monsoonality))
+
+rownames(prov_clim_adjusted_bi_wide)<- prov_clim_adjusted_bi_wide$Provenance
+
+adjbi_prov_clim_scaled <- prov_clim_adjusted_bi_wide %>% select(-Provenance) %>% as.data.frame() %>% scale()
+adjbi_prov_clim_eucdist <- vegdist(prov_clim_adjusted_bi_wide %>% dplyr::select(-Provenance) %>% as.data.frame(), method="euclidean")
+
+
+set.seed(83)
+env.euc<-vegdist(adjbi_prov_clim_scaled,"euclidian")
+env.clust.ward<-hclust(env.euc,"ward.D2")
+plot(env.clust.ward, hang=-1)
+
+
+pam4<-pam(adjbi_prov_clim_eucdist,k=4)
+pam4
+pam4$clustering #view cluster membership
+pam4$clusinfo
+plot(pam4)
+
+pam5<-pam(adjbi_prov_clim_eucdist,k=5)
+pam5
+pam5$clustering #view cluster membership
+pam5$clusinfo
+plot(pam5)
+
+pam6<-pam(adjbi_prov_clim_eucdist,k=6)
+pam6
+pam6$clustering #view cluster membership
+pam6$clusinfo
+plot(pam6)
+
+pam7<-pam(adjbi_prov_clim_eucdist,k=7)
+pam7
+pam7$clustering #view cluster membership - I think this is the best
+pam7$clusinfo
+plot(pam7)
+
+pam8<-pam(adjbi_prov_clim_eucdist,k=8)
+pam8
+pam8$clustering #view cluster membership
+pam8$clusinfo
+plot(pam8)
+
+pam7$silinfo$avg.width
+pam6$silinfo$avg.width #6 groups best by this metric
+pam5$silinfo$avg.width
+pam8$silinfo$avg.width
 
 
 ```
@@ -1021,7 +1084,7 @@ ggplot(plantation_clim_long_qs, aes(x=year, y=value, col=name))+
 #make PCA
 
 #first look at correlations in climate variables
-env_vars<- prov_clim %>% 
+env_vars<- prov_clim_adjusted_bi %>% 
   dplyr::select(c(MAT:pas,smrpb))
 
 env_vars %>% 
@@ -1077,12 +1140,14 @@ as.data.frame(clim_pca$rotation[,1:3]) %>%
 prov_pcapts<- clim_pca$x %>% 
   cbind(prov_clim) %>% 
   mutate(state = substr(ident,6,7), number = substr(ident, 1,4)) %>% 
-  left_join(prov_names)
+  left_join(prov_names) %>% 
+  left_join(data.frame(cluster=pam7$clustering) %>% mutate(Provenance=rownames(data.frame(cluster=pam7$clustering))) %>% 
+              mutate(Provenance = ifelse(Provenance=="Grand Mesa-Uncompahgre NF","GM-U NF",Provenance)))
 
 state.colors <- c(brewer.pal(n=9, name="Set1")[-6],"darkolivegreen")
 
 autoplot(clim_pca,x=1,y=2,colour="aquamarine3",loadings.colour="red", loadings=T, loadings.label=T, loadings.label.colour="black", scale=0, loadings.label.size=6)+
-  geom_point(data=prov_pcapts, aes(x=PC1, y=PC2, col=state), size=5)+
+  geom_point(data=prov_pcapts, aes(x=PC1, y=PC2, col=factor(cluster)), size=5)+
   geom_text_repel(data=prov_pcapts, aes(x=PC1, y=PC2, label=code))+
   scale_color_manual(values=state.colors)+
   theme(text=element_text(size=14, color="black"))
@@ -4518,9 +4583,9 @@ gc_cor_df_ne %>% arrange(V2)
 gc_cor_df_ne %>% 
   group_by(V2) %>% 
   summarise(maxcor = max(rw_spline)) %>% 
-  left_join(gc_cor_df_ne) %>% 
+  left_join(gc_cor_df_ne, by=c("maxcor"="rw_spline", "V2")) %>% 
   group_by(V1) %>% 
-  summarise(n=n())
+  summarise(n=n()) %>% print(n=50)
 
 gc_cor_df_ne %>% 
   group_by(V2) %>% 
@@ -4770,18 +4835,77 @@ summary(testvpdmod_both_ne_pre)
 vif(testvpdmod_both_ne_pre)
 
 ##try these models for all data with random nested effect of tree within provenance
-gc_alltrees_ne <- growth_climate_df_ne %>% 
-  mutate(age = year - 1970) 
+gc_alltrees_ne <- growth_climate_df_ne_allyrs %>% 
+  mutate(age = year - 1970) %>% 
+  filter(!is.na(rw_spline))
 
 aggmod_ne <- lmer(rw_spline ~ FDSI + aet_sum + cwd_wy + (1|Provenance) + (1|Provenance:tree), data=gc_alltrees_ne)
 summary(aggmod_ne)
 plot(aggmod_ne)
-
 vif(aggmod_ne)
 
 vpdmod_ne <- lmer(rw_spline ~ vpdmax_sm + vpdmax_fa + vpdmax_wt + (1|Provenance) + (1|Provenance:tree), data=gc_alltrees_ne)
 summary(vpdmod_ne)
 vif(vpdmod_ne)
+
+##FDSI models with all years and all trees
+fdsi_mod_ne <- lmer(rw_spline ~ FDSI + prior_FDSI + (1|Provenance) + (1|Provenance:tree), data=gc_alltrees_ne)
+summary(fdsi_mod_ne)
+fdsi_mod_ne_prov <- lmer(rw_spline ~ FDSI + prior_FDSI + (1|Provenance), data=gc_alltrees_ne)
+summary(fdsi_mod_ne_prov)
+fdsi_mod_ne_tree <- lmer(rw_spline ~ FDSI + prior_FDSI + (1|tree), data=gc_alltrees_ne)
+summary(fdsi_mod_ne_tree) ##the fact that all the random effects produce singular models with no variance attributed to tree or provenance makes me think that the relationship between growth and FDSI does not vary significantly between provenances or between trees (i.e., they all respond similarly to FDSI and prior FDSI)
+
+fdsi_mod_ne_lm <- lm(rw_spline ~ FDSI + prior_FDSI, data=gc_alltrees_ne)
+summary(fdsi_mod_ne_lm)
+
+##SPEI models with all years and all trees
+gc_alltrees_ne %>% select(spei_sum, prior_spei_sum) %>% cor()
+
+spei_mod_ne <- lmer(rw_spline ~ spei_sum + prior_spei_sum + (1|Provenance) + (1|Provenance:tree), data=gc_alltrees_ne)
+summary(spei_mod_ne)
+spei_mod_ne_prov <- lmer(rw_spline ~ spei_sum + prior_spei_sum + (1|Provenance), data=gc_alltrees_ne)
+summary(spei_mod_ne_prov)
+spei_mod_ne_tree <- lmer(rw_spline ~ spei_sum + prior_spei_sum + (1|tree), data=gc_alltrees_ne)
+summary(spei_mod_ne_tree) ##the fact that all the random effects produce singular models with no variance attributed to tree or provenance makes me think that the relationship between growth and spei does not vary significantly between provenances or between trees (i.e., they all respond similarly to spei and prior spei)
+
+spei_mod_ne_lm <- lm(rw_spline ~ spei_sum*prior_spei_sum, data=gc_alltrees_ne)
+summary(spei_mod_ne_lm)
+
+ggplot(gc_alltrees_ne %>% mutate(prior_cat = case_when(
+  prior_spei_sum < -1.99 ~ "extremely dry",
+  prior_spei_sum < -.99 & prior_spei_sum > -2 ~ "dry",
+  prior_spei_sum < 1 & prior_spei_sum > -1 ~ "normal",
+  prior_spei_sum < 2 & prior_spei_sum > 0.99 ~ "wet",
+  prior_spei_sum > 2 ~ "extremely wet")), 
+  aes(x=spei_sum, y=rw_spline, col=prior_cat))+
+  geom_point()+
+  geom_smooth(method="lm")
+
+ggplot(gc_alltrees_ne %>% filter(year<2002),aes(x=spei_sum, y=rw_spline, col=prior_spei_sum>0))+
+  geom_point()+
+  geom_smooth(method="lm")
+
+##try as many clim variables as possible
+
+##ppt & temp
+TPmod_ne_both <- lmer(rw_spline ~ ppt_wt + ppt_fa + ppt_gs + value_sm_tmax +  value_sp_tmax + value_fa_tmax + prior_ppt_wt +  prior_ppt_fa +  prior_ppt_gs +  prior_value_sm_tmax +   prior_value_sp_tmax +  prior_value_fa_tmax  + age + (1|Provenance) + (1|Provenance:tree), data=gc_alltrees_ne)
+summary(TPmod_ne_both) #singular so random effects not needed
+
+TPmod_ne_both_lm <- lm(rw_spline ~ ppt_wt*prior_ppt_wt + ppt_fa*prior_ppt_fa + ppt_gs*prior_ppt_gs + value_sm_tmax*prior_value_sm_tmax +  value_sp_tmax*prior_value_sp_tmax + value_fa_tmax*prior_value_fa_tmax + age, data=gc_alltrees_ne)
+summary(TPmod_ne_both_lm)
+
+options(na.action = "na.fail")
+TPmod_ne_both_lm_dredge <- dredge(TPmod_ne_both_lm)
+TPmod_ne_both_lm_dredge %>% as.data.frame() %>% filter(delta<2)
+
+##vpd
+
+
+
+##aggregated indices
+
+
 
 
 ##
@@ -4897,7 +5021,6 @@ postdrought_nedata<- growth_climate_df_ne %>%
   rename(FDSI_prior = FDSI) %>% 
   filter(year <2011)) %>% 
   filter(year>2002) %>% 
-  mutate(tree=paste("X",tree,sep="")) %>% 
   left_join(dbh_age_good %>% select(tree,Provenance) %>% unique(), by="tree")
 
 
@@ -4918,5 +5041,190 @@ for(i in 1:length(treenames)){
     mutate(adjrsquared = adjrsquared)
 modresultdf_ne<- bind_rows(modresultdf_ne,newdata)
 }
+
+modresultdf_ne %>% 
+  filter(adjrsquared>0.2) %>% 
+  pull(tree) %>% unique()
+
+ggplot(data=modresultdf_ne %>% filter(adjrsquared>0.2), aes(x=year, y=rw_spline))+
+  geom_point()+
+  geom_line(col="black")+
+  geom_line(data=modresultdf_ne %>% filter(adjrsquared>0.2), aes(x=year, y=prediction), col="red")+
+  geom_point(data=modresultdf_ne %>% filter(adjrsquared>0.2), aes(x=year, y=prediction), col="red")+
+  geom_bar(stat="identity", aes(x=year, y=FDSI_prior, fill=Provenance))+
+  geom_text(data= data.frame(tree=modresultdf_ne %>% filter(adjrsquared>0.2) %>% pull(tree) %>% unique(), year=1993,rw_spline=max(modresultdf_ne %>% filter(adjrsquared>0.2) %>% pull(rw_spline)), label=modresultdf_ne %>% filter(adjrsquared>0.2) %>% pull(adjrsquared) %>% unique()), aes(label=paste("adj r2 =", round(label,1))))+
+  geom_vline(xintercept=2003, col="darkred")+
+  facet_wrap(~tree)
+
+
+```
+
+##detrending whole series
+
+```{r}
+###negative exponential detrending with dplr
+prov_good_allyrs <- prov_all %>% select(-all_of(substr(off_trees, 2,nchar(off_trees))))
+
+growth.detrended.ne.allyrs = matrix(nrow=nrow(prov_good_allyrs), ncol=length(colnames(prov_good_allyrs)))
+for(i in 1:length(prov_good_allyrs)){
+obj<- detrend.series(y = prov_good_allyrs %>% pull(colnames(prov_good_allyrs)[i]), y.name="growth", method="ModNegExp")
+growth.detrended.ne.allyrs[,i]<- obj
+}
+
+colnames(growth.detrended.ne.allyrs) = colnames(prov_good_allyrs)
+growth.detrended.ne.allyrs.df <- growth.detrended.ne.allyrs %>% 
+  as.data.frame() %>% 
+  mutate(year = rownames(prov_good_allyrs)) %>% 
+  pivot_longer(!year, values_to = "rw_spline", names_to="tree") %>% 
+  mutate(tree=paste("X",tree,sep=""), year=as.integer(year)) %>% 
+  left_join(rwi %>% dplyr::select(Provenance, Tree) %>% unique(), by=c("tree"="Tree"))
+
+
+growth_climate_df_ne_allyrs <- growth.detrended.ne.allyrs.df %>% 
+  left_join(plantation_clim) %>% 
+  dplyr::select(c(CN:year,ppt_gs:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum)) %>% 
+  left_join(plantation_clim_minus1, by=c("year" = "prior_year", "CN" = "prior_CN")) %>% 
+  ungroup() %>% 
+  filter(year>1970)
+
+
+predrought_nedata_allyrs<- growth_climate_df_ne_allyrs %>% 
+  select(tree, year, rw_spline, FDSI, prior_FDSI) %>% 
+  filter(year<2002 & year>1971) %>% 
+  filter(!is.na(rw_spline)) %>% 
+  left_join(dbh_age_good %>% select(tree,Provenance) %>% unique(), by="tree") 
+
+
+postdrought_nedata_allyrs<- growth_climate_df_ne_allyrs %>% 
+  select(tree, year, rw_spline, FDSI, prior_FDSI) %>% 
+  filter(year>2001 & year < 2016) %>% 
+  left_join(dbh_age_good %>% select(tree,Provenance) %>% unique(), by="tree") %>% 
+  filter(!is.na(rw_spline))
+
+treenames<- unique(predrought_nedata_allyrs$tree)
+
+modresultdf_ne_allyrs<- data.frame()
+for(i in 1:length(treenames)){
+  predata = predrought_nedata_allyrs %>% filter(tree==treenames[i])
+  postdata = postdrought_nedata_allyrs %>% filter(tree==treenames[i])
+  mod = lm(rw_spline ~ FDSI + prior_FDSI, data=predata)
+  adjrsquared<- summary(mod)$adj.r.squared
+  postclim <- growth_climate_df_ne_allyrs %>% select(year,FDSI,prior_FDSI) %>% filter(year>2001 & year < 2016) %>% unique()
+  newdata <-  predata %>% bind_cols(prediction= predict(mod)) %>% 
+  bind_rows(postdata %>% left_join(data.frame(year=seq(2002,2015,1), prediction=predict(mod, postclim)))) %>% 
+    mutate(adjrsquared = adjrsquared)
+modresultdf_ne_allyrs<- bind_rows(modresultdf_ne_allyrs,newdata)
+}
+
+modresultdf_ne_allyrs %>% 
+  filter(adjrsquared>0.2) %>% 
+  pull(tree) %>% unique()
+
+ggplot(data=modresultdf_ne_allyrs %>% filter(adjrsquared>0.2), aes(x=year, y=rw_spline))+
+  geom_point()+
+  geom_line(col="black")+
+  geom_line(data=modresultdf_ne_allyrs %>% filter(adjrsquared>0.2), aes(x=year, y=prediction), col="red")+
+  geom_point(data=modresultdf_ne_allyrs %>% filter(adjrsquared>0.2), aes(x=year, y=prediction), col="red")+
+  geom_bar(stat="identity", aes(x=year, y=FDSI, fill=Provenance))+
+  geom_text(data= data.frame(tree=modresultdf_ne_allyrs %>% filter(adjrsquared>0.2) %>% pull(tree) %>% unique(), year=1993,rw_spline=max(modresultdf_ne_allyrs %>% filter(adjrsquared>0.2) %>% pull(rw_spline)), label=modresultdf_ne_allyrs %>% filter(adjrsquared>0.2) %>% pull(adjrsquared) %>% unique()), aes(label=paste("adj r2 =", round(label,1))))+
+  geom_vline(xintercept=2002, col="darkred")+
+  facet_wrap(~tree)
+
+```
+
+#Correlations
+
+```{r}
+climvars <- colnames(gc_alltrees_ne %>% dplyr::select(-c(CN:year,age)))
+tree_ids_ne <- unique(gc_alltrees_ne$tree)
+
+gc_cor_df_ne_allyrs<-data.frame()
+for(i in 1:length(climvars)){
+  for(j in 1:length(tree_ids_ne)){
+  clim <- gc_alltrees_ne %>% dplyr::filter(tree == tree_ids_ne[j]) %>% dplyr::select(climvars[i])
+  tree <- gc_alltrees_ne %>% dplyr::filter(tree == tree_ids_ne[j]) %>% select(rw_spline)
+  gc.cor <- cor(clim, tree)
+  row <- cbind(climvars[i], tree_ids_ne[j], gc.cor) %>% as.data.frame()
+  gc_cor_df_ne_allyrs <- bind_rows(gc_cor_df_ne_allyrs, row)
+}}
+
+gc_cor_df_ne %>% arrange(V2)
+
+gc_cor_df_ne_allyrs %>% 
+  group_by(V2) %>% 
+  summarise(maxcor = as.numeric(max(rw_spline, na.rm=T))) %>% View()
+
+gc_cor_df_ne_allyrs %>% 
+  group_by(V2) %>% 
+  summarise(maxcor = max(rw_spline, na.rm=T)) %>% 
+  left_join(gc_cor_df_ne_allyrs, by=c("maxcor"="rw_spline", "V2")) %>% 
+  group_by(V1) %>% 
+  summarise(n=n()) %>% print(n=50)
+
+cor_clean <- gc_cor_df_ne_allyrs %>% 
+  rename(climvar=V1, tree=V2, cor=rw_spline) %>%
+  mutate(cor = as.numeric(cor)) %>% 
+  left_join(gc_alltrees_ne %>% select(tree,Provenance) %>% unique(), by="tree") %>% 
+  filter(!is.na(cor))
+  
+cor_summary<- gc_cor_df_ne_allyrs %>% 
+  rename(climvar=V1, tree=V2, cor=rw_spline) %>%
+  mutate(cor = as.numeric(cor)) %>% 
+  left_join(gc_alltrees_ne %>% select(tree,Provenance) %>% unique(), by="tree") %>% 
+  filter(!is.na(cor)) %>% 
+  group_by(Provenance, climvar) %>% 
+  summarise(meancor = mean(cor), se=sd(cor)/sqrt(n())) %>% 
+  ungroup()
+
+ggplot(cor_summary %>% filter(abs(meancor)>0.2), aes(x=climvar, y=meancor, fill=climvar))+
+  geom_bar(stat="identity")+
+  geom_errorbar(aes(ymax = meancor+se, ymin=meancor-se), width=0.2)+
+  facet_grid(~Provenance)+
+  coord_flip()+
+  geom_hline(yintercept=0)
+
+cor_summary %>% 
+  group_by(Provenance) %>% 
+  summarise(maxmeancor = max(meancor)) %>% 
+  arrange(maxmeancor)
+
+ggplot(cor_clean %>% inner_join(cor_summary %>% filter(abs(meancor)>0.2)), aes(x=climvar, y=cor, fill=climvar))+
+  geom_boxplot()+
+  geom_point()+
+  facet_grid(~Provenance)+
+  coord_flip()+
+  geom_hline(yintercept=0)
+
+
+cor_provclim<- cor_clean %>% left_join(
+prov_clim_adjusted_bi %>% 
+  mutate(Provenance = ifelse(Provenance=="Grand Mesa-Uncompahgre NF","GM-U NF",Provenance)) %>% 
+  dplyr::select(c(Provenance,MAT:pas,smrpb)), by="Provenance") %>% 
+  left_join(data.frame(cluster=pam7$clustering) %>% mutate(Provenance=rownames(data.frame(cluster=pam7$clustering))) %>% mutate(Provenance = ifelse(Provenance=="Grand Mesa-Uncompahgre NF","GM-U NF",Provenance))) 
+
+provmatmod<- lmer(cor ~ MAT + (1|Provenance), data=cor_provclim %>% filter(climvar=="prior_FDSI"))
+summary(provmatmod)
+
+clustermod <- aov(cor ~ factor(cluster), data=cor_provclim %>% filter(climvar=="prior_FDSI"))
+summary(clustermod)
+TukeyHSD(clustermod)
+
+ggplot(cor_provclim %>% filter(climvar=="prior_FDSI"), aes(x=factor(cluster), y=cor))+
+  geom_boxplot()
+
+cor_provclim_long <- pivot_longer(cor_provclim, MAT:smrpb)
+
+# makes plot for every plantation and provenance clim variable
+
+# pdf(file="correlation_by_provclim.pdf")
+# for(i in 1:length(climvars)){
+# plot<- ggplot(cor_provclim_long %>% filter(climvar==climvars[i]), aes(x=value, y=cor))+
+#   geom_point()+
+#   geom_smooth(method="lm")+
+#   facet_wrap(~name, scales="free")+
+#   ggtitle(climvars[i])
+# print(plot)
+# }
+# dev.off()
 
 ```
