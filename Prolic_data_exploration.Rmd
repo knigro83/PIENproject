@@ -25,6 +25,7 @@ library(ggfortify)
 library(RColorBrewer)
 library(tidyr)
 library(lme4)
+library(lmerTest)
 library(car)
 library(viridis)
 library(dplR)
@@ -32,7 +33,6 @@ library(ggpubr)
 library(ggrepel)
 library(ggcorrplot)
 library(MuMIn)
-
 library(vegan)
 library(cluster)
 library(MASS)
@@ -154,7 +154,7 @@ prov_clim_adjusted_bi_wide <- prov_clim_adjusted_bi %>%
 
 rownames(prov_clim_adjusted_bi_wide)<- prov_clim_adjusted_bi_wide$Provenance
 
-adjbi_prov_clim_scaled <- prov_clim_adjusted_bi_wide %>% select(-Provenance) %>% as.data.frame() %>% scale()
+adjbi_prov_clim_scaled <- prov_clim_adjusted_bi_wide %>% dplyr::select(-Provenance) %>% as.data.frame() %>% scale()
 adjbi_prov_clim_eucdist <- vegdist(prov_clim_adjusted_bi_wide %>% dplyr::select(-Provenance) %>% as.data.frame(), method="euclidean")
 
 
@@ -853,7 +853,7 @@ nrow(all_climate)
 nrow(tmin_comb_plantation)
 
 all_climate_long <- all_climate %>% 
-  select(-X) %>% 
+ dplyr::select(-X) %>% 
   pivot_longer(c("ppt","tmax","tmin","tmean","vpdmax","vpdmin","vpdmean"), names_to="climvar", values_to = "value") %>% 
   mutate(monthvar = paste(climvar,month,sep=""))
 
@@ -876,7 +876,7 @@ climate_allyears <- rbind(all_climate_long, climate_minus1, climate_minus2)
 # DOI: 10.1038/NCLIMATE1693
 #https://www.nature.com/articles/nclimate1693
 FDSI_C <- climate_allyears %>%
-  select(-c("date","month","climvar")) %>% 
+ dplyr::select(-c("date","month","climvar")) %>% 
   pivot_wider(id_cols=c("CN","year"), names_from = monthvar, values_from = value)
 
 head(FDSI_C)
@@ -1056,7 +1056,7 @@ plantation_clim <- ppt_seasonal_plantation %>%
 colnames(plantation_clim)
 
 plantation_clim_long <- plantation_clim %>% 
- select(c(CN:vpdmax_sp, FDSI, aet_sum, cwd_sum, cwd_wy, spei_sum)) %>% 
+dplyr::select(c(CN:vpdmax_sp, FDSI, aet_sum, cwd_sum, cwd_wy, spei_sum)) %>% 
   pivot_longer(ppt_sm:spei_sum)
 
 plantation_clim_long_qs<- plantation_clim_long %>% 
@@ -1614,7 +1614,7 @@ tree.num <- ht_data %>%
     name=="HT14" ~ 2014))
 
 trees.died<- tree.num %>% 
-  left_join(tree.num %>% filter(year==1974) %>% ungroup() %>%  select(Provenance, n) %>% rename(n_74=n)) %>% 
+  left_join(tree.num %>% filter(year==1974) %>% ungroup() %>% dplyr::select(Provenance, n) %>% rename(n_74=n)) %>% 
   mutate(prop = n/n_74)
 
 ggplot(tree.num, aes(x=year, y=n, col=Provenance))+
@@ -1953,10 +1953,10 @@ ggplot(cv_rwi, aes(x=factor(Provenance, levels=prov_pcapts %>% arrange(monsoonal
 ```{r}
 rwi_simple<- rwi %>% 
   filter(!is.na(RWI)) %>% 
-  select(Year, Tree, RWI) %>% 
+ dplyr::select(Year, Tree, RWI) %>% 
   pivot_wider(id_cols=Year, names_from=Tree,values_from = RWI ) %>% 
   filter(Year > 1987 & Year < 2011) %>% 
-  select(-Year) %>% as.rwl()
+ dplyr::select(-Year) %>% as.rwl()
 rownames(rwi_simple) <- seq(1988,2010)
 
 glk(rwi_simple,
@@ -1999,26 +1999,26 @@ bai_in_long %>%
 est_BT_cm = mean(c(9.6,4))/10
 
 dbh %>% 
-  select(Series,Provenance,DBH14) %>% 
+ dplyr::select(Series,Provenance,DBH14) %>% 
   pull(DBH14) %>% 
   mean(na.rm=T)  #mean DBH is 14.7cm for our trees
 
 
 
 diam14 <- dbh %>% 
-  select(Series,Provenance,DBH14) %>% 
+ dplyr::select(Series,Provenance,DBH14) %>% 
   mutate(inner_diam_mm = (DBH14-2*est_BT_cm)*10) %>% 
-  select(Series, Provenance, inner_diam_mm)
+ dplyr::select(Series, Provenance, inner_diam_mm)
 
 diam14$Series == colnames(prov_all)
 
 #calculate BAI with diameter
 diam14_byseries<- prov_all %>% 
   pivot_longer(`32I2`:`47C2`) %>% 
-  select(name) %>% 
+ dplyr::select(name) %>% 
   unique() %>% 
   left_join(diam14, by=c("name" = "Series")) %>% 
-  select(-Provenance) %>% 
+ dplyr::select(-Provenance) %>% 
   rename(series = name, diam=inner_diam_mm)
 
 c(diam14_byseries$series == colnames(prov_all)) %>% summary()
@@ -2179,7 +2179,7 @@ ggplot(off_provs, aes(x=year, y=rw, col=tree))+
 off_trees<- dbh_rwi_comp %>% 
   filter(lowsum=="yes") %>% pull(tree) %>% c("X58A4") #this is the weird tree that's half and half
 
-prov_good_nona <- prov_all_nona %>% select(-all_of(substr(off_trees, 2,nchar(off_trees))))
+prov_good_nona <- prov_all_nona %>%dplyr::select(-all_of(substr(off_trees, 2,nchar(off_trees))))
 
 growth.detrended = matrix(nrow=nrow(prov_good_nona), ncol=length(colnames(prov_good_nona)))
 for(i in 1:length(prov_good_nona)){
@@ -2216,7 +2216,7 @@ ggplot(dbh_age %>% filter(tree=="X49D2"), aes(x=year, y=rw, col=tree))+
   theme(legend.position = "none")
 
 prov_good <- prov_all %>% as.data.frame() %>% 
-  select(-all_of(off_trees %>% substr(2, nchar(off_trees))))
+ dplyr::select(-all_of(off_trees %>% substr(2, nchar(off_trees))))
 
 dbh_age_good <- prov_good %>% 
   as.data.frame() %>% 
@@ -2274,12 +2274,12 @@ dbh_age_good %>%
 
 ##########
 ##look at dbh vs. rw sum
-full_join( dbh_age_good %>% select(tree) %>% unique(),
+full_join( dbh_age_good %>%dplyr::select(tree) %>% unique(),
            dbh %>% 
              filter(!Series=="") %>% 
               mutate(tree=paste("X",Series,sep="")) %>% 
               filter(!tree %in% off_trees) %>% 
-             select(tree) %>% unique()) == dbh_age_good %>% select(tree) %>% unique() 
+            dplyr::select(tree) %>% unique()) == dbh_age_good %>%dplyr::select(tree) %>% unique() 
 
 
 dbh_rw <- dbh_age_good %>% 
@@ -2374,7 +2374,7 @@ ggplot(mt105_long %>% filter(tree %in% seq(72011,720052,1)), aes(x=year, y=rw, c
 rw_clim_wide <- left_join(dbh_age_good, plantation_clim)
 colnames(rw_clim_wide)
 
-rw_clim_wide_formodel<- rw_clim_wide %>% select(colnames(rw_clim_wide)[c(2:4,6:27,32,37,38)])
+rw_clim_wide_formodel<- rw_clim_wide %>%dplyr::select(colnames(rw_clim_wide)[c(2:4,6:27,32,37,38)])
 
 tree_clim_cors <- rw_clim_wide%>% 
   left_join(bai_in_long) %>% 
@@ -2492,12 +2492,12 @@ provs <- unique(fdsi.cor.df.pops$Provenance)
 sea.list<- list()
 for(i in 1:length(provs)){
   provn <- rw.detrend.df %>% 
-    select(c(year,fdsi.cor.df.pops %>% filter(Provenance == provs[i]) %>% pull(tree))) %>% 
+   dplyr::select(c(year,fdsi.cor.df.pops %>% filter(Provenance == provs[i]) %>% pull(tree))) %>% 
     na.omit()
   
 rownames(provn) = provn$year
 
-provn_noyr = provn %>% select(-year)
+provn_noyr = provn %>%dplyr::select(-year)
 
 temp.sea <- sea(provn_noyr, key=c(2002), lag=4, resample=1000)
   
@@ -2641,7 +2641,7 @@ postdrought_rw<- prov_good %>%
 raw_calcs <- left_join(drought_rw,predrought_rw) %>% left_join(postdrought_rw) %>% 
   mutate(resistance = drought_ave_rw/predrought_ave_rw, resilience = postdrought_ave_rw/predrought_ave_rw) %>% 
   mutate(name=paste("X",name,sep="")) %>% 
-  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
+  left_join(dbh_age %>%dplyr::select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
 
 raw_aov_resist <- aov(resistance ~ Provenance, data=raw_calcs)
 summary(raw_aov_resist)
@@ -2696,7 +2696,7 @@ postdrought_rw_linear<-  rwi %>%
 
 linear_calcs <- left_join(drought_rw_linear,predrought_rw_linear) %>% left_join(postdrought_rw_linear) %>% 
   mutate(resistance = drought_ave_rw_linear/predrought_ave_rw_linear, resilience = postdrought_ave_rw_linear/predrought_ave_rw_linear) %>% 
-  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by=c("Tree" = "tree"))
+  left_join(dbh_age %>%dplyr::select(tree,Provenance) %>% unique(), by=c("Tree" = "tree"))
 
 linear_aov_resist <- aov(resistance ~ Provenance, data=linear_calcs)
 summary(linear_aov_resist)
@@ -2718,7 +2718,7 @@ ggplot(linear_calcs, aes(x=Provenance, y=resilience))+
   theme(axis.text.x = element_text(angle=45, hjust=1))
 
 ###negative exponential detrending with dplr
-prov_good_nona <- prov_all_nona %>% select(-all_of(substr(off_trees, 2,nchar(off_trees))))
+prov_good_nona <- prov_all_nona %>%dplyr::select(-all_of(substr(off_trees, 2,nchar(off_trees))))
 
 growth.detrended.ne = matrix(nrow=nrow(prov_good_nona), ncol=length(colnames(prov_good_nona)))
 for(i in 1:length(prov_good_nona)){
@@ -2759,7 +2759,7 @@ postdrought_rw_ne<-  growth.detrended.ne.df %>%
 
 ne_calcs <- left_join(drought_rw_ne,predrought_rw_ne) %>% left_join(postdrought_rw_ne) %>% 
   mutate(resistance = drought_ave_rw_ne/predrought_ave_rw_ne, resilience = postdrought_ave_rw_ne/predrought_ave_rw_ne) %>% 
-  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by=c("tree" = "tree"))
+  left_join(dbh_age %>%dplyr::select(tree,Provenance) %>% unique(), by=c("tree" = "tree"))
 
 ne_aov_resist <- aov(resistance ~ Provenance, data=ne_calcs)
 summary(ne_aov_resist)
@@ -2822,7 +2822,7 @@ postdrought_rw_ads<-  growth.detrended.ads.df %>%
 
 ads_calcs <- left_join(drought_rw_ads,predrought_rw_ads) %>% left_join(postdrought_rw_ads) %>% 
   mutate(resistance = drought_ave_rw_ads/predrought_ave_rw_ads, resilience = postdrought_ave_rw_ads/predrought_ave_rw_ads) %>% 
-  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by=c("tree" = "tree"))
+  left_join(dbh_age %>%dplyr::select(tree,Provenance) %>% unique(), by=c("tree" = "tree"))
 
 ads_aov_resist <- aov(resistance ~ Provenance, data=ads_calcs)
 summary(ads_aov_resist)
@@ -2873,7 +2873,7 @@ postdrought_rw_spline<-  growth.detrended.df %>%
 
 spline_calcs <- left_join(drought_rw_spline,predrought_rw_spline) %>% left_join(postdrought_rw_spline) %>% 
   mutate(resistance = drought_ave_rw_spline/predrought_ave_rw_spline, resilience = postdrought_ave_rw_spline/predrought_ave_rw_spline) %>% 
-  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by=c("tree" = "tree"))
+  left_join(dbh_age %>%dplyr::select(tree,Provenance) %>% unique(), by=c("tree" = "tree"))
 
 spline_aov_resist <- aov(resistance ~ Provenance, data=spline_calcs)
 summary(spline_aov_resist)
@@ -2950,7 +2950,7 @@ postdrought_rw<- prov_good %>%
 raw_calcs_list[[i]] <- left_join(drought_rw,predrought_rw) %>% left_join(postdrought_rw) %>% 
   mutate(resistance = drought_ave_rw/predrought_ave_rw, resilience = postdrought_ave_rw/predrought_ave_rw) %>% 
   mutate(name=paste("X",name,sep="")) %>% 
-  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
+  left_join(dbh_age %>%dplyr::select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
 }
 
 rawmodlist_resistance<- list()
@@ -3005,7 +3005,7 @@ postdrought_rw_0102<- prov_good %>%
 raw_calcs_0102 <- left_join(drought_rw_0102,predrought_rw_0102) %>% left_join(postdrought_rw_0102) %>% 
   mutate(resistance = drought_ave_rw/predrought_ave_rw, resilience = postdrought_ave_rw/predrought_ave_rw) %>% 
   mutate(name=paste("X",name,sep="")) %>% 
-  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
+  left_join(dbh_age %>%dplyr::select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
 
 
 rawmodlist_resistance_0102 <- aov(resistance ~ Provenance, data=raw_calcs_0102)
@@ -3043,7 +3043,7 @@ postdrought_rw_0203<- prov_good %>%
 raw_calcs_0203 <- left_join(drought_rw_0203,predrought_rw_0203) %>% left_join(postdrought_rw_0203) %>% 
   mutate(resistance = drought_ave_rw/predrought_ave_rw, resilience = postdrought_ave_rw/predrought_ave_rw) %>% 
   mutate(name=paste("X",name,sep="")) %>% 
-  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
+  left_join(dbh_age %>%dplyr::select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
 
 
 rawmodlist_resistance_0203 <- aov(resistance ~ Provenance, data=raw_calcs_0203)
@@ -3080,7 +3080,7 @@ postdrought_rw_0104<- prov_good %>%
 raw_calcs_0104 <- left_join(drought_rw_0104,predrought_rw_0104) %>% left_join(postdrought_rw_0104) %>% 
   mutate(resistance = drought_ave_rw/predrought_ave_rw, resilience = postdrought_ave_rw/predrought_ave_rw) %>% 
   mutate(name=paste("X",name,sep="")) %>% 
-  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
+  left_join(dbh_age %>%dplyr::select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
 
 
 rawmodlist_resistance_0104 <- aov(resistance ~ Provenance, data=raw_calcs_0104)
@@ -3121,7 +3121,7 @@ postdrought_rw_0003<- prov_good %>%
 raw_calcs_0003 <- left_join(drought_rw_0003,predrought_rw_0003) %>% left_join(postdrought_rw_0003) %>% 
   mutate(resistance = drought_ave_rw/predrought_ave_rw, resilience = postdrought_ave_rw/predrought_ave_rw) %>% 
   mutate(name=paste("X",name,sep="")) %>% 
-  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
+  left_join(dbh_age %>%dplyr::select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
 
 rawmodlist_resistance_0003 <- aov(resistance ~ Provenance, data=raw_calcs_0003)
 
@@ -3162,7 +3162,7 @@ postdrought_rw_0005<- prov_good %>%
 raw_calcs_0005 <- left_join(drought_rw_0005,predrought_rw_0005) %>% left_join(postdrought_rw_0005) %>% 
   mutate(resistance = drought_ave_rw/predrought_ave_rw, resilience = postdrought_ave_rw/predrought_ave_rw) %>% 
   mutate(name=paste("X",name,sep="")) %>% 
-  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
+  left_join(dbh_age %>%dplyr::select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
 
 
 rawmodlist_resistance_0005 <- aov(resistance ~ Provenance, data=raw_calcs_0005)
@@ -3199,7 +3199,7 @@ postdrought_rw_9904<- prov_good %>%
 raw_calcs_9904 <- left_join(drought_rw_9904,predrought_rw_9904) %>% left_join(postdrought_rw_9904) %>% 
   mutate(resistance = drought_ave_rw/predrought_ave_rw, resilience = postdrought_ave_rw/predrought_ave_rw) %>% 
   mutate(name=paste("X",name,sep="")) %>% 
-  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
+  left_join(dbh_age %>%dplyr::select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
 
 
 rawmodlist_resistance_9904 <- aov(resistance ~ Provenance, data=raw_calcs_9904)
@@ -3237,7 +3237,7 @@ postdrought_rw<- growth.detrended.ne.df %>%
 
 ne_calcs_list[[i]] <- left_join(drought_rw,predrought_rw) %>% left_join(postdrought_rw) %>% 
   mutate(resistance = drought_ave_rw/predrought_ave_rw, resilience = postdrought_ave_rw/predrought_ave_rw) %>% 
-  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by="tree")
+  left_join(dbh_age %>%dplyr::select(tree,Provenance) %>% unique(), by="tree")
 }
 
 nemodlist_resistance<- list()
@@ -3287,7 +3287,7 @@ postdrought_rw<- growth.detrended.ads.df %>%
 
 ads_calcs_list[[i]] <- left_join(drought_rw,predrought_rw) %>% left_join(postdrought_rw) %>% 
   mutate(resistance = drought_ave_rw/predrought_ave_rw, resilience = postdrought_ave_rw/predrought_ave_rw) %>% 
-  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by="tree")
+  left_join(dbh_age %>%dplyr::select(tree,Provenance) %>% unique(), by="tree")
 }
 
 adsmodlist_resistance<- list()
@@ -3340,7 +3340,7 @@ postdrought_rw<- growth.detrended.df %>%
 
 spline_calcs_list[[i]] <- left_join(drought_rw,predrought_rw) %>% left_join(postdrought_rw) %>% 
   mutate(resistance = drought_ave_rw/predrought_ave_rw, resilience = postdrought_ave_rw/predrought_ave_rw) %>% 
-  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by="tree")
+  left_join(dbh_age %>%dplyr::select(tree,Provenance) %>% unique(), by="tree")
 }
 
 splinemodlist_resistance<- list()
@@ -3401,7 +3401,7 @@ postdrought_rw03<- prov_good %>%
 raw_calcs_list03[[i]] <- left_join(drought_rw03,predrought_rw03) %>% left_join(postdrought_rw03) %>% 
   mutate(resistance = drought_ave_rw/predrought_ave_rw, resilience = postdrought_ave_rw/predrought_ave_rw) %>% 
   mutate(name=paste("X",name,sep="")) %>% 
-  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
+  left_join(dbh_age %>%dplyr::select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
 }
 
 rawmodlist_resistance03<- list()
@@ -3456,7 +3456,7 @@ postdrought_rw03_0203<- prov_good %>%
 raw_calcs_0203 <- left_join(drought_rw_0203,predrought_rw03_0203) %>% left_join(postdrought_rw03_0203) %>% 
   mutate(resistance = drought_ave_rw/predrought_ave_rw, resilience = postdrought_ave_rw/predrought_ave_rw) %>% 
   mutate(name=paste("X",name,sep="")) %>% 
-  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
+  left_join(dbh_age %>%dplyr::select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
 
 
 rawmodlist_resistance03_0203 <- aov(resistance ~ Provenance, data=raw_calcs_0203)
@@ -3493,7 +3493,7 @@ postdrought_rw03_0304<- prov_good %>%
 raw_calcs_0304 <- left_join(drought_rw_0304,predrought_rw03_0304) %>% left_join(postdrought_rw03_0304) %>% 
   mutate(resistance = drought_ave_rw/predrought_ave_rw, resilience = postdrought_ave_rw/predrought_ave_rw) %>% 
   mutate(name=paste("X",name,sep="")) %>% 
-  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
+  left_join(dbh_age %>%dplyr::select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
 
 
 rawmodlist_resistance03_0304 <- aov(resistance ~ Provenance, data=raw_calcs_0304)
@@ -3531,7 +3531,7 @@ postdrought_rw03_0205<- prov_good %>%
 raw_calcs_0205 <- left_join(drought_rw_0205,predrought_rw03_0205) %>% left_join(postdrought_rw03_0205) %>% 
   mutate(resistance = drought_ave_rw/predrought_ave_rw, resilience = postdrought_ave_rw/predrought_ave_rw) %>% 
   mutate(name=paste("X",name,sep="")) %>% 
-  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
+  left_join(dbh_age %>%dplyr::select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
 
 
 rawmodlist_resistance03_0205 <- aov(resistance ~ Provenance, data=raw_calcs_0205)
@@ -3573,7 +3573,7 @@ postdrought_rw03_0104<- prov_good %>%
 raw_calcs_0104 <- left_join(drought_rw_0104,predrought_rw03_0104) %>% left_join(postdrought_rw03_0104) %>% 
   mutate(resistance = drought_ave_rw/predrought_ave_rw, resilience = postdrought_ave_rw/predrought_ave_rw) %>% 
   mutate(name=paste("X",name,sep="")) %>% 
-  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
+  left_join(dbh_age %>%dplyr::select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
 
 rawmodlist_resistance03_0104 <- aov(resistance ~ Provenance, data=raw_calcs_0104)
 
@@ -3614,7 +3614,7 @@ postdrought_rw03_0005<- prov_good %>%
 raw_calcs_0005 <- left_join(drought_rw_0005,predrought_rw03_0005) %>% left_join(postdrought_rw03_0005) %>% 
   mutate(resistance = drought_ave_rw/predrought_ave_rw, resilience = postdrought_ave_rw/predrought_ave_rw) %>% 
   mutate(name=paste("X",name,sep="")) %>% 
-  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
+  left_join(dbh_age %>%dplyr::select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
 
 
 rawmodlist_resistance03_0005 <- aov(resistance ~ Provenance, data=raw_calcs_0005)
@@ -3651,7 +3651,7 @@ postdrought_rw03_0106<- prov_good %>%
 raw_calcs_0106 <- left_join(drought_rw_0106,predrought_rw03_0106) %>% left_join(postdrought_rw03_0106) %>% 
   mutate(resistance = drought_ave_rw/predrought_ave_rw, resilience = postdrought_ave_rw/predrought_ave_rw) %>% 
   mutate(name=paste("X",name,sep="")) %>% 
-  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
+  left_join(dbh_age %>%dplyr::select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
 
 
 rawmodlist_resistance03_0106 <- aov(resistance ~ Provenance, data=raw_calcs_0106)
@@ -3689,7 +3689,7 @@ postdrought_rw03<- growth.detrended.ne.df %>%
 
 ne_calcs_list03[[i]] <- left_join(drought_rw03,predrought_rw03) %>% left_join(postdrought_rw03) %>% 
   mutate(resistance = drought_ave_rw/predrought_ave_rw, resilience = postdrought_ave_rw/predrought_ave_rw) %>% 
-  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by="tree")
+  left_join(dbh_age %>%dplyr::select(tree,Provenance) %>% unique(), by="tree")
 }
 
 nemodlist_resistance03<- list()
@@ -3739,7 +3739,7 @@ postdrought_rw03<- growth.detrended.ads.df %>%
 
 ads_calcs_list03[[i]] <- left_join(drought_rw03,predrought_rw03) %>% left_join(postdrought_rw03) %>% 
   mutate(resistance = drought_ave_rw/predrought_ave_rw, resilience = postdrought_ave_rw/predrought_ave_rw) %>% 
-  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by="tree")
+  left_join(dbh_age %>%dplyr::select(tree,Provenance) %>% unique(), by="tree")
 }
 
 adsmodlist_resistance03<- list()
@@ -3792,7 +3792,7 @@ postdrought_rw03<- growth.detrended.df %>%
 
 spline_calcs_list03[[i]] <- left_join(drought_rw03,predrought_rw03) %>% left_join(postdrought_rw03) %>% 
   mutate(resistance = drought_ave_rw/predrought_ave_rw, resilience = postdrought_ave_rw/predrought_ave_rw) %>% 
-  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by="tree")
+  left_join(dbh_age %>%dplyr::select(tree,Provenance) %>% unique(), by="tree")
 }
 
 splinemodlist_resistance03<- list()
@@ -3869,7 +3869,7 @@ postdrought88_rw_5yr<- prov_good %>%
 raw_calcs_88_5yr <- left_join(drought88_rw_5yr,predrought88_rw_5yr) %>% left_join(postdrought88_rw_5yr) %>% 
   mutate(resistance = drought_ave_rw/predrought_ave_rw, resilience = postdrought_ave_rw/predrought_ave_rw) %>% 
   mutate(name=paste("X",name,sep="")) %>% 
-  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
+  left_join(dbh_age %>%dplyr::select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
 
 raw_88_5yr_aov_resist <- aov(resistance ~ Provenance, data=raw_calcs_88_5yr)
 summary(raw_88_5yr_aov_resist)
@@ -3912,7 +3912,7 @@ postdrought88_rw_3yr<- prov_good %>%
 raw_calcs_88_3yr <- left_join(drought88_rw_3yr,predrought88_rw_3yr) %>% left_join(postdrought88_rw_3yr) %>% 
   mutate(resistance = drought_ave_rw/predrought_ave_rw, resilience = postdrought_ave_rw/predrought_ave_rw) %>% 
   mutate(name=paste("X",name,sep="")) %>% 
-  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
+  left_join(dbh_age %>%dplyr::select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
 
 raw_88_3yr_aov_resist <- aov(resistance ~ Provenance, data=raw_calcs_88_3yr)
 summary(raw_88_3yr_aov_resist)
@@ -3972,7 +3972,7 @@ predrought_rw_new<- prov_good %>%
 new_calcs <- left_join(drought_rw_new,predrought_rw_new) %>% 
   mutate(resistance = drought_ave_rw/predrought_ave_rw) %>% 
   mutate(name=paste("X",name,sep="")) %>% 
-  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
+  left_join(dbh_age %>%dplyr::select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
 
 new_aov_resist <- aov(resistance ~ Provenance, data=new_calcs)
 summary(new_aov_resist) #no difference in resistance when compared to average growth 1985-2002
@@ -4005,7 +4005,7 @@ recover_time<- prov_good %>%
   summarise(minyr = min(year)) %>% 
   mutate(recoverytime = as.numeric(minyr) - 2002) %>% 
   mutate(name = paste("X",name,sep="")) %>% 
-  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
+  left_join(dbh_age %>%dplyr::select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
 
 
 aov.recover <- aov(recoverytime ~ Provenance, data=recover_time)
@@ -4114,7 +4114,7 @@ predrought_ne_new<- growth.detrended.ne.df %>%
 #resistance
 ne_new_calcs <- left_join(drought_ne_new,predrought_ne_new) %>% 
   mutate(resistance = drought_ave_ne/predrought_ave_ne) %>% 
-  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by="tree")
+  left_join(dbh_age %>%dplyr::select(tree,Provenance) %>% unique(), by="tree")
 
 ne_new_aov_resist <- aov(resistance ~ Provenance, data=ne_new_calcs)
 summary(ne_new_aov_resist) #no difference in resistance when compared to average growth 1985-2002
@@ -4142,7 +4142,7 @@ ne_recover_time<- growth.detrended.ne.df %>%
   group_by(tree) %>% 
   summarise(minyr = min(year)) %>% 
   mutate(recoverytime = as.numeric(minyr) - 2002) %>% 
-  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by="tree")
+  left_join(dbh_age %>%dplyr::select(tree,Provenance) %>% unique(), by="tree")
 
 
 aov.recover.ne <- aov(recoverytime ~ Provenance, data=ne_recover_time)
@@ -4247,7 +4247,7 @@ predrought_rw_new03<- prov_good %>%
 new_calcs03 <- left_join(drought_rw_new03,predrought_rw_new03) %>% 
   mutate(resistance = drought_ave_rw/predrought_ave_rw) %>% 
   mutate(name=paste("X",name,sep="")) %>% 
-  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
+  left_join(dbh_age %>%dplyr::select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
 
 new_aov_resist03 <- aov(resistance ~ Provenance, data=new_calcs03)
 summary(new_aov_resist03) #significant difference in 2003 when compared to average growth 1985-2002
@@ -4281,7 +4281,7 @@ recover_time03<- prov_good %>%
   summarise(minyr = min(year)) %>% 
   mutate(recoverytime = as.numeric(minyr) - 2003) %>% 
   mutate(name = paste("X",name,sep="")) %>% 
-  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
+  left_join(dbh_age %>%dplyr::select(tree,Provenance) %>% unique(), by=c("name" = "tree"))
 
 
 aov.recover03 <- aov(recoverytime ~ Provenance, data=recover_time03)
@@ -4392,7 +4392,7 @@ predrought_ne_new03<- growth.detrended.ne.df %>%
 #resistance
 ne_new_calcs03 <- left_join(drought_ne_new03,predrought_ne_new03) %>% 
   mutate(resistance = drought_ave_ne/predrought_ave_ne) %>% 
-  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by="tree")
+  left_join(dbh_age %>%dplyr::select(tree,Provenance) %>% unique(), by="tree")
 
 ne_new_aov_resist03 <- aov(resistance ~ Provenance, data=ne_new_calcs03)
 summary(ne_new_aov_resist03) #no difference in resistance when compared to average growth 1985-2002
@@ -4420,7 +4420,7 @@ ne_recover_time03<- growth.detrended.ne.df %>%
   group_by(tree) %>% 
   summarise(minyr = min(year)) %>% 
   mutate(recoverytime = as.numeric(minyr) - 2003) %>% 
-  left_join(dbh_age %>% select(tree,Provenance) %>% unique(), by="tree")
+  left_join(dbh_age %>%dplyr::select(tree,Provenance) %>% unique(), by="tree")
 
 
 aov.recover03.ne <- aov(recoverytime ~ Provenance, data=ne_recover_time03)
@@ -4449,9 +4449,9 @@ ne.prop.recovered03 <- dbh_age_good %>%
   mutate(prop.recovered = n_recovered/ntree, prop.nored = n_nored/(n_nored+ntree)) %>% 
   pivot_longer(ntree_NR:n_recovered)
 
-prop.recovered.order<- unique(ne.prop.recovered03 %>% select(Provenance,prop.recovered, prop.nored)) %>% arrange(prop.recovered)
+prop.recovered.order<- unique(ne.prop.recovered03 %>%dplyr::select(Provenance,prop.recovered, prop.nored)) %>% arrange(prop.recovered)
 
-prop.nored.order<- unique(ne.prop.recovered03 %>% select(Provenance,prop.recovered, prop.nored)) %>% arrange(prop.nored)
+prop.nored.order<- unique(ne.prop.recovered03 %>%dplyr::select(Provenance,prop.recovered, prop.nored)) %>% arrange(prop.nored)
 
 
 dbh_age_good %>% 
@@ -4523,7 +4523,7 @@ ggplot(recover.rate.ne.df03, aes(x=Provenance, y=recover.rate))+
 
 
 plantation_clim_minus1<- plantation_clim %>% mutate(year = year+1) %>% 
-  select(c(CN:year,ppt_gs:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum))
+ dplyr::select(c(CN:year,ppt_gs:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum))
 
 colnames(plantation_clim_minus1)<- paste("prior_",colnames(plantation_clim_minus1),sep="")
 
@@ -4532,12 +4532,12 @@ growth.detrended.ne.df %>%
   left_join(plantation_clim_minus1, by=c("year" = "prior_year", "CN" = "prior_CN")) %>% View()
 
 plantation_clim_cor<- plantation_clim %>% 
-  select(c(CN:year,ppt_gs:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum)) %>% 
+ dplyr::select(c(CN:year,ppt_gs:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum)) %>% 
   left_join(plantation_clim_minus1, by=c("year" = "prior_year", "CN" = "prior_CN")) %>% 
   filter(! year %in% c(1971)) %>% 
   ungroup() %>% 
   filter(year>1970) %>% 
-  select(-c(CN,year)) %>% 
+ dplyr::select(-c(CN,year)) %>% 
   cor()
 
 plantation_clim_cor>0.7
@@ -4545,11 +4545,11 @@ plantation_clim_cor>0.7
 ggcorrplot(plantation_clim_cor, type="lower", insig = "blank", lab=TRUE)
 
 plantation_clim_cor_yrof<- plantation_clim %>% 
-  select(c(CN:year,ppt_gs:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum)) %>% 
+ dplyr::select(c(CN:year,ppt_gs:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum)) %>% 
   filter(! year %in% c(1970)) %>% 
   ungroup() %>% 
   filter(year>1970) %>% 
-  select(-c(CN,year)) %>% 
+ dplyr::select(-c(CN,year)) %>% 
   cor()
 
 ggcorrplot(plantation_clim_cor_yrof, type="lower", insig = "blank", lab=TRUE)
@@ -4557,7 +4557,7 @@ ggcorrplot(plantation_clim_cor_yrof, type="lower", insig = "blank", lab=TRUE)
 
 growth_climate_df_ne <- growth.detrended.ne.df %>% 
   left_join(plantation_clim) %>% 
-  select(c(CN:year,ppt_gs:ppt_sp, vpdmax_sm:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum)) %>% 
+ dplyr::select(c(CN:year,ppt_gs:ppt_sp, vpdmax_sm:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum)) %>% 
   left_join(plantation_clim_minus1, by=c("year" = "prior_year", "CN" = "prior_CN")) %>% 
   ungroup() %>% 
   filter(year>1970)
@@ -4572,7 +4572,7 @@ gc_cor_df_ne<-data.frame()
 for(i in 1:length(climvars)){
   for(j in 1:length(tree_ids_ne)){
   clim <- growth_climate_df_ne %>% dplyr::filter(tree == tree_ids_ne[j]) %>% dplyr::select(climvars[i])
-  tree <- growth_climate_df_ne %>% dplyr::filter(tree == tree_ids_ne[j]) %>% select(rw_spline)
+  tree <- growth_climate_df_ne %>% dplyr::filter(tree == tree_ids_ne[j]) %>%dplyr::select(rw_spline)
   gc.cor <- cor(clim, tree)
   row <- cbind(climvars[i], tree_ids_ne[j], gc.cor) %>% as.data.frame()
   gc_cor_df_ne <- bind_rows(gc_cor_df_ne, row)
@@ -4596,7 +4596,7 @@ gc_cor_df_ne %>%
 
 fdsi_cor_ne_provs<- gc_cor_df_ne %>% 
   filter(V1 == "FDSI") %>% 
-  left_join(dbh_age_good %>% select(tree, Provenance) %>% unique(), by=c("V2"="tree")) %>% 
+  left_join(dbh_age_good %>%dplyr::select(tree, Provenance) %>% unique(), by=c("V2"="tree")) %>% 
   mutate(cor=as.numeric(rw_spline))
   
 ggplot(fdsi_cor_ne_provs, aes(x=factor(Provenance, levels=prov_clim_states %>% arrange(Latitude) %>% pull(Provenance)), y=cor, fill=Provenance))+
@@ -4611,7 +4611,7 @@ raw_growth <- prov_good_nona %>%
 
 growth_climate_df_raw <- raw_growth %>% 
   left_join(plantation_clim) %>% 
-  select(c(CN:year,ppt_gs:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum)) %>% 
+ dplyr::select(c(CN:year,ppt_gs:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum)) %>% 
   left_join(plantation_clim_minus1, by=c("year" = "prior_year", "CN" = "prior_CN")) %>% 
   ungroup() %>% 
   filter(year>1970)
@@ -4623,7 +4623,7 @@ gc_cor_df_raw<-data.frame()
 for(i in 1:length(climvars_raw)){
   for(j in 1:length(tree_ids)){
   clim <- growth_climate_df_raw %>% dplyr::filter(name == tree_ids[j]) %>% dplyr::select(climvars_raw[i])
-  tree <- growth_climate_df_raw %>% dplyr::filter(name == tree_ids[j]) %>% select(value)
+  tree <- growth_climate_df_raw %>% dplyr::filter(name == tree_ids[j]) %>%dplyr::select(value)
   gc.cor <- cor(clim, tree)
   row <- cbind(climvars_raw[i], tree_ids[j], gc.cor) %>% as.data.frame()
   gc_cor_df_raw <- bind_rows(gc_cor_df_raw, row)
@@ -4648,7 +4648,7 @@ gc_cor_df_raw %>%
 fdsi_cor_provs<- gc_cor_df_raw %>% 
   filter(V1 == "FDSI") %>% 
   mutate(tree=paste("X",V2, sep="")) %>% 
-  left_join(dbh_age_good %>% select(tree, Provenance) %>% unique()) %>% 
+  left_join(dbh_age_good %>%dplyr::select(tree, Provenance) %>% unique()) %>% 
   mutate(value=as.numeric(value))
   
 ggplot(fdsi_cor_provs, aes(x=factor(Provenance, levels=prov_clim_states %>% arrange(Latitude) %>% pull(Provenance)), y=value, fill=Provenance))+
@@ -4664,7 +4664,7 @@ gc_cor_lag_df_raw<-data.frame()
 for(i in 1:length(climvars_raw)){
   for(j in 1:length(tree_ids)){
   clim <- growth_climate_df_raw %>% dplyr::filter(name == tree_ids[j]) %>% mutate(year = year+1) %>% filter(year<2011) %>%  dplyr::select(climvars_raw[i]) 
-  tree <- growth_climate_df_raw %>% dplyr::filter(name == tree_ids[j]) %>% filter(year > 1991) %>% select(value)
+  tree <- growth_climate_df_raw %>% dplyr::filter(name == tree_ids[j]) %>% filter(year > 1991) %>%dplyr::select(value)
   gc.cor <- cor(clim, tree)
   row <- cbind(climvars_raw[i], tree_ids[j], gc.cor) %>% as.data.frame()
   gc_cor_lag_df_raw <- bind_rows(gc_cor_lag_df_raw, row)
@@ -4675,14 +4675,14 @@ gc_cor_lag_df_raw
 fdsi_cor_lag_provs<- gc_cor_lag_df_raw %>% 
   filter(V1 == "FDSI") %>% 
   mutate(tree=paste("X",V2, sep="")) %>% 
-  left_join(dbh_age_good %>% select(tree, Provenance) %>% unique()) %>% 
+  left_join(dbh_age_good %>%dplyr::select(tree, Provenance) %>% unique()) %>% 
   mutate(value=as.numeric(value))
   
 ggplot(fdsi_cor_lag_provs, aes(x=factor(Provenance, levels=prov_clim_states %>% arrange(Latitude) %>% pull(Provenance)), y=value, fill=Provenance))+
   geom_boxplot()+
   geom_point()
 
-ggplot(data=growth_climate_df_raw %>% mutate(tree=paste("X",tree,sep="")) %>% left_join(dbh_age_good %>% select(tree,Provenance) %>% unique(), by="tree"))+
+ggplot(data=growth_climate_df_raw %>% mutate(tree=paste("X",tree,sep="")) %>% left_join(dbh_age_good %>%dplyr::select(tree,Provenance) %>% unique(), by="tree"))+
   geom_point(aes(x=year, y=value, col=name))+
   #geom_line(data=growth_climate_df_raw, aes(x=year, y=value, col=name))+
   #geom_line(data=growth_climate_df_raw, aes(x=year, y=FDSI), col="black")+
@@ -4695,10 +4695,10 @@ ggplot(data=growth_climate_df_raw %>% mutate(tree=paste("X",tree,sep="")) %>% le
 ####try just modeling one tree's growth on last year's FDSI
 testdata<- growth_climate_df_raw %>% 
   filter(name=="32I2") %>% 
-  select(year, value) %>% 
+ dplyr::select(year, value) %>% 
   filter(year > 1991) %>% 
   left_join(growth_climate_df_raw %>% 
-  select(year, FDSI) %>% unique() %>% 
+ dplyr::select(year, FDSI) %>% unique() %>% 
   mutate(year = year+1) %>% 
   rename(FDSI_prior = FDSI) %>% 
   filter(year <2011)) %>% 
@@ -4710,10 +4710,10 @@ summary(testmod1)
 
 newdata <- growth_climate_df_raw %>% 
   filter(name=="32I2") %>% 
-  select(year, value) %>% 
+ dplyr::select(year, value) %>% 
   filter(year > 1991) %>% 
   left_join(growth_climate_df_raw %>% 
-  select(year, FDSI) %>% unique() %>% 
+ dplyr::select(year, FDSI) %>% unique() %>% 
   mutate(year = year+1) %>% 
   rename(FDSI_prior = FDSI) %>% 
   filter(year <2011)) %>% 
@@ -4733,7 +4733,7 @@ ggplot(data=testdata_predictions, aes(x=year, y=value))+
 ##build a bigger model
 testdata_big <- growth_climate_df_raw %>% 
   filter(name=="32I2") %>% 
-  select(year, value) %>% 
+ dplyr::select(year, value) %>% 
   filter(year > 1991) %>% 
   left_join(growth_climate_df_raw) %>% 
   mutate(age = year - 1970) 
@@ -4741,7 +4741,7 @@ testdata_big <- growth_climate_df_raw %>%
 testbigmod <- lm(value ~ ppt_wt + ppt_fa + ppt_gs + value_sm_tmax +  value_sp_tmax + value_fa_tmax  + age, data=testdata_big)
 
 testdata_big %>% 
-select(c(ppt_wt , ppt_fa , ppt_gs , ppt_sp , value_sm_tmin , value_sm_tmax , value_sp_tmin , value_sp_tmax , value_wt_tmin , value_wt_tmax , value_fa_tmin , value_fa_tmax)) %>% 
+dplyr::select(c(ppt_wt , ppt_fa , ppt_gs , ppt_sp , value_sm_tmin , value_sm_tmax , value_sp_tmin , value_sp_tmax , value_wt_tmin , value_wt_tmax , value_fa_tmin , value_fa_tmax)) %>% 
   cor() %>% 
   ggcorrplot(type="lower", insig = "blank", lab=TRUE)
 
@@ -4759,7 +4759,7 @@ summary(testbigmod_both)
 vif(testbigmod_both)
 
 testdata_big %>% 
-select(c(ppt_wt , ppt_fa , ppt_gs , value_sm_tmax ,  value_sp_tmax , value_fa_tmax , prior_ppt_wt ,  prior_ppt_fa ,  prior_ppt_gs ,  prior_value_sm_tmax ,   prior_value_sp_tmax ,  prior_value_fa_tmax)) %>% 
+dplyr::select(c(ppt_wt , ppt_fa , ppt_gs , value_sm_tmax ,  value_sp_tmax , value_fa_tmax , prior_ppt_wt ,  prior_ppt_fa ,  prior_ppt_gs ,  prior_value_sm_tmax ,   prior_value_sp_tmax ,  prior_value_fa_tmax)) %>% 
   cor() %>% 
   ggcorrplot(type="lower", insig = "blank", lab=TRUE)
 
@@ -4773,13 +4773,13 @@ summary(testvpdmod_both)
 vif(testvpdmod_both)
 
 testdata_big %>% 
-select(c(vpdmax_sm , vpdmax_fa , vpdmax_wt , vpdmax_sp ,  prior_vpdmax_sm , prior_vpdmax_fa , prior_vpdmax_wt , prior_vpdmax_sp )) %>% 
+dplyr::select(c(vpdmax_sm , vpdmax_fa , vpdmax_wt , vpdmax_sp ,  prior_vpdmax_sm , prior_vpdmax_fa , prior_vpdmax_wt , prior_vpdmax_sp )) %>% 
   cor() %>% 
   ggcorrplot(type="lower", insig = "blank", lab=TRUE)
 
 ##model with aggregate variables
 testdata_big %>% 
-select(c(FDSI, aet_sum, cwd_wy, spei_sum)) %>% 
+dplyr::select(c(FDSI, aet_sum, cwd_wy, spei_sum)) %>% 
   cor() %>% 
   ggcorrplot(type="lower", insig = "blank", lab=TRUE)
 
@@ -4790,7 +4790,7 @@ summary(testmod_agg)
 ##try with detrended data
 testdata_ne <- growth_climate_df_ne %>% 
   filter(tree=="X32I2") %>% 
-  select(year, rw_spline) %>% 
+ dplyr::select(year, rw_spline) %>% 
   left_join(growth_climate_df_ne) %>% 
   mutate(age = year - 1970) 
 
@@ -4833,7 +4833,84 @@ vif(testvpdmod_ne_pre)
 testvpdmod_both_ne_pre <- lm(rw_spline ~ vpdmax_sm + vpdmax_fa + vpdmax_wt  +  prior_vpdmax_sm  + prior_vpdmax_wt + age, data=testdata_ne_predrought)
 summary(testvpdmod_both_ne_pre)
 vif(testvpdmod_both_ne_pre)
+```
 
+
+##detrending whole series
+
+```{r}
+###negative exponential detrending with dplr
+prov_good_allyrs <- prov_all %>%dplyr::select(-all_of(substr(off_trees, 2,nchar(off_trees))))
+
+growth.detrended.ne.allyrs = matrix(nrow=nrow(prov_good_allyrs), ncol=length(colnames(prov_good_allyrs)))
+for(i in 1:length(prov_good_allyrs)){
+obj<- detrend.series(y = prov_good_allyrs %>% pull(colnames(prov_good_allyrs)[i]), y.name="growth", method="ModNegExp")
+growth.detrended.ne.allyrs[,i]<- obj
+}
+
+colnames(growth.detrended.ne.allyrs) = colnames(prov_good_allyrs)
+growth.detrended.ne.allyrs.df <- growth.detrended.ne.allyrs %>% 
+  as.data.frame() %>% 
+  mutate(year = rownames(prov_good_allyrs)) %>% 
+  pivot_longer(!year, values_to = "rw_spline", names_to="tree") %>% 
+  mutate(tree=paste("X",tree,sep=""), year=as.integer(year)) %>% 
+  left_join(rwi %>% dplyr::select(Provenance, Tree) %>% unique(), by=c("tree"="Tree"))
+
+
+growth_climate_df_ne_allyrs <- growth.detrended.ne.allyrs.df %>% 
+  left_join(plantation_clim) %>% 
+  dplyr::select(c(CN:year,ppt_gs:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum)) %>% 
+  left_join(plantation_clim_minus1, by=c("year" = "prior_year", "CN" = "prior_CN")) %>% 
+  ungroup() %>% 
+  filter(year>1970)
+
+
+predrought_nedata_allyrs<- growth_climate_df_ne_allyrs %>% 
+ dplyr::select(tree, year, rw_spline, FDSI, prior_FDSI) %>% 
+  filter(year<2002 & year>1971) %>% 
+  filter(!is.na(rw_spline)) %>% 
+  left_join(dbh_age_good %>%dplyr::select(tree,Provenance) %>% unique(), by="tree") 
+
+
+postdrought_nedata_allyrs<- growth_climate_df_ne_allyrs %>% 
+ dplyr::select(tree, year, rw_spline, FDSI, prior_FDSI) %>% 
+  filter(year>2001 & year < 2016) %>% 
+  left_join(dbh_age_good %>%dplyr::select(tree,Provenance) %>% unique(), by="tree") %>% 
+  filter(!is.na(rw_spline))
+
+treenames<- unique(predrought_nedata_allyrs$tree)
+
+modresultdf_ne_allyrs<- data.frame()
+for(i in 1:length(treenames)){
+  predata = predrought_nedata_allyrs %>% filter(tree==treenames[i])
+  postdata = postdrought_nedata_allyrs %>% filter(tree==treenames[i])
+  mod = lm(rw_spline ~ FDSI + prior_FDSI, data=predata)
+  adjrsquared<- summary(mod)$adj.r.squared
+  postclim <- growth_climate_df_ne_allyrs %>%dplyr::select(year,FDSI,prior_FDSI) %>% filter(year>2001 & year < 2016) %>% unique()
+  newdata <-  predata %>% bind_cols(prediction= predict(mod)) %>% 
+  bind_rows(postdata %>% left_join(data.frame(year=seq(2002,2015,1), prediction=predict(mod, postclim)))) %>% 
+    mutate(adjrsquared = adjrsquared)
+modresultdf_ne_allyrs<- bind_rows(modresultdf_ne_allyrs,newdata)
+}
+
+modresultdf_ne_allyrs %>% 
+  filter(adjrsquared>0.2) %>% 
+  pull(tree) %>% unique()
+
+ggplot(data=modresultdf_ne_allyrs %>% filter(adjrsquared>0.2), aes(x=year, y=rw_spline))+
+  geom_point()+
+  geom_line(col="black")+
+  geom_line(data=modresultdf_ne_allyrs %>% filter(adjrsquared>0.2), aes(x=year, y=prediction), col="red")+
+  geom_point(data=modresultdf_ne_allyrs %>% filter(adjrsquared>0.2), aes(x=year, y=prediction), col="red")+
+  geom_bar(stat="identity", aes(x=year, y=FDSI, fill=Provenance))+
+  geom_text(data= data.frame(tree=modresultdf_ne_allyrs %>% filter(adjrsquared>0.2) %>% pull(tree) %>% unique(), year=1993,rw_spline=max(modresultdf_ne_allyrs %>% filter(adjrsquared>0.2) %>% pull(rw_spline)), label=modresultdf_ne_allyrs %>% filter(adjrsquared>0.2) %>% pull(adjrsquared) %>% unique()), aes(label=paste("adj r2 =", round(label,1))))+
+  geom_vline(xintercept=2002, col="darkred")+
+  facet_wrap(~tree)
+
+```
+
+
+```{r}
 ##try these models for all data with random nested effect of tree within provenance
 gc_alltrees_ne <- growth_climate_df_ne_allyrs %>% 
   mutate(age = year - 1970) %>% 
@@ -4860,7 +4937,7 @@ fdsi_mod_ne_lm <- lm(rw_spline ~ FDSI + prior_FDSI, data=gc_alltrees_ne)
 summary(fdsi_mod_ne_lm)
 
 ##SPEI models with all years and all trees
-gc_alltrees_ne %>% select(spei_sum, prior_spei_sum) %>% cor()
+gc_alltrees_ne %>%dplyr::select(spei_sum, prior_spei_sum) %>% cor()
 
 spei_mod_ne <- lmer(rw_spline ~ spei_sum + prior_spei_sum + (1|Provenance) + (1|Provenance:tree), data=gc_alltrees_ne)
 summary(spei_mod_ne)
@@ -4910,28 +4987,28 @@ TPmod_ne_both_lm_dredge %>% as.data.frame() %>% filter(delta<2)
 
 ##
 predrought_rawdata<- growth_climate_df_raw %>% 
-  select(name, year, value) %>% 
+ dplyr::select(name, year, value) %>% 
   filter(year > 1991) %>% 
   left_join(growth_climate_df_raw %>% 
-  select(year, FDSI) %>% unique() %>% 
+ dplyr::select(year, FDSI) %>% unique() %>% 
   mutate(year = year+1) %>% 
   rename(FDSI_prior = FDSI) %>% 
   filter(year <2011)) %>% 
   filter(year<2003) %>% 
   mutate(tree=paste("X",name,sep="")) %>% 
-  left_join(dbh_age_good %>% select(tree,Provenance) %>% unique(), by="tree")
+  left_join(dbh_age_good %>%dplyr::select(tree,Provenance) %>% unique(), by="tree")
 
 postdrought_rawdata<- growth_climate_df_raw %>% 
-  select(name, year, value) %>% 
+ dplyr::select(name, year, value) %>% 
   filter(year > 1991) %>% 
   left_join(growth_climate_df_raw %>% 
-  select(year, FDSI) %>% unique() %>% 
+ dplyr::select(year, FDSI) %>% unique() %>% 
   mutate(year = year+1) %>% 
   rename(FDSI_prior = FDSI) %>% 
   filter(year <2011)) %>% 
   filter(year>2002) %>% 
   mutate(tree=paste("X",name,sep="")) %>% 
-  left_join(dbh_age_good %>% select(tree,Provenance) %>% unique(), by="tree")
+  left_join(dbh_age_good %>%dplyr::select(tree,Provenance) %>% unique(), by="tree")
 
 
 ggplot(predrought_rawdata, aes(x=FDSI_prior, y=value, col=tree))+
@@ -5002,26 +5079,26 @@ ggplot(data=modresultdf %>% filter(Provenance==provnames[3]), aes(x=year, y=valu
 
 ```{r}
 predrought_nedata<- growth_climate_df_ne %>% 
-  select(tree, year, rw_spline) %>% 
+ dplyr::select(tree, year, rw_spline) %>% 
   filter(year > 1991) %>% 
   left_join(growth_climate_df_ne %>% 
-  select(year, FDSI) %>% unique() %>% 
+ dplyr::select(year, FDSI) %>% unique() %>% 
   mutate(year = year+1) %>% 
   rename(FDSI_prior = FDSI) %>% 
   filter(year <2011)) %>% 
   filter(year<2003) %>% 
-  left_join(dbh_age_good %>% select(tree,Provenance) %>% unique(), by="tree")
+  left_join(dbh_age_good %>%dplyr::select(tree,Provenance) %>% unique(), by="tree")
 
 postdrought_nedata<- growth_climate_df_ne %>% 
-  select(tree, year, rw_spline) %>% 
+ dplyr::select(tree, year, rw_spline) %>% 
   filter(year > 1991) %>% 
   left_join(growth_climate_df_ne %>% 
-  select(year, FDSI) %>% unique() %>% 
+ dplyr::select(year, FDSI) %>% unique() %>% 
   mutate(year = year+1) %>% 
   rename(FDSI_prior = FDSI) %>% 
   filter(year <2011)) %>% 
   filter(year>2002) %>% 
-  left_join(dbh_age_good %>% select(tree,Provenance) %>% unique(), by="tree")
+  left_join(dbh_age_good %>%dplyr::select(tree,Provenance) %>% unique(), by="tree")
 
 
 ggplot(predrought_nedata, aes(x=FDSI_prior, y=rw_spline, col=tree))+
@@ -5059,79 +5136,6 @@ ggplot(data=modresultdf_ne %>% filter(adjrsquared>0.2), aes(x=year, y=rw_spline)
 
 ```
 
-##detrending whole series
-
-```{r}
-###negative exponential detrending with dplr
-prov_good_allyrs <- prov_all %>% select(-all_of(substr(off_trees, 2,nchar(off_trees))))
-
-growth.detrended.ne.allyrs = matrix(nrow=nrow(prov_good_allyrs), ncol=length(colnames(prov_good_allyrs)))
-for(i in 1:length(prov_good_allyrs)){
-obj<- detrend.series(y = prov_good_allyrs %>% pull(colnames(prov_good_allyrs)[i]), y.name="growth", method="ModNegExp")
-growth.detrended.ne.allyrs[,i]<- obj
-}
-
-colnames(growth.detrended.ne.allyrs) = colnames(prov_good_allyrs)
-growth.detrended.ne.allyrs.df <- growth.detrended.ne.allyrs %>% 
-  as.data.frame() %>% 
-  mutate(year = rownames(prov_good_allyrs)) %>% 
-  pivot_longer(!year, values_to = "rw_spline", names_to="tree") %>% 
-  mutate(tree=paste("X",tree,sep=""), year=as.integer(year)) %>% 
-  left_join(rwi %>% dplyr::select(Provenance, Tree) %>% unique(), by=c("tree"="Tree"))
-
-
-growth_climate_df_ne_allyrs <- growth.detrended.ne.allyrs.df %>% 
-  left_join(plantation_clim) %>% 
-  dplyr::select(c(CN:year,ppt_gs:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum)) %>% 
-  left_join(plantation_clim_minus1, by=c("year" = "prior_year", "CN" = "prior_CN")) %>% 
-  ungroup() %>% 
-  filter(year>1970)
-
-
-predrought_nedata_allyrs<- growth_climate_df_ne_allyrs %>% 
-  select(tree, year, rw_spline, FDSI, prior_FDSI) %>% 
-  filter(year<2002 & year>1971) %>% 
-  filter(!is.na(rw_spline)) %>% 
-  left_join(dbh_age_good %>% select(tree,Provenance) %>% unique(), by="tree") 
-
-
-postdrought_nedata_allyrs<- growth_climate_df_ne_allyrs %>% 
-  select(tree, year, rw_spline, FDSI, prior_FDSI) %>% 
-  filter(year>2001 & year < 2016) %>% 
-  left_join(dbh_age_good %>% select(tree,Provenance) %>% unique(), by="tree") %>% 
-  filter(!is.na(rw_spline))
-
-treenames<- unique(predrought_nedata_allyrs$tree)
-
-modresultdf_ne_allyrs<- data.frame()
-for(i in 1:length(treenames)){
-  predata = predrought_nedata_allyrs %>% filter(tree==treenames[i])
-  postdata = postdrought_nedata_allyrs %>% filter(tree==treenames[i])
-  mod = lm(rw_spline ~ FDSI + prior_FDSI, data=predata)
-  adjrsquared<- summary(mod)$adj.r.squared
-  postclim <- growth_climate_df_ne_allyrs %>% select(year,FDSI,prior_FDSI) %>% filter(year>2001 & year < 2016) %>% unique()
-  newdata <-  predata %>% bind_cols(prediction= predict(mod)) %>% 
-  bind_rows(postdata %>% left_join(data.frame(year=seq(2002,2015,1), prediction=predict(mod, postclim)))) %>% 
-    mutate(adjrsquared = adjrsquared)
-modresultdf_ne_allyrs<- bind_rows(modresultdf_ne_allyrs,newdata)
-}
-
-modresultdf_ne_allyrs %>% 
-  filter(adjrsquared>0.2) %>% 
-  pull(tree) %>% unique()
-
-ggplot(data=modresultdf_ne_allyrs %>% filter(adjrsquared>0.2), aes(x=year, y=rw_spline))+
-  geom_point()+
-  geom_line(col="black")+
-  geom_line(data=modresultdf_ne_allyrs %>% filter(adjrsquared>0.2), aes(x=year, y=prediction), col="red")+
-  geom_point(data=modresultdf_ne_allyrs %>% filter(adjrsquared>0.2), aes(x=year, y=prediction), col="red")+
-  geom_bar(stat="identity", aes(x=year, y=FDSI, fill=Provenance))+
-  geom_text(data= data.frame(tree=modresultdf_ne_allyrs %>% filter(adjrsquared>0.2) %>% pull(tree) %>% unique(), year=1993,rw_spline=max(modresultdf_ne_allyrs %>% filter(adjrsquared>0.2) %>% pull(rw_spline)), label=modresultdf_ne_allyrs %>% filter(adjrsquared>0.2) %>% pull(adjrsquared) %>% unique()), aes(label=paste("adj r2 =", round(label,1))))+
-  geom_vline(xintercept=2002, col="darkred")+
-  facet_wrap(~tree)
-
-```
-
 #Correlations
 
 ```{r}
@@ -5142,13 +5146,17 @@ gc_cor_df_ne_allyrs<-data.frame()
 for(i in 1:length(climvars)){
   for(j in 1:length(tree_ids_ne)){
   clim <- gc_alltrees_ne %>% dplyr::filter(tree == tree_ids_ne[j]) %>% dplyr::select(climvars[i])
-  tree <- gc_alltrees_ne %>% dplyr::filter(tree == tree_ids_ne[j]) %>% select(rw_spline)
+  tree <- gc_alltrees_ne %>% dplyr::filter(tree == tree_ids_ne[j]) %>%dplyr::select(rw_spline)
   gc.cor <- cor(clim, tree)
-  row <- cbind(climvars[i], tree_ids_ne[j], gc.cor) %>% as.data.frame()
+  p.value <- cor.test(clim %>% pull(1), tree %>% pull(1))$p.value
+  row <- cbind(climvars[i], tree_ids_ne[j], gc.cor, p.value) %>% as.data.frame()
   gc_cor_df_ne_allyrs <- bind_rows(gc_cor_df_ne_allyrs, row)
-}}
+  }}
 
-gc_cor_df_ne %>% arrange(V2)
+gc_cor_df_ne_allyrs %>% 
+  filter(p.value<0.05) %>% 
+  group_by(V1) %>% 
+  summarise(n=n())
 
 gc_cor_df_ne_allyrs %>% 
   group_by(V2) %>% 
@@ -5164,13 +5172,13 @@ gc_cor_df_ne_allyrs %>%
 cor_clean <- gc_cor_df_ne_allyrs %>% 
   rename(climvar=V1, tree=V2, cor=rw_spline) %>%
   mutate(cor = as.numeric(cor)) %>% 
-  left_join(gc_alltrees_ne %>% select(tree,Provenance) %>% unique(), by="tree") %>% 
+  left_join(gc_alltrees_ne %>%dplyr::select(tree,Provenance) %>% unique(), by="tree") %>% 
   filter(!is.na(cor))
   
 cor_summary<- gc_cor_df_ne_allyrs %>% 
   rename(climvar=V1, tree=V2, cor=rw_spline) %>%
   mutate(cor = as.numeric(cor)) %>% 
-  left_join(gc_alltrees_ne %>% select(tree,Provenance) %>% unique(), by="tree") %>% 
+  left_join(gc_alltrees_ne %>%dplyr::select(tree,Provenance) %>% unique(), by="tree") %>% 
   filter(!is.na(cor)) %>% 
   group_by(Provenance, climvar) %>% 
   summarise(meancor = mean(cor), se=sd(cor)/sqrt(n())) %>% 
@@ -5226,5 +5234,161 @@ cor_provclim_long <- pivot_longer(cor_provclim, MAT:smrpb)
 # print(plot)
 # }
 # dev.off()
+
+#FDSI x cmd
+ggplot(data=cor_provclim_long %>% filter(climvar=="FDSI"& name=="cmd"), aes(x=value, y=cor, col=Provenance))+
+  geom_point()+
+  ggtitle("FDSI")
+
+fdsi_cmd<- cor_provclim_long %>% filter(climvar=="FDSI" & name=="cmd") 
+
+fdsi_cmd_mod <- lmer(cor ~ value + (1|Provenance), data=fdsi_cmd)
+summary(fdsi_cmd_mod)
+
+#cwd_wy x NFFD
+ggplot(cor_provclim_long %>% filter(climvar=="cwd_wy"& name=="nffd"), aes(x=value, y=cor, col=Provenance))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  ggtitle("cwd_wy")
+
+cwd_nffd<- cor_provclim_long %>% filter(climvar=="cwd_wy" & name=="nffd") 
+
+cwd_nffd_mod <- lmer(cor ~ value + (1|Provenance), data=cwd_nffd)
+summary(cwd_nffd_mod) #is significant if Gila is excluded
+
+# aet x td
+ggplot(data=cor_provclim_long %>% filter(climvar=="aet_sum"& name=="TD"), aes(x=value, y=cor, col=Provenance))+
+  geom_point()+
+  ggtitle("TD x aet_sum cor")
+
+aet_td<- cor_provclim_long %>% filter(climvar=="aet_sum" & name=="TD") 
+
+aet_td_mod <- lmer(cor ~ value + (1|Provenance), data=aet_td)
+summary(aet_td_mod)
+
+#TD x spei
+ggplot(data=cor_provclim_long %>% filter(climvar=="spei_sum"& name=="TD"), aes(x=value, y=cor, col=Provenance))+
+  geom_point()+
+  ggtitle("TD x spei_sum cor")
+
+spei_td<- cor_provclim_long %>% filter(climvar=="spei_sum" & name=="TD") 
+
+spei_td_mod <- lmer(cor ~ value + (1|Provenance), data=spei_td)
+summary(aet_td_mod)
+
+#prior ppt x cmd
+ggplot(data=cor_provclim_long %>% filter(climvar=="prior_ppt"& name=="cmd"), aes(x=value, y=cor, col=Provenance))+
+  geom_point()+
+  ggtitle("cmd x prior_ppt cor")
+
+prippt_cmd<- cor_provclim_long %>% filter(climvar=="prior_ppt" & name=="cmd") 
+
+prippt_cmd_mod <- lmer(cor ~ value + (1|Provenance), data=prippt_cmd)
+summary(prippt_cmd_mod)
+
+#prior fa tmin x bFFP
+ggplot(data=cor_provclim_long %>% filter(climvar=="prior_value_fa_tmin"& name=="bFFP"), aes(x=value, y=cor, col=Provenance))+
+  geom_point()+
+  ggtitle("bFFP x prior_value_fa_tmin cor")
+
+prifatmin_bffp<- cor_provclim_long %>% filter(climvar=="prior_value_fa_tmin" & name=="bFFP") 
+
+prifatmin_bffp_mod <- lmer(cor ~ value + (1|Provenance), data=prifatmin_bffp)
+summary(prifatmin_bffp_mod) #significant
+
+#nffd x tmin
+ggplot(data=cor_provclim_long %>% filter(climvar=="prior_value_fa_tmin"& name=="nffd"), aes(x=value, y=cor, col=Provenance))+
+  geom_point()+
+  ggtitle("nffd x prior_value_fa_tmin cor")
+
+prifatmin_nffd<- cor_provclim_long %>% filter(climvar=="prior_value_fa_tmin" & name=="nffd") 
+
+prifatmin_nffd_mod <- lmer(cor ~ value + (1|Provenance), data=prifatmin_nffd)
+summary(prifatmin_nffd_mod)
+
+#EMT x tmin
+ggplot(data=cor_provclim_long %>% filter(climvar=="prior_value_fa_tmin"& name=="EMT"), aes(x=value, y=cor, col=Provenance))+
+  geom_point()+
+  ggtitle("EMT x prior_value_fa_tmin cor")
+
+prifatmin_EMT<- cor_provclim_long %>% filter(climvar=="prior_value_fa_tmin" & name=="EMT") 
+
+prifatmin_EMT_mod <- lmer(cor ~ value + (1|Provenance), data=prifatmin_EMT)
+summary(prifatmin_EMT_mod) ##places with lower extreme minimum temperatures respond negatively to prior fall being hotter. 
+
+#prior sp tmean x msp
+ggplot(data=cor_provclim_long %>% filter(climvar=="prior_value_sp_tmean"& name=="msp"), aes(x=value, y=cor, col=Provenance))+
+  geom_point()+
+  ggtitle("msp x prior_value_sp_tmean cor")
+
+prisptmean_msp<- cor_provclim_long %>% filter(climvar=="prior_value_sp_tmean" & name=="msp") 
+
+prisptmean_msp_mod <- lmer(cor ~ value + (1|Provenance), data=prisptmean_msp)
+summary(prisptmean_msp_mod) #significant
+
+#prior wt vpdmax x msp
+ggplot(data=cor_provclim_long %>% filter(climvar=="prior_vpdmax_wt"& name=="msp"), aes(x=value, y=cor, col=Provenance))+
+  geom_point()+
+  ggtitle("msp x prior_vpdmax_wt cor")
+
+priwtvpd_msp<- cor_provclim_long %>% filter(climvar=="prior_vpdmax_wt" & name=="msp") 
+
+priwtvpd_msp_mod <- lmer(cor ~ value + (1|Provenance), data=priwtvpd_msp)
+summary(prifatmin_msp_mod) #significant
+
+##use PC1 and PC2 rather than climate variables
+
+pca_cor_data<- cor_provclim_long %>% 
+  left_join(prov_pcapts %>% dplyr::select(Provenance, PC1, PC2)) %>% 
+  dplyr::select(-c(name,value)) %>% 
+  unique() %>% 
+    mutate(pc1diff = PC1 - prov_pcapts %>% 
+  filter(Provenance == "Plantation") %>% 
+  pull(PC1),
+          pc2diff = PC2 - prov_pcapts %>% 
+  filter(Provenance == "Plantation") %>% 
+  pull(PC2)) %>% 
+  mutate(pcadist = sqrt(pc1diff^2 + pc2diff^2))
+
+unique(cor_provclim_long$climvar)
+
+sig.cors20<- gc_cor_df_ne_allyrs %>% 
+  filter(p.value<0.05) %>% 
+  group_by(V1) %>% 
+  summarise(n=n()) %>% 
+  filter(n>20) %>% 
+  arrange(n)
+
+ggplot(pca_cor_data %>% filter(climvar%in%sig.cors20$V1), aes(x=Provenance, y=cor))+
+  geom_boxplot()+
+  geom_hline(yintercept = 0, color="red")+
+  facet_wrap(~climvar)+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+ggplot(pca_cor_data %>% filter(climvar%in%sig.cors20$V1) %>% filter(!Provenance=="Gila NF"), aes(x=PC1, y=cor))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~climvar, scales="free")
+
+ggplot(pca_cor_data %>% filter(climvar%in%sig.cors20$V1), aes(x=PC2, y=cor))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~climvar, scales="free")
+
+cwd_pc1_mod <- lmer(cor~PC1 + (1|Provenance), data=pca_cor_data %>% filter(climvar=="cwd_wy"))
+summary(cwd_pc1_mod)
+
+fdsi_pc2_mod<- lmer(cor~PC2+(1|Provenance), data=pca_cor_data %>% filter(climvar=="FDSI"))
+summary(fdsi_pc2_mod)
+
+
+##use distance in PC and geographic space between population and plantation
+ggplot(pca_cor_data %>% filter(climvar%in%sig.cors20$V1) %>% filter(!Provenance=="Gila NF"), aes(x=pcadist, y=cor))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~climvar, scales="free")
+
+pcadist_mod <- lmer(cor ~ pcadist + (1|Provenance), data=pca_cor_data %>% filter(climvar%in%sig.cors20$V1) %>% filter(!Provenance=="Gila NF") %>% filter(climvar=="FDSI"))
+summary(pcadist_mod)
 
 ```
