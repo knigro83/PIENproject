@@ -1244,15 +1244,6 @@ prov_clim_states <- prov_clim %>%
     mutate(state = substr(ident,6,7), number = substr(ident, 1,4)) %>% 
   left_join(prov_names) 
   
-
-ggplot(engelmann_clim, aes(x=MAT, y=map))+
-  geom_hex(alpha=0.7)+
-  scale_fill_gradientn(colors=c("aquamarine","gold","white"))+
-  geom_point(data=prov_clim_states, aes(x=MAT, y=map, col=state), size=4)+
-  scale_color_manual(values = state.colors)+
-  theme_bw()+
-  theme(text = element_text(size=16, color="black"))
-
 ggplot(engelmann_clim, aes(x=MAT, y=map))+
   geom_hex(alpha=0.7)+
   scale_fill_gradientn(colors=c("aquamarine","gold","white"))+
@@ -1261,6 +1252,13 @@ ggplot(engelmann_clim, aes(x=MAT, y=map))+
   scale_color_manual(values = state.colors)+
   theme_bw()+
   theme(text = element_text(size=16, color="black"))
+
+
+hist(engelmann_clim$MAT, freq=FALSE)
+quantile(engelmann_clim$MAT)
+median(engelmann_clim$MAT)
+
+prov_clim_states$MAT
 
 ```
 
@@ -5204,6 +5202,57 @@ ggplot(cor_clean %>% inner_join(cor_summary %>% filter(abs(meancor)>0.2)), aes(x
   geom_hline(yintercept=0)
 
 
+allanovas<- data.frame()
+for(i in 1:length(climvars)){
+mod <- lm(cor ~ Provenance, data=cor_clean %>% filter(climvar == climvars[i]))
+modanova <- as.data.frame(Anova(mod, type="2"))
+pvalue<- modanova %>% mutate(var = rownames(modanova)) %>% filter(var=="Provenance") %>%  pull(`Pr(>F)`)
+allanovas <- bind_rows(allanovas, data.frame(climvar=climvars[i],pvalue=pvalue))
+}
+
+allanovas %>% filter(pvalue<0.05)
+
+ggplot(cor_clean %>% filter(climvar %in% c(allanovas %>% filter(pvalue<0.05) %>% pull(climvar))), aes(x=Provenance, y=cor))+
+  geom_boxplot()+
+  facet_wrap(~climvar)+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+##ANOVA aet_sum
+anova_aetsum <- aov(cor ~ Provenance, data=cor_clean %>% filter(climvar == "aet_sum"))
+as.data.frame(TukeyHSD(anova_aetsum)$Provenance) %>% filter(`p adj` < 0.05)
+
+##ANOVA ppt
+anova_ppt <- aov(cor ~ Provenance, data=cor_clean %>% filter(climvar == "ppt"))
+as.data.frame(TukeyHSD(anova_ppt)$Provenance) %>% filter(`p adj` < 0.05)
+
+##ANOVA ppt_wt
+anova_ppt_wt <- aov(cor ~ Provenance, data=cor_clean %>% filter(climvar == "ppt_wt"))
+summary(anova_ppt_wt)
+as.data.frame(TukeyHSD(anova_ppt_wt)$Provenance) %>% filter(`p adj` < 0.1)
+
+##ANOVA prior_ppt
+anova_prior_ppt <- aov(cor ~ Provenance, data=cor_clean %>% filter(climvar == "prior_ppt"))
+as.data.frame(TukeyHSD(anova_prior_ppt)$Provenance) %>% filter(`p adj` < 0.1)
+
+##ANOVA sp_tmax
+anova_sp_tmax <- aov(cor ~ Provenance, data=cor_clean %>% filter(climvar == "value_sp_tmax"))
+as.data.frame(TukeyHSD(anova_sp_tmax)$Provenance) %>% filter(`p adj` < 0.05)
+
+######testing relationships between growth and climate across all trees with provenance as a random effect
+
+all_lms<- data.frame()
+for(i in 1:length(climvars)){
+mod <- lmer(gc_alltrees_ne %>% pull(rw_spline) ~ gc_alltrees_ne %>% pull(climvars[i]) + (1|Provenance), data=gc_alltrees_ne)
+summary<- as.data.frame(summary(mod)$coefficients) 
+pvalue <- summary %>% slice(2) %>% pull(`Pr(>|t|)`)
+all_lms <- bind_rows(all_lms, data.frame(var=climvars[i], pvalue=pvalue))
+}
+
+all_lms %>% 
+  filter(pvalue<0.05)
+##############################################
+
+
 cor_provclim<- cor_clean %>% left_join(
 prov_clim_adjusted_bi %>% 
   mutate(Provenance = ifelse(Provenance=="Grand Mesa-Uncompahgre NF","GM-U NF",Provenance)) %>% 
@@ -5334,7 +5383,7 @@ ggplot(data=cor_provclim_long %>% filter(climvar=="prior_vpdmax_wt"& name=="msp"
 priwtvpd_msp<- cor_provclim_long %>% filter(climvar=="prior_vpdmax_wt" & name=="msp") 
 
 priwtvpd_msp_mod <- lmer(cor ~ value + (1|Provenance), data=priwtvpd_msp)
-summary(prifatmin_msp_mod) #significant
+summary(priwtvpd_msp_mod) #significant
 
 ##use PC1 and PC2 rather than climate variables
 
@@ -5390,5 +5439,13 @@ ggplot(pca_cor_data %>% filter(climvar%in%sig.cors20$V1) %>% filter(!Provenance=
 
 pcadist_mod <- lmer(cor ~ pcadist + (1|Provenance), data=pca_cor_data %>% filter(climvar%in%sig.cors20$V1) %>% filter(!Provenance=="Gila NF") %>% filter(climvar=="FDSI"))
 summary(pcadist_mod)
+
+pcadist_mod_cwd <- lmer(cor ~ pcadist + (1|Provenance), data=pca_cor_data %>% filter(climvar%in%sig.cors20$V1) %>% filter(!Provenance=="Gila NF") %>% filter(climvar=="cwd_wy"))
+summary(pcadist_mod_cwd)
+
+pcadist_mod_vpd <- lmer(cor ~ pcadist + (1|Provenance), data=pca_cor_data %>% filter(climvar%in%sig.cors20$V1) %>% filter(!Provenance=="Gila NF") %>% filter(climvar=="vpdmax_sm"))
+summary(pcadist_mod_vpd)
+
+
 
 ```
