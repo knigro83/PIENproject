@@ -123,7 +123,7 @@ prov_vars<- prov_clim_adjusted_bi %>%
   left_join(prov_names) %>% 
   pivot_longer(MAT:smrpb, names_to = "var", values_to = "value")
 
-ggplot(prov_vars, aes(x=factor(Provenance,levels=prov_pcapts %>% arrange(y) %>% pull(Provenance)), y=value, color=factor(Provenance,levels=prov_pcapts %>% arrange(y) %>% pull(Provenance))))+
+ggplot(prov_vars, aes(x=factor(Provenance), y=value))+
   geom_point(size=4)+
   facet_wrap(~var, scales="free")+
   scale_color_manual(values=heat.colors(21))+
@@ -357,12 +357,12 @@ dem_plantation <- rast("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspac
 
 slpasp <- terrain(dem_plantation, v = c("slope","aspect"))
 
-slpasp_plantation <- terra::extract(slpasp, provenances %>% filter(ident=="Plantation"), method="simple")
+slpasp_plantation <- terra::extract(slpasp, adjusted_provs %>% filter(Provenance=="Plantation"), method="simple")
 
-plantation_cwd_data <- all_climate %>% left_join(as.data.frame(provenances) %>% filter(ident=="Plantation"), by=c("CN"="ident")) %>% 
+plantation_cwd_data <- all_climate %>% left_join(as.data.frame(adjusted_provs) %>% bind_cols(crds(adjusted_provs)) %>% filter(Provenance=="Plantation"), by=c("CN"="Provenance")) %>% 
   mutate(soilawc=116.5, foldedaspect = abs(180-abs(slpasp_plantation$aspect - 225)), slope=slpasp_plantation$slope)
 
-plantation_cwd <- cwd_function(site="plantation",slope=plantation_cwd_data$slope, latitude=plantation_cwd_data$Latitude, foldedaspect = plantation_cwd_data$foldedaspect, ppt = plantation_cwd_data$ppt, tmean = plantation_cwd_data$tmean, month = plantation_cwd_data$month, soilawc = plantation_cwd_data$soilawc, year = plantation_cwd_data$year, type="annual")
+plantation_cwd <- cwd_function(site="plantation",slope=plantation_cwd_data$slope, latitude=plantation_cwd_data$y, foldedaspect = plantation_cwd_data$foldedaspect, ppt = plantation_cwd_data$ppt, tmean = plantation_cwd_data$tmean, month = plantation_cwd_data$month, soilawc = plantation_cwd_data$soilawc, year = plantation_cwd_data$year, type="annual")
 
 head(plantation_cwd)
 
@@ -638,13 +638,11 @@ prov_pcapts<- clim_pca$x %>%
 autoplot(clim_pca,x=1,y=2,colour="aquamarine3",loadings.colour="red", loadings=T, loadings.label=T, loadings.label.colour="black", scale=0, loadings.label.size=6)+
   geom_point(data=prov_pcapts, aes(x=PC1, y=PC2, col=factor(cluster)), size=5)+
   geom_text_repel(data=prov_pcapts, aes(x=PC1, y=PC2, label=code))+
-  scale_color_manual(values=state.colors)+
   theme(text=element_text(size=14, color="black"))
   
 autoplot(clim_pca,x=1,y=3,colour="aquamarine3",loadings.colour="red", loadings=T, loadings.label=T, loadings.label.colour="black", scale=0, loadings.label.size=6)+
   geom_point(data=prov_pcapts, aes(x=PC1, y=PC3, col=factor(cluster)), size=5)+
   geom_text_repel(data=prov_pcapts, aes(x=PC1, y=PC3, label=code))+
-  scale_color_manual(values=state.colors)+
   theme(text=element_text(size=14, color="black"))
   
 
@@ -1208,7 +1206,7 @@ dbh_age <- prov_all %>%
   mutate(year = rownames(prov_all)) %>% 
   pivot_longer(!year, values_to = "rw", names_to="tree") %>% 
   mutate(tree=paste("X",tree,sep=""), year=as.integer(year)) %>% 
-  left_join(rwi %>% dplyr::select(Provenance, Tree) %>% unique(), by=c("tree"="Tree"))
+  left_join(dbh %>% mutate(tree=paste("X",Series,sep="")), by="tree")
   
 dbh_age_summary <- dbh_age %>%
   filter(!is.na(rw)) %>% 
@@ -1228,9 +1226,9 @@ ggplot(dbh_age_summary, aes(x=Provenance, y=n))+
   theme(axis.text.x = element_text(angle=45, hjust=1))
 
 dbh_age_summary2 <- dbh_age_summary %>% 
-  left_join(dbh %>% mutate(Series=paste("X",Series,sep="")), by=c("tree"="Series")) 
+  left_join(dbh %>% mutate(Series=paste("X",Series,sep="")), by=c("tree"="Series","Provenance")) 
 
-ggplot(dbh_age_summary2, aes(x=minyr, y=DBH14, col=Provenance.y))+
+ggplot(dbh_age_summary2, aes(x=minyr, y=DBH14, col=Provenance))+
   geom_point() #there isn't a strong correlation between dbh and the length of the timeseries which makes me think that rings were just lost (not that the tree didn't reach DBH height until the min year)
 ###
 
@@ -1284,162 +1282,18 @@ off_trees<- dbh_rwi_comp %>%
   filter(lowsum=="yes") %>% pull(tree) %>% c("X58A4") #this is the weird tree that's half and half
 
 prov_good_nona <- prov_all_nona %>%dplyr::select(-all_of(substr(off_trees, 2,nchar(off_trees))))
+
+
+###this cuts out sketchy trees and year = 2016
+prov_good <- prov_all %>% dplyr::select(-all_of(substr(off_trees,2,nchar(off_trees)))) %>% 
+  filter(!row.names(prov_all)=="2016")
 ```
 
-###Detrending
-
 ```{r}
-##detrending with Spline method - using stiffness of 35 years
-##need to figure out what age to start at based on how long the "young tree growth spurt" usually takes
-growth.detrended = matrix(nrow=nrow(prov_good_nona), ncol=length(colnames(prov_good_nona)))
-for(i in 1:length(prov_good_nona)){
-obj<- detrend.series(y = prov_all_nona %>% pull(colnames(prov_good_nona)[i]), y.name="growth", method="Spline", nyrs = 100)
-growth.detrended[,i]<- obj
-}
-colnames(growth.detrended) = colnames(prov_good_nona)
-growth.detrended.df <- growth.detrended %>% 
-  as.data.frame() %>% 
-  mutate(year = rownames(prov_good_nona)) %>% 
-  pivot_longer(!year, values_to = "rw_spline", names_to="tree") %>% 
-  mutate(tree=paste("X",tree,sep=""), year=as.integer(year)) %>% 
-  left_join(rwi %>% dplyr::select(Provenance, Tree) %>% unique(), by=c("tree"="Tree"))
+##some plots of the raw data averaged
+dbh_age_good <- dbh_age %>% 
+  filter(!tree %in% off_trees)
 
-ggplot(growth.detrended.df, aes(x=year, y=rw_spline, col=tree))+
-  geom_line()+
-  geom_point()+
-  facet_wrap(~Provenance, scales = "free")+
-  theme(legend.position = "none")
-
-dbh_age_corrected <- dbh_age %>% 
-  mutate(rw = ifelse(tree %in% off_trees, rw*10, rw))
-
-ggplot(dbh_age_corrected, aes(x=year, y=rw, col=tree))+
-  geom_line()+
-  geom_point()+
-  facet_wrap(~Provenance)+
-  theme(legend.position = "none")
-
-ggplot(dbh_age %>% filter(tree=="X49D2"), aes(x=year, y=rw, col=tree))+
-  geom_line()+
-  geom_point()+
-  facet_wrap(~Provenance)+
-  theme(legend.position = "none")
-
-prov_good <- prov_all %>% as.data.frame() %>% 
- dplyr::select(-all_of(off_trees %>% substr(2, nchar(off_trees))))
-
-dbh_age_good <- prov_good %>% 
-  as.data.frame() %>% 
-  mutate(year = rownames(prov_all)) %>% 
-  pivot_longer(!year, values_to = "rw", names_to="tree") %>% 
-  mutate(tree=paste("X",tree,sep=""), year=as.integer(year)) %>% 
-  left_join(rwi %>% dplyr::select(Provenance, Tree) %>% unique(), by=c("tree"="Tree"))
-  
-ggplot(dbh_age_good, aes(x=year, y=rw, col=tree))+
-  geom_line()+
-  geom_point()+
-  facet_wrap(~Provenance)+
-  theme(legend.position = "none")
-
-ggplot(dbh_age_good, aes(x=year, y=rw, col=tree %in% c(dbh_age_summary %>% filter(maxyr<2016) %>% pull(tree))))+
-  geom_line()+
-  geom_point()+
-  facet_wrap(~Provenance)+
-  theme(legend.position = "bottom")
-
-dbh_age_good %>% filter(tree %in% c(dbh_age_summary %>% filter(maxyr<2016) %>% pull(tree))) %>% 
-  pull(tree) %>% 
-  unique() %>% 
-  length()
-
-dbh_age_good %>% filter(!tree %in% c(dbh_age_summary %>% filter(maxyr<2016) %>% pull(tree))) %>% 
-  pull(tree) %>% 
-  unique() %>% 
-  length()
-
-meanrw<- dbh_age_good %>% 
-  na.omit() %>% 
-  group_by(year) %>% 
-  summarise(meanrw=mean(rw), n=n()) 
-
-ggplot(meanrw, aes(x=year, y=meanrw))+
-  geom_point()
-
-dbh_age_good %>%
-  filter(tree %in% c(dbh_age_summary2 %>% filter(maxyr<2015) %>% pull(tree))) %>% 
-  ggplot(aes(x=year,y=rw, col=tree))+
-  geom_point()+
-  geom_line()+
-  facet_wrap(~Provenance)
-
-
-dbh_age_good %>%
-  filter(!tree %in% c(dbh_age_summary2 %>% filter(maxyr<2015) %>% pull(tree))) %>% 
-  ggplot(aes(x=year,y=rw, col=tree))+
-  geom_point()+
-  geom_line()+
-  xlim(c(1970,2015))+
-  facet_wrap(~Provenance)+
-  theme(legend.position = "none")
-
-##########
-##look at dbh vs. rw sum
-full_join( dbh_age_good %>%dplyr::select(tree) %>% unique(),
-           dbh %>% 
-             filter(!Series=="") %>% 
-              mutate(tree=paste("X",Series,sep="")) %>% 
-              filter(!tree %in% off_trees) %>% 
-            dplyr::select(tree) %>% unique()) == dbh_age_good %>%dplyr::select(tree) %>% unique() 
-
-
-dbh_rw <- dbh_age_good %>% 
-  left_join(dbh %>% 
-              mutate(tree=paste("X",Series,sep="")) %>% 
-              filter(!tree %in% off_trees), by=c("tree","Provenance"))
-
-dbh_rw %>% 
-  filter(year==2006)
-##########
-
-##data from Kelsey et al. 2018
-
-kelsey <- read.csv("EngelmannSpruce.csv")
-
-kelsey$Site %>% unique()
-
-ggplot(kelsey %>% filter(Site=="AL1"), aes(x=Year, y=RawGrowth_mm, col=Core_ID))+
-  geom_point()+
-  geom_line()
-
-kelseyrwl<- kelsey %>% 
-  pivot_wider(id_cols = c(Year), names_from = Core_ID, values_from = RawGrowth_mm) %>% 
-  arrange(Year) %>% 
-  tibble::column_to_rownames(var="Year")
-
-row.names(kelseyrwl) = seq(1899,2012,1)
-
-kelseyrwl*1000
-
-#write.rwl(kelseyrwl*1000, "kelsey.rwl")
-
-kelseyrwl2 <- read.rwl("kelsey.rwl")
-
-bai_kelsey<- bai.out(kelseyrwl2)
-
-bai_kelsey$al1es0
-
-bai35A1 <- data.frame(bai = bai_out$`35A1`, year=seq(1970,2016,1), tree="35A1")
-
-bai_comb <- data.frame(bai=bai_kelsey$al1es0, year=seq(1899,2012,1), tree="al1es05") %>% 
-  bind_rows(bai35A1)
-
-ggplot(bai_comb, aes(x=year, y=bai, col=tree))+
-  geom_point()+
-  geom_line()
-
-ggplot(dbh_age_good %>% filter(Provenance=="Cutting Permit 31"), aes(x=year, y=rw, col=tree))+
-  geom_point()+
-  geom_line()
 
 ave_rw_prov<- dbh_age_good %>% 
   na.omit() %>% 
@@ -1450,6 +1304,7 @@ ggplot(ave_rw_prov, aes(x=year, y=ave_rw, col=Provenance))+
   geom_point()+
   geom_line()+
   geom_errorbar(aes(x=year, ymin=ave_rw-se, ymax=ave_rw+se, col=Provenance))+
+  geom_vline(xintercept = 1985)+
   facet_wrap(~Provenance)
 
 ave_rw_all <- dbh_age_good %>%
@@ -1461,75 +1316,78 @@ ggplot(ave_rw_all, aes(x=year, y=ave_rw))+
   geom_point()+
   geom_errorbar(aes(x=year, ymin=ave_rw-se, ymax=ave_rw+se), col="red")+
   geom_line()
-
-
-##data from https://doi.org/10.25921/zp2z-av44 - Engelmann spruce in Montana
-mt105 <- read.rwl("mt105.rwl")
-
-
-mt105_long <- mt105 %>% 
-  as.data.frame() %>% 
-  tibble::rownames_to_column(var="year") %>%
-  mutate(year=as.numeric(year)) %>% 
-  pivot_longer(cols=`720011`:`720112`,names_to="tree", values_to="rw")
-
-ggplot(mt105_long %>% filter(tree %in% seq(72011,720052,1)), aes(x=year, y=rw, col=tree))+
-  geom_point()+
-  geom_line()+
-  facet_wrap(~tree)
+### it seems like the major deviation in the data is in response to the wet period right before the drought, rather than the 2002 drought. 
 
 ```
+
+###Detrending
 
 ```{r}
-rw_clim_wide <- left_join(dbh_age_good, plantation_clim)
-colnames(rw_clim_wide)
+##detrending with Spline method - using stiffness of 35 years
+##need to figure out what age to start at based on how long the "young tree growth spurt" usually takes
 
-rw_clim_wide_formodel<- rw_clim_wide %>%dplyr::select(colnames(rw_clim_wide)[c(2:4,6:27,32,37,38)])
+###plot series to figure out where NAs are
+plot(prov_good, plot.type="spag")
+rwl.report(prov_good)
+prov_good_stats<- summary(prov_good)
+summary(prov_good_stats$ar1)
 
-tree_clim_cors <- rw_clim_wide%>% 
-  left_join(bai_in_long) %>% 
-  filter(!is.na(rw)) %>% 
-  filter(!year>2015) %>% 
-  pivot_longer(c(ppt_sm:vpdmax_sp,FDSI,aet_sum,cwd_sum)) %>% 
-  group_by(tree,Provenance,name) %>% 
-  summarise(cor_rw=cor(rw,value), cor_bai=cor(bai, value))
-
-ggplot(tree_clim_cors, aes(x=Provenance, y=cor_rw))+
+ggplot(prov_good_stats, aes(y=ar1))+
   geom_boxplot()+
-  facet_wrap(~name, scales="free")+
-  theme(axis.text.x = element_text(angle=45,hjust=1))
-
-tree_clim_cors %>% 
-  group_by(name) %>% 
-  summarise(meancor_rw=mean(cor_rw,na.rm=TRUE), sd_rw=sd(cor_rw, na.rm=TRUE), meancor_bai=mean(cor_bai,na.rm=TRUE), sd_bai=sd(cor_bai, na.rm=TRUE)) %>% 
-  dplyr::arrange(abs(meancor_bai)) %>% 
-  print(n=25) ##summer VPD max has strongest correlation with ring width & summer AET has strongest correlation with BAI
-
-tree_clim_cors %>% 
-  filter(name == "vpdmax_sm") %>% 
-  group_by(Provenance) %>% 
-  summarise(meancor=mean(cor_rw,na.rm=TRUE), sd=sd(cor_rw, na.rm=TRUE)) %>% 
-  dplyr::arrange(meancor) %>% 
-  print(n=25) ##shows provenances with highest correlations between ring width and summer vpd max
-
-ggplot(rw_clim_wide, aes(x=year, y=vpdmax_sm))+
   geom_point()
-ggplot(rw_clim_wide, aes(x=year, y=cwd_sum))+
+
+
+growth.detrended.all = matrix(nrow=nrow(prov_all)-1, ncol=length(colnames(prov_good)))
+for(i in 1:length(prov_good_nona)){
+obj<- detrend.series(y = prov_good  %>%  pull(colnames(prov_good)[i]), y.name="growth", method="Spline", nyrs = 35)
+growth.detrended.all[,i]<- obj
+}
+colnames(growth.detrended.all) = colnames(prov_good)
+rownames(growth.detrended.all) = rownames(prov_good)
+
+rwi.stats(growth.detrended.all, period="max")
+chron(growth.detrended.all)
+plot(chron(growth.detrended.all), add.spline=TRUE, nyrs=35)
+
+
+growth.detrended.df.all <- growth.detrended.all %>% 
+  as.data.frame() %>% 
+  mutate(year = rownames(growth.detrended.all)) %>% 
+  pivot_longer(!year, values_to = "rw_spline", names_to="tree") %>% 
+  mutate(tree=paste("X",tree,sep=""), year=as.integer(year)) %>% 
+  left_join(dbh %>% mutate(tree=paste("X",Series,sep="")), by="tree")
+
+ggplot(growth.detrended.df.all, aes(x=year, y=rw_spline, col=tree))+
+  geom_line()+
   geom_point()+
-  geom_hline(yintercept=quantile(rw_clim_wide$cwd_sum, c(0.75))  + IQR(rw_clim_wide$cwd_sum)*1.5, col="red")
+  facet_wrap(~Provenance, scales = "free")+
+  theme(legend.position = "none")
 
-rw_clim_wide %>% summary()
+##remove first 15 years of ring widths since they are missing for many trees and likely represent unusual growth patterns. 
+growth.detrended.short = matrix(nrow=nrow(prov_good)-15, ncol=length(colnames(prov_good)))
+for(i in 1:length(prov_good_nona)){
+obj<- detrend.series(y = prov_good %>% filter(!(row.names(prov_good) < 1985))  %>%  pull(colnames(prov_good)[i]), y.name="growth", method="Spline", nyrs = 35)
+growth.detrended.short[,i]<- obj
+}
+colnames(growth.detrended.short) = colnames(prov_good)
+rownames(growth.detrended.short) = rownames(prov_good)[16:nrow(prov_good)]
 
-quantile(rw_clim_wide$cwd_sum, c(0.025,0.5,0.975))
-quantile(rw_clim_wide$cwd_sum, c(0.75))  + IQR(rw_clim_wide$cwd_sum)*1.5
+rwi.stats(growth.detrended.short, period="max")
+plot(chron(growth.detrended.short), add.spline=TRUE, nyrs=35)
+##########
 
-rw_clim_wide %>% 
-  dplyr::select(c("year","cwd_sum")) %>% 
-  unique() %>% 
-  filter(cwd_sum > quantile(rw_clim_wide$cwd_sum, c(0.75))  + IQR(rw_clim_wide$cwd_sum)*1.5)
+growth.detrended.df <- growth.detrended.short %>% 
+  as.data.frame() %>% 
+  mutate(year = rownames(growth.detrended.short)) %>% 
+  pivot_longer(!year, values_to = "rw_spline", names_to="tree") %>% 
+  mutate(tree=paste("X",tree,sep=""), year=as.integer(year)) %>% 
+  left_join(dbh %>% mutate(tree=paste("X",Series,sep="")), by="tree")
 
-rw_clim_wide %>% 
-  filter(!is.na(rw)) %>% 
-  group_by(year) %>% 
-  summarise(n=n()) %>% print(n=50)
+ggplot(growth.detrended.df, aes(x=year, y=rw_spline, col=tree))+
+  geom_line()+
+  geom_point()+
+  facet_wrap(~Provenance, scales = "free")+
+  theme(legend.position = "none")
 ```
+
+
