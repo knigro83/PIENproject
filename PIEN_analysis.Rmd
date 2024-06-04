@@ -41,6 +41,7 @@ library(cluster)
 library(MASS)
 library(indicspecies)
 library(SPEI)
+library(lattice)
 ```
 
 ##Plot locations
@@ -792,6 +793,8 @@ dbh_numeric <- dbh_clim_data %>%
                                        ifelse(year=="DBH14", 24, year))))))
 
 dbh_aov <- lm(DBH ~ year*Provenance, data = dbh_numeric)
+par(mfrow=c(2,2))
+plot(dbh_aov)
 anova(dbh_aov) #no significant interaction
 dbh_aov_noint <- lm(DBH ~ year + Provenance, data = dbh_numeric)
 Anova(dbh_aov_noint, type="2") #both year and provenance are significant but do not interact (relatively similar order of provenance DBH in each year measured)
@@ -816,24 +819,28 @@ ggarrange(dbh_early,dbh_2014, nrow=2, common.legend = TRUE)
 
 ###model each year separately
 dbh_aov91 <- aov(DBH ~ Provenance, data = dbh_numeric %>% filter(year=="DBH91"))
+plot(dbh_aov91)
 summary(dbh_aov91)
 TukeyHSD(dbh_aov91)$Provenance %>% 
   as.data.frame() %>% 
   filter(`p adj` < 0.05)
  
 dbh_aov96 <- aov(DBH ~ Provenance, data = dbh_numeric %>% filter(year=="DBH96"))
+plot(dbh_aov96)
 summary(dbh_aov96)
 TukeyHSD(dbh_aov96)$Provenance %>% 
   as.data.frame() %>% 
   filter(`p adj` < 0.05)
   
 dbh_aov06 <- aov(DBH ~ Provenance, data = dbh_numeric %>% filter(year=="DBH06"))
+plot(dbh_aov06)
 summary(dbh_aov06)
 TukeyHSD(dbh_aov06)$Provenance %>% 
   as.data.frame() %>% 
   filter(`p adj` < 0.05)
   
 dbh_aov14 <- aov(DBH ~ Provenance, data = dbh_numeric %>% filter(year=="DBH14"))
+plot(dbh_aov14)
 summary(dbh_aov14)
 TukeyHSD(dbh_aov14)$Provenance %>% 
   as.data.frame() %>% 
@@ -845,8 +852,13 @@ TukeyHSD(dbh_aov14)$Provenance %>%
 dbh_num14 <- dbh_numeric %>% filter(year=="DBH14")
 
 #cmd
-mod_dbh_cmd <- lmer(DBH ~ cmd + (1|Provenance), data=dbh_num14%>% filter(!Provenance=="Gila NF"))
-summary(mod_dbh_cmd) ##when Gila is taken out, CMD is not significant
+mod_dbh_cmd <- lmer(DBH ~ cmd + (1|Provenance), data=dbh_num14)
+par(mfrow=c(1,1))
+plot(mod_dbh_cmd)
+qqmath(mod_dbh_cmd)
+summary(mod_dbh_cmd) 
+summary(lmer(DBH ~ cmd + (1|Provenance), data=dbh_num14 %>% filter(!Provenance=="Gila NF")))
+##when Gila is taken out, CMD is not significant
 
 ggplot(dbh_num14%>% filter(!Provenance=="Gila NF"), aes(x=cmd, y=DBH))+
   geom_point()+
@@ -854,6 +866,9 @@ ggplot(dbh_num14%>% filter(!Provenance=="Gila NF"), aes(x=cmd, y=DBH))+
 
 #cluster
 mod_dbh_cluster <- aov(DBH ~ cluster, data=dbh_num14)
+par(mfrow=c(2,2))
+plot(mod_dbh_cluster)
+par(mfrow=c(1,1))
 summary(mod_dbh_cluster) ##no significant difference between identified "clusters"
 
 ggplot(dbh_num14, aes(x=factor(cluster), y=DBH))+
@@ -861,6 +876,8 @@ ggplot(dbh_num14, aes(x=factor(cluster), y=DBH))+
 
 #PC1
 mod_dbh_pc1 <- lmer(DBH ~ PC1 + (1|Provenance), data=dbh_num14 %>% filter(!Provenance=="Gila NF"))
+plot(mod_dbh_pc1)
+qqmath(mod_dbh_pc1)
 summary(mod_dbh_pc1) ##when Gila is taken out, PC1 is not significant
 
 ggplot(dbh_num14 %>% filter(!Provenance=="Gila NF"), aes(x=PC1, y=DBH))+
@@ -869,6 +886,8 @@ ggplot(dbh_num14 %>% filter(!Provenance=="Gila NF"), aes(x=PC1, y=DBH))+
 
 #PC2
 mod_dbh_pc2 <- lmer(DBH ~ PC2 + (1|Provenance), data=dbh_num14)
+plot(mod_dbh_pc2)
+qqmath(mod_dbh_pc2)
 summary(mod_dbh_pc2) 
 
 ggplot(dbh_num14 , aes(x=PC2, y=DBH))+
@@ -883,12 +902,16 @@ ggplot(dbh_numeric %>%
 
 #Latitude
 mod_dbh_lat <- lmer(DBH ~ y+ I(y^2) + (1|Provenance), data=dbh_num14)
+plot(mod_dbh_lat)
+qqmath(mod_dbh_lat)
 summary(mod_dbh_lat) #there's a marginally significant quadratic effect of latitude
 
   #take out Gila
 dbh_num14_nogila <- dbh_num14 %>% filter(!Provenance=="Gila NF")
 
 mod_dbh_lat_nogila <- lmer(DBH ~ y+ I(y^2) + (1|Provenance), data=dbh_num14_nogila)
+plot(mod_dbh_lat_nogila)
+qqmath(mod_dbh_lat_nogila)
 summary(mod_dbh_lat_nogila) #when Gila is removed, latitude is highly significant
 
 newdata_lat <- data.frame(
@@ -911,10 +934,13 @@ ggplot()+
   geom_point(data=dbh_num14_nogila, aes(x=y, y=DBH))+
   geom_ribbon(data=newdata_lat_pred, aes(x=y,ymin=lwr,ymax=upr), alpha=0.4, fill="red")+
   geom_line(data=newdata_lat_pred, aes(x=y, y=fit), col="red")+
-  geom_vline(xintercept = prov_clim_adjusted_bi %>% filter(Provenance=="Plantation") %>% pull(y))
+  geom_vline(xintercept = prov_clim_adjusted_bi %>% filter(Provenance=="Plantation") %>% pull(y))+
+  xlab("Latitude")
 
 #Longitude
 mod_dbh_lon <- lmer(DBH ~ x+ I(x^2)+(1|Provenance), data=dbh_num14)
+plot(mod_dbh_lon)
+qqmath(mod_dbh_lon)
 summary(mod_dbh_lon) #no significant effects of longitude
 
   #take out Gila
@@ -927,7 +953,49 @@ dbh_num14_pcadist<- dbh_num14 %>%
   left_join(pca_dist_df %>% dplyr::select(code, dist.to.plant))
 
 mod_dbh_pcadist <- lmer(DBH ~ dist.to.plant + (1|Provenance), data=dbh_num14_pcadist)
+plot(mod_dbh_pcadist)
+qqmath(mod_dbh_pcadist)
 summary(mod_dbh_pcadist) #no significant effects of distance to plantation in PCA space
+
+#TD
+mod_dbh_td <- lmer(DBH ~ TD + I(TD^2) + (1|Provenance), data=dbh_num14)
+plot(mod_dbh_td)
+qqmath(mod_dbh_td)
+summary(mod_dbh_td) 
+summary(lmer(DBH ~ TD + I(TD^2) + (1|Provenance), data=dbh_num14 %>% filter(!Provenance=="Gila NF")))
+
+#PAS
+mod_dbh_pas <- lmer(DBH ~ pas + I(pas^2) + (1|Provenance), data=dbh_num14)
+plot(mod_dbh_pas)
+qqmath(mod_dbh_pas)
+summary(mod_dbh_pas) 
+summary(lmer(DBH ~ pas + I(pas^2) + (1|Provenance), data=dbh_num14 %>% filter(!Provenance=="Gila NF")))
+
+
+dbh_clim_data <- dbh_num14 %>% 
+  dplyr::select(c(Series, Provenance, DBH, colnames(env_vars_cut)))
+
+env_vars_cut %>% 
+  cor()
+
+dbh_clim_nogila<- dbh_clim_data %>% filter(!Provenance=="Gila NF")
+
+mod_dbh_allclim <- lmer(DBH ~ MAT + I(MAT^2) + map + I(map^2) + TD + I(TD^2) + SHM + I(SHM^2) + nffd  + I(nffd^2) + smrpb + I(smrpb^2) + (1|Provenance), data=dbh_clim_nogila)
+plot(mod_dbh_allclim)
+qqmath(mod_dbh_allclim)
+vif(mod_dbh_allclim)
+summary(mod_dbh_allclim)
+
+options(na.action = "na.fail")
+mod_dbh_allclim_dredge <- dredge(mod_dbh_allclim)
+mod_dbh_allclim_dredge
+
+#smrpb
+mod_dbh_smrpb <- lmer(DBH ~ smrpb + I(smrpb^2) + (1|Provenance), data=dbh_num14)
+plot(mod_dbh_smrpb)
+qqmath(mod_dbh_smrpb)
+summary(mod_dbh_smrpb) 
+summary(lmer(DBH ~ smrpb + I(smrpb^2) + (1|Provenance), data=dbh_num14 %>% filter(!Provenance=="Gila NF")))
 
 ```
 
@@ -970,7 +1038,7 @@ ggplot(dbh_diffs_long, aes(x= PC1, y=value))+
 
 ```
 
-##Height
+##Height Growth
 
 ```{r}
 moniger_data <- read.csv("past_moniger_data.csv")
@@ -992,10 +1060,10 @@ ggplot(moniger_data_comb, aes(x=factor(cmd), y=HT14, fill=Provenance))+
   theme(legend.position = 'right', axis.text.x = element_text(angle=45, hjust=1))
 
 ht_data <- moniger_data_comb %>% 
-  dplyr::select(c(Provenance,HT74:HT14,Seedling.Ht..from.Nursery)) %>% 
+  dplyr::select(c(LOC,BLK,REP,Provenance,HT74:HT14,Seedling.Ht..from.Nursery)) %>% 
   pivot_longer(HT74:HT14) %>% 
   mutate(nursery_ht_m = Seedling.Ht..from.Nursery/39.37) %>% 
-  mutate(rel.ht.m = (value-nursery_ht_m), rel.growth = (value-nursery_ht_m)/nursery_ht_m) %>% 
+  mutate(growth.m = (value-nursery_ht_m), rel.growth = (value-nursery_ht_m)/nursery_ht_m) %>% 
   filter(!is.na(value))
 
 ht_data_clim <- ht_data %>% 
@@ -1004,59 +1072,124 @@ ht_data_clim <- ht_data %>%
 ht.order <- ht_data %>% 
   filter(name=="HT14") %>% 
   group_by(Provenance) %>% 
-  summarise(med_rel_growth=median(rel.growth,na.rm=T)) %>% 
-  arrange(med_rel_growth)
+  summarise(med_rel_growth=median(rel.growth,na.rm=T), med_growth=median(growth.m, na.rm=T)) %>% 
+  arrange(med_growth)
 
+#relative growth
 ggplot(ht_data %>% filter(!name=="HT74"), aes(x=factor(Provenance, levels=ht.order$Provenance), y=rel.growth, fill=factor(Provenance, levels=ht.order$Provenance)))+
   geom_boxplot()+
   facet_wrap(~factor(name, levels=c("HT79","HT85","HT91","HT96","HT06","HT14")), scales="free")+
   scale_fill_discrete(name="Provenance")+
   scale_x_discrete(name="Provenance")+
   theme(axis.text.x = element_blank())
+
+#growth
+ggplot(ht_data %>% filter(!name=="HT74"), aes(x=factor(Provenance, levels=ht.order$Provenance), y=growth.m, fill=factor(Provenance, levels=ht.order$Provenance)))+
+  geom_boxplot()+
+  facet_wrap(~factor(name, levels=c("HT79","HT85","HT91","HT96","HT06","HT14")), scales="free")+
+  scale_fill_discrete(name="Provenance")+
+  scale_x_discrete(name="Provenance")+
+  theme(axis.text.x = element_blank())
+
+
+ht_data_aves <- ht_data %>% filter(!name=="HT74") %>% 
+  group_by(name, Provenance,Seedling.Ht..from.Nursery) %>% 
+  summarise(meangrowth = mean(growth.m), seRG = sd(growth.m)/sqrt(n()))
+
+ggplot(ht_data %>% filter(!name=="HT74"), aes(x=factor(name, levels=c("HT79","HT85","HT91","HT96","HT06","HT14")), y=growth.m, fill=factor(Provenance, levels=ht.order$Provenance)))+
+  geom_boxplot()+
+  geom_line(data=ht_data_aves, aes(x=factor(name, levels=c("HT79","HT85","HT91","HT96","HT06","HT14")), y=meangrowth, col=factor(Provenance, levels=ht.order$Provenance),group=factor(Provenance, levels=ht.order$Provenance)))+
+  scale_fill_discrete(name="Provenance")+
+  scale_x_discrete(name="Provenance")
+
+ggplot()+
+  geom_line(data=ht_data_aves, aes(x=factor(name, levels=c("HT79","HT85","HT91","HT96","HT06","HT14")), y=meangrowth, col=factor(Provenance, levels=ht.order$Provenance),group=factor(Provenance, levels=ht.order$Provenance)))+
+  geom_errorbar(data=ht_data_aves, aes(x=factor(name, levels=c("HT79","HT85","HT91","HT96","HT06","HT14")), ymin=meangrowth-seRG, ymax=meangrowth+seRG, col=factor(Provenance, levels=ht.order$Provenance),group=factor(Provenance, levels=ht.order$Provenance)),width=0.2)+
+  geom_point(data=ht_data_aves, aes(x=factor(name, levels=c("HT79","HT85","HT91","HT96","HT06","HT14")), y=meangrowth, col=factor(Provenance, levels=ht.order$Provenance),group=factor(Provenance, levels=ht.order$Provenance)))+
+  scale_color_discrete(name="Provenance")+
+  scale_x_discrete(name="Year")+
+  ylab("Average relative growth ratio")
+
+##initial height effect on height growth -- looks like there isn't really one
+ggplot(data=ht_data_aves, aes(x=Seedling.Ht..from.Nursery, y=meangrowth))+
+  geom_point()
+
+
+##total height follows different pattern than "relative height growth"
+ggplot(ht_data %>% filter(!name=="HT74"), aes(x=factor(Provenance, levels=ht.order$Provenance), y=value, fill=factor(Provenance, levels=ht.order$Provenance)))+
+  geom_boxplot()+
+  facet_wrap(~factor(name, levels=c("HT79","HT85","HT91","HT96","HT06","HT14")), scales="free")+
+  scale_fill_discrete(name="Provenance")+
+  scale_x_discrete(name="Provenance")+
+  theme(axis.text.x = element_blank())
+
+ggplot(ht_data %>% filter(!name=="HT74"), aes(x=factor(Provenance, levels=ht.order$Provenance), y=nursery_ht_m, fill=factor(Provenance, levels=ht.order$Provenance)))+
+  geom_boxplot()+
+  scale_fill_discrete(name="Provenance")+
+  scale_x_discrete(name="Provenance")+
+  theme(axis.text.x = element_blank())
+
+
 ```
 
 ###models
 
 ```{r}
+##effect of year * provenance
+
+plot(lm(value ~ Provenance*name, data=ht_data))
+
+ht_mod <- lm(sqrt(rel.growth) ~ Provenance*name, data=ht_data %>% mutate(rel.growth=ifelse(rel.growth<0,0,rel.growth)))
+par(mfrow=c(2,2))
+plot(ht_mod)
+anova(ht_mod) ##there is a significant year by provenance interaction
+
 ###model each year separately
 
 ht_aov_74 <- aov(rel.growth ~ Provenance, data=ht_data %>% filter(name=="HT74"))
+plot(ht_aov_74)
 summary(ht_aov_74)
 TukeyHSD(ht_aov_74)$Provenance %>% 
   as.data.frame() %>% 
   filter(`p adj`<0.05)
 
 ht_aov_79 <- aov(rel.growth ~ Provenance, data=ht_data %>% filter(name=="HT79"))
+plot(ht_aov_79)
 summary(ht_aov_79)
 TukeyHSD(ht_aov_79)$Provenance %>% 
   as.data.frame() %>% 
   filter(`p adj`<0.05)
 
 ht_aov_85 <- aov(rel.growth ~ Provenance, data=ht_data %>% filter(name=="HT85"))
+plot(ht_aov_85)
 summary(ht_aov_85)
 TukeyHSD(ht_aov_85)$Provenance %>% 
   as.data.frame() %>% 
   filter(`p adj`<0.05)
 
 ht_aov_91 <- aov(rel.growth ~ Provenance, data=ht_data %>% filter(name=="HT91"))
+plot(ht_aov_91)
 summary(ht_aov_91)
 TukeyHSD(ht_aov_91)$Provenance %>% 
   as.data.frame() %>% 
   filter(`p adj`<0.05)
 
 ht_aov_96 <- aov(rel.growth ~ Provenance, data=ht_data %>% filter(name=="HT96"))
+plot(ht_aov_96)
 summary(ht_aov_96)
 TukeyHSD(ht_aov_96)$Provenance %>% 
   as.data.frame() %>% 
   filter(`p adj`<0.05)
 
 ht_aov_06 <- aov(rel.growth ~ Provenance, data=ht_data %>% filter(name=="HT06"))
+plot(ht_aov_06)
 summary(ht_aov_06)
 TukeyHSD(ht_aov_06)$Provenance %>% 
   as.data.frame() %>% 
   filter(`p adj`<0.05)
 
 ht_aov_14 <- aov(rel.growth ~ Provenance, data=ht_data %>% filter(name=="HT14"))
+plot(ht_aov_14)
 summary(ht_aov_14)
 TukeyHSD(ht_aov_14)$Provenance %>% 
   as.data.frame() %>% 
@@ -1071,6 +1204,211 @@ ggplot(ht_data_clim %>% filter(name=="HT14"), aes(x=y, y=rel.growth, col=Provena
 #provenance climate affect on height linear models
 
 ```
+
+##Total Height
+
+###models
+
+```{r}
+##effect of year * provenance
+
+plot(lm(value ~ Provenance*name, data=ht_data))
+
+totht_mod <- lm(log(value) ~ Provenance*name, data=ht_data)
+par(mfrow=c(2,2))
+plot(totht_mod)
+anova(totht_mod) ##there is a significant year by provenance interaction
+
+#each year separately
+totht_mod74 <- aov(value ~ Provenance, data= ht_data %>% filter(name=="HT74"))
+plot(totht_mod74)
+summary(totht_mod74)
+TukeyHSD(totht_mod74)$Provenance %>% 
+  as.data.frame() %>% 
+  filter(`p adj`<0.05)
+
+totht_mod79 <- aov(value ~ Provenance, data= ht_data %>% filter(name=="HT79"))
+plot(totht_mod79)
+summary(totht_mod79)
+TukeyHSD(totht_mod79)$Provenance %>% 
+  as.data.frame() %>% 
+  filter(`p adj`<0.05)
+
+totht_mod85 <- aov(value ~ Provenance, data= ht_data %>% filter(name=="HT85"))
+plot(totht_mod85)
+summary(totht_mod85)
+TukeyHSD(totht_mod85)$Provenance %>% 
+  as.data.frame() %>% 
+  filter(`p adj`<0.05)
+
+totht_mod91 <- aov(value ~ Provenance, data= ht_data %>% filter(name=="HT74"))
+plot(totht_mod74)
+summary(totht_mod74)
+TukeyHSD(totht_mod74)$Provenance %>% 
+  as.data.frame() %>% 
+  filter(`p adj`<0.05)
+
+totht_mod96 <- aov(value ~ Provenance, data= ht_data %>% filter(name=="HT96"))
+plot(totht_mod96)
+summary(totht_mod96)
+TukeyHSD(totht_mod96)$Provenance %>% 
+  as.data.frame() %>% 
+  filter(`p adj`<0.05)
+
+totht_mod06 <- aov(value ~ Provenance, data= ht_data %>% filter(name=="HT06"))
+plot(totht_mod06)
+summary(totht_mod06)
+TukeyHSD(totht_mod06)$Provenance %>% 
+  as.data.frame() %>% 
+  filter(`p adj`<0.05)
+
+totht_mod14 <- aov(value ~ Provenance, data= ht_data %>% filter(name=="HT14"))
+plot(totht_mod14)
+summary(totht_mod14)
+TukeyHSD(totht_mod14)$Provenance %>% 
+  as.data.frame() %>% 
+  filter(`p adj`<0.05)
+
+```
+
+
+```{r}
+##continuous variable effects on height
+
+ht_data_clim14 <- ht_data_clim %>% filter(name=="HT14")
+
+#cmd
+mod_totht_cmd <- lmer(value ~ cmd + (1|Provenance), data=ht_data_clim14)
+par(mfrow=c(1,1))
+plot(mod_totht_cmd)
+qqmath(mod_totht_cmd)
+summary(mod_totht_cmd) 
+summary(lmer(value ~ cmd + (1|Provenance), data=ht_data_clim14 %>% filter(!Provenance=="Gila NF")))
+##when Gila is taken out, CMD is not significant -- same as DBH model
+
+ggplot(ht_data_clim14, aes(x=cmd, y=value, col=Provenance=="Gila NF"))+
+  geom_point()+
+  geom_smooth(method="lm")
+
+#PC1
+mod_totht_PC1 <- lmer(value ~ PC1 + (1|Provenance), data=ht_data_clim14)
+par(mfrow=c(1,1))
+plot(mod_totht_PC1)
+qqmath(mod_totht_PC1)
+summary(mod_totht_PC1) 
+summary(lmer(value ~ PC1 + (1|Provenance), data=ht_data_clim14 %>% filter(!Provenance=="Gila NF")))
+##when Gila is taken out, PC1 is not significant 
+
+ggplot(ht_data_clim14%>% filter(!Provenance=="Gila NF"), aes(x=PC1, y=value))+
+  geom_point()+
+  geom_smooth(method="lm")
+
+#PC2
+mod_totht_PC2 <- lmer(value ~ PC2 + (1|Provenance), data=ht_data_clim14)
+par(mfrow=c(1,1))
+plot(mod_totht_PC2)
+qqmath(mod_totht_PC2)
+summary(mod_totht_PC2) 
+summary(lmer(value ~ PC2 + (1|Provenance), data=ht_data_clim14 %>% filter(!Provenance=="Gila NF")))
+##neither is significant
+
+#Latitude
+mod_totht_lat <- lmer(value ~ y+ I(y^2) + (1|Provenance), data=ht_data_clim14)
+plot(mod_totht_lat)
+qqmath(mod_totht_lat)
+summary(mod_totht_lat) ##quadratic effect not significant
+mod_totht_lat_simple <- lmer(value ~ y+ (1|Provenance), data=ht_data_clim14)
+plot(mod_totht_lat_simple)
+qqmath(mod_totht_lat_simple)
+summary(mod_totht_lat_simple)
+
+#take out Gila
+ht_data_clim14_nogila <- ht_data_clim14 %>% filter(!Provenance=="Gila NF")
+summary(lmer(value ~ y+ (1|Provenance), data=ht_data_clim14_nogila)) #latitude only signficant with Gila included
+
+summary(lmer(value ~ y+ I(y^2)+ (1|Provenance), data=ht_data_clim14_nogila)) #BUT latitude quadratic effect is significant when Gila is excluded. Height lowest in middle latitudes. 
+
+ggplot(data=ht_data_clim14, aes(x=y, y=value, col=Provenance))+
+  geom_point()+
+  geom_smooth(method="lm")
+
+#longitude
+mod_totht_lon <- lmer(value ~ x + (1|Provenance), data=ht_data_clim14)
+plot(mod_totht_lon)
+qqmath(mod_totht_lon)
+summary(mod_totht_lon) ##longitude is marginally significant
+summary(lmer(value ~ x + (1|Provenance), data=ht_data_clim14_nogila)) 
+
+ggplot(data=ht_data_clim14, aes(x=x, y=value, col=Provenance))+
+  geom_point()+
+  geom_smooth(method="lm")
+
+#TD
+mod_totht_TD <- lmer(value ~ TD + (1|Provenance), data=ht_data_clim14)
+plot(mod_totht_TD)
+qqmath(mod_totht_TD)
+summary(mod_totht_TD) 
+summary(lmer(value ~ TD + (1|Provenance), data=ht_data_clim14_nogila)) 
+
+ggplot(data=ht_data_clim14, aes(x=TD, y=value, col=Provenance))+
+  geom_point()+
+  geom_smooth(method="lm")
+
+ht_data_clim14_noXT <- ht_data_clim14 %>% 
+  filter(TD > 20 & TD < 23)
+
+mod_totht_TD_noXT <- lmer(value ~ TD + I(TD^2) + (1|Provenance), data=ht_data_clim14_noXT)
+plot(mod_totht_TD_noXT)
+qqmath(mod_totht_TD_noXT)
+summary(mod_totht_TD_noXT) 
+
+ggplot(data=ht_data_clim14_noXT, aes(x=TD, y=value, col=Provenance))+
+  geom_point()+
+  geom_smooth(method="lm")
+
+
+##Look at just southern Rockies, excluding Gila
+ht_SR <- ht_data_clim14_nogila %>% filter(y < 44)
+  
+htmod_SR <- lmer(value ~ y + (1|Provenance), data=ht_SR)
+plot(htmod_SR)
+qqmath(htmod_SR)
+summary(htmod_SR)
+
+ggplot(data=ht_SR, aes(x=y, y=value, col=Provenance))+
+  geom_point()+
+  geom_smooth(method="lm")
+
+colnames(ht_SR)
+
+cor(ht_SR %>% dplyr::select(c(MAT:PPT_sm,elev,x,y,smrpb,monsoonality)))
+
+#TD
+TD_htmod_SR <- lmer(value ~ TD + (1|Provenance), data=ht_SR)
+plot(TD_htmod_SR)
+qqmath(TD_htmod_SR)
+summary(TD_htmod_SR) ##Temperature differential is the main differntiating feature between latitude in the southern Rockies (excluding Gila)
+
+#nursery height
+totht_mod_nursery <- lmer(value ~ Seedling.Ht..from.Nursery + (1|Provenance), data=ht_data_clim14_nogila)
+plot(totht_mod_nursery)
+qqmath(totht_mod_nursery)
+summary(totht_mod_nursery) ##significant effect of nursery height on total height in 2014 when Gila is removed
+
+ggplot(data= ht_data_clim14, aes(x=Seedling.Ht..from.Nursery, y=value, col=Provenance))+
+  geom_point()
+
+###big model
+totht_mod_allvars <- lmer(value ~  MAT + I(MAT^2) + map + I(map^2) + TD + I(TD^2) + SHM + I(SHM^2) + nffd  + I(nffd^2) + smrpb + I(smrpb^2) + Seedling.Ht..from.Nursery + (1|Provenance), data=ht_data_clim14)
+plot(totht_mod_allvars)
+qqmath(totht_mod_allvars)
+summary(totht_mod_allvars)
+
+
+
+```
+
+
 
 ##Survival
 
@@ -1100,6 +1438,16 @@ ggplot(tree.num, aes(x=year, y=n, col=Provenance))+
 ggplot(trees.died %>% filter(name=="HT14"), aes(x=Provenance, y=prop))+
   geom_point()+
   theme(axis.text.x = element_text(angle=45, hjust=1))
+
+
+ggplot(ht_data %>% filter(!name=="HT74"), aes(x=factor(Provenance, levels=ht.order$Provenance), y=rel.growth, fill=factor(Provenance, levels=ht.order$Provenance)))+
+  geom_boxplot()+
+  geom_text(data=tree.num %>% filter(!name=="HT74"), aes(x=Provenance, y=0, label=n))+
+  facet_wrap(~factor(name, levels=c("HT79","HT85","HT91","HT96","HT06","HT14")), scales="free")+
+  scale_fill_discrete(name="Provenance")+
+  scale_x_discrete(name="Provenance")+
+  theme(axis.text.x = element_blank())
+
 
 ```
 
@@ -1306,6 +1654,13 @@ ggplot(ave_rw_prov, aes(x=year, y=ave_rw, col=Provenance))+
   geom_errorbar(aes(x=year, ymin=ave_rw-se, ymax=ave_rw+se, col=Provenance))+
   geom_vline(xintercept = 1985)+
   facet_wrap(~Provenance)
+
+ggplot(ave_rw_prov, aes(x=year, y=ave_rw, col=Provenance))+
+  geom_point()+
+  geom_line()+
+  #geom_errorbar(aes(x=year, ymin=ave_rw-se, ymax=ave_rw+se, col=Provenance))+
+  geom_vline(xintercept = 1985)
+
 
 ave_rw_all <- dbh_age_good %>%
   na.omit() %>% 
