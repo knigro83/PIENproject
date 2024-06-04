@@ -1072,8 +1072,8 @@ ht_data_clim <- ht_data %>%
 ht.order <- ht_data %>% 
   filter(name=="HT14") %>% 
   group_by(Provenance) %>% 
-  summarise(med_rel_growth=median(rel.growth,na.rm=T), med_growth=median(growth.m, na.rm=T)) %>% 
-  arrange(med_growth)
+  summarise(med_rel_growth=median(rel.growth,na.rm=T), med_growth=median(growth.m, na.rm=T), meanht = mean(value, na.rm=T)) %>% 
+  arrange(meanht)
 
 #relative growth
 ggplot(ht_data %>% filter(!name=="HT74"), aes(x=factor(Provenance, levels=ht.order$Provenance), y=rel.growth, fill=factor(Provenance, levels=ht.order$Provenance)))+
@@ -1093,8 +1093,8 @@ ggplot(ht_data %>% filter(!name=="HT74"), aes(x=factor(Provenance, levels=ht.ord
 
 
 ht_data_aves <- ht_data %>% filter(!name=="HT74") %>% 
-  group_by(name, Provenance,Seedling.Ht..from.Nursery) %>% 
-  summarise(meangrowth = mean(growth.m), seRG = sd(growth.m)/sqrt(n()))
+  group_by(name, Provenance,nursery_ht_m ) %>% 
+  summarise(meangrowth = mean(growth.m), seRG = sd(growth.m)/sqrt(n()), meantotht = mean(value), seTH = sd(value)/sqrt(n()))
 
 ggplot(ht_data %>% filter(!name=="HT74"), aes(x=factor(name, levels=c("HT79","HT85","HT91","HT96","HT06","HT14")), y=growth.m, fill=factor(Provenance, levels=ht.order$Provenance)))+
   geom_boxplot()+
@@ -1111,97 +1111,14 @@ ggplot()+
   ylab("Average relative growth ratio")
 
 ##initial height effect on height growth -- looks like there isn't really one
-ggplot(data=ht_data_aves, aes(x=Seedling.Ht..from.Nursery, y=meangrowth))+
+ggplot(data=ht_data_aves, aes(x=nursery_ht_m, y=meangrowth))+
   geom_point()
 
-
-##total height follows different pattern than "relative height growth"
-ggplot(ht_data %>% filter(!name=="HT74"), aes(x=factor(Provenance, levels=ht.order$Provenance), y=value, fill=factor(Provenance, levels=ht.order$Provenance)))+
-  geom_boxplot()+
-  facet_wrap(~factor(name, levels=c("HT79","HT85","HT91","HT96","HT06","HT14")), scales="free")+
-  scale_fill_discrete(name="Provenance")+
-  scale_x_discrete(name="Provenance")+
-  theme(axis.text.x = element_blank())
-
-ggplot(ht_data %>% filter(!name=="HT74"), aes(x=factor(Provenance, levels=ht.order$Provenance), y=nursery_ht_m, fill=factor(Provenance, levels=ht.order$Provenance)))+
-  geom_boxplot()+
-  scale_fill_discrete(name="Provenance")+
-  scale_x_discrete(name="Provenance")+
-  theme(axis.text.x = element_blank())
-
-
-```
-
-###models
-
-```{r}
-##effect of year * provenance
-
-plot(lm(value ~ Provenance*name, data=ht_data))
-
-ht_mod <- lm(sqrt(rel.growth) ~ Provenance*name, data=ht_data %>% mutate(rel.growth=ifelse(rel.growth<0,0,rel.growth)))
-par(mfrow=c(2,2))
-plot(ht_mod)
-anova(ht_mod) ##there is a significant year by provenance interaction
-
-###model each year separately
-
-ht_aov_74 <- aov(rel.growth ~ Provenance, data=ht_data %>% filter(name=="HT74"))
-plot(ht_aov_74)
-summary(ht_aov_74)
-TukeyHSD(ht_aov_74)$Provenance %>% 
-  as.data.frame() %>% 
-  filter(`p adj`<0.05)
-
-ht_aov_79 <- aov(rel.growth ~ Provenance, data=ht_data %>% filter(name=="HT79"))
-plot(ht_aov_79)
-summary(ht_aov_79)
-TukeyHSD(ht_aov_79)$Provenance %>% 
-  as.data.frame() %>% 
-  filter(`p adj`<0.05)
-
-ht_aov_85 <- aov(rel.growth ~ Provenance, data=ht_data %>% filter(name=="HT85"))
-plot(ht_aov_85)
-summary(ht_aov_85)
-TukeyHSD(ht_aov_85)$Provenance %>% 
-  as.data.frame() %>% 
-  filter(`p adj`<0.05)
-
-ht_aov_91 <- aov(rel.growth ~ Provenance, data=ht_data %>% filter(name=="HT91"))
-plot(ht_aov_91)
-summary(ht_aov_91)
-TukeyHSD(ht_aov_91)$Provenance %>% 
-  as.data.frame() %>% 
-  filter(`p adj`<0.05)
-
-ht_aov_96 <- aov(rel.growth ~ Provenance, data=ht_data %>% filter(name=="HT96"))
-plot(ht_aov_96)
-summary(ht_aov_96)
-TukeyHSD(ht_aov_96)$Provenance %>% 
-  as.data.frame() %>% 
-  filter(`p adj`<0.05)
-
-ht_aov_06 <- aov(rel.growth ~ Provenance, data=ht_data %>% filter(name=="HT06"))
-plot(ht_aov_06)
-summary(ht_aov_06)
-TukeyHSD(ht_aov_06)$Provenance %>% 
-  as.data.frame() %>% 
-  filter(`p adj`<0.05)
-
-ht_aov_14 <- aov(rel.growth ~ Provenance, data=ht_data %>% filter(name=="HT14"))
-plot(ht_aov_14)
-summary(ht_aov_14)
-TukeyHSD(ht_aov_14)$Provenance %>% 
-  as.data.frame() %>% 
-  filter(`p adj`<0.05)
-
-#this is the opposite effect as for DBH (middle latitudes are tallest and skinniest)
-ggplot(ht_data_clim %>% filter(name=="HT14"), aes(x=y, y=rel.growth, col=Provenance))+
+ggplot(data=ht_data_aves, aes(x=nursery_ht_m, y=meantotht))+
   geom_point()
-```
 
-```{r}
-#provenance climate affect on height linear models
+nurse_ht_mod <- lm(meantotht ~ nursery_ht_m, data=ht_data_aves)
+summary(nurse_ht_mod)  ##no effect of nursery height on total height in 2014. 
 
 ```
 
@@ -1218,6 +1135,15 @@ totht_mod <- lm(log(value) ~ Provenance*name, data=ht_data)
 par(mfrow=c(2,2))
 plot(totht_mod)
 anova(totht_mod) ##there is a significant year by provenance interaction
+
+ggplot()+
+  geom_line(data=ht_data_aves, aes(x=factor(name, levels=c("HT79","HT85","HT91","HT96","HT06","HT14")), y=meantotht, col=factor(Provenance, levels=ht.order$Provenance),group=factor(Provenance, levels=ht.order$Provenance)))+
+  geom_errorbar(data=ht_data_aves, aes(x=factor(name, levels=c("HT79","HT85","HT91","HT96","HT06","HT14")), ymin=meantotht-seTH, ymax=meantotht+seTH, col=factor(Provenance, levels=ht.order$Provenance),group=factor(Provenance, levels=ht.order$Provenance)),width=0.2)+
+  geom_point(data=ht_data_aves, aes(x=factor(name, levels=c("HT79","HT85","HT91","HT96","HT06","HT14")), y=meantotht, col=factor(Provenance, levels=ht.order$Provenance),group=factor(Provenance, levels=ht.order$Provenance)))+
+  scale_color_discrete(name="Provenance")+
+  scale_x_discrete(name="Year")+
+  ylab("Total Height (m)")
+
 
 #each year separately
 totht_mod74 <- aov(value ~ Provenance, data= ht_data %>% filter(name=="HT74"))
@@ -1344,15 +1270,25 @@ ggplot(data=ht_data_clim14, aes(x=x, y=value, col=Provenance))+
   geom_smooth(method="lm")
 
 #TD
-mod_totht_TD <- lmer(value ~ TD + (1|Provenance), data=ht_data_clim14)
+mod_totht_TD <- lmer(value ~ TD*map + (1|Provenance), data=ht_data_clim14)
 plot(mod_totht_TD)
 qqmath(mod_totht_TD)
 summary(mod_totht_TD) 
 summary(lmer(value ~ TD + (1|Provenance), data=ht_data_clim14_nogila)) 
 
-ggplot(data=ht_data_clim14, aes(x=TD, y=value, col=Provenance))+
+summary(lmer(value ~ TD*map + (1|Provenance), data=ht_data_clim14_nogila)) 
+
+ggplot(data=ht_data_clim14_nogila, aes(x=TD, y=value, col=map>700))+
   geom_point()+
-  geom_smooth(method="lm")
+  geom_smooth(method="lm") ##seems like there could be an interaction going on here. 
+
+#nffd
+mod_totht_nffd <- lmer(value ~ nffd + (1|Provenance), data=ht_data_clim14)
+plot(mod_totht_nffd)
+qqmath(mod_totht_nffd)
+summary(mod_totht_nffd) 
+summary(lmer(value ~ nffd*SHM + (1|Provenance), data=ht_data_clim14_nogila)) 
+
 
 ht_data_clim14_noXT <- ht_data_clim14 %>% 
   filter(TD > 20 & TD < 23)
