@@ -58,6 +58,8 @@ adjusted_coords<- read.csv("C:/Users/KatherineNigro/Box/01. katherine.nigro Work
 
 adjusted_provs<- vect(adjusted_coords, geom=c("long_corrected","lat_corrected"), crs=crs(us))
 
+geo.dist.df<- data.frame(Provenance = adjusted_provs$Provenance, geo.dist.to.plant.km = as.matrix(terra::distance(adjusted_provs))[,21]/1000)
+
 ggplot()+
   geom_spatvector(data=westernus)+
   geom_spatvector(data=adjusted_provs, color="maroon")
@@ -1238,6 +1240,9 @@ summary(mod_totht_PC2)
 summary(lmer(value ~ PC2 + (1|Provenance), data=ht_data_clim14 %>% filter(!Provenance=="Gila NF")))
 ##neither is significant
 
+#both PC1 and PC2
+summary(lmer(value ~ PC1*PC2 + (1|Provenance), data=ht_data_clim14 %>% filter(!Provenance=="Gila NF")))
+
 #Latitude
 mod_totht_lat <- lmer(value ~ y+ I(y^2) + (1|Provenance), data=ht_data_clim14)
 plot(mod_totht_lat)
@@ -1253,6 +1258,36 @@ ht_data_clim14_nogila <- ht_data_clim14 %>% filter(!Provenance=="Gila NF")
 summary(lmer(value ~ y+ (1|Provenance), data=ht_data_clim14_nogila)) #latitude only signficant with Gila included
 
 summary(lmer(value ~ y+ I(y^2)+ (1|Provenance), data=ht_data_clim14_nogila)) #BUT latitude quadratic effect is significant when Gila is excluded. Height lowest in middle latitudes. 
+
+mod_totht_lat_noG <- lmer(value ~ y+ I(y^2)+ (1|Provenance), data=ht_data_clim14_nogila)
+plot(mod_totht_lat_noG)
+qqmath(mod_totht_lat_noG)
+summary(mod_totht_lat_noG)
+
+newdata_lat_totht <- data.frame(
+    y = seq(min(ht_data_clim14_nogila$y), 
+                      max(ht_data_clim14_nogila$y), 
+                      length.out = 100
+                      )
+    )
+
+##take random effect out to make predictions
+mod_totht_lat_noG_lm <- lm(value ~ y+ I(y^2), data=ht_data_clim14_nogila)
+
+predicted_scores_totht <- predict(
+  mod_totht_lat_noG_lm, 
+  newdata = newdata_lat_totht, interval='confidence') %>% as.data.frame()
+
+newdata_lat_totht_pred <- bind_cols(newdata_lat_totht, predicted_scores_totht)
+
+ggplot()+
+  geom_point(data=ht_data_clim14_nogila, aes(x=y, y=value))+
+  geom_ribbon(data=newdata_lat_totht_pred, aes(x=y,ymin=lwr,ymax=upr), alpha=0.4, fill="red")+
+  geom_line(data=newdata_lat_totht_pred, aes(x=y, y=fit), col="red")+
+  geom_vline(xintercept = prov_clim_adjusted_bi %>% filter(Provenance=="Plantation") %>% pull(y))+
+  xlab("Latitude")+
+  ylab("2014 Height (m)")
+
 
 ggplot(data=ht_data_clim14, aes(x=y, y=value, col=Provenance))+
   geom_point()+
@@ -1345,7 +1380,6 @@ summary(totht_mod_allvars)
 ```
 
 
-
 ##Survival
 
 ```{r}
@@ -1371,26 +1405,88 @@ ggplot(tree.num, aes(x=year, y=n, col=Provenance))+
   geom_point()+
   geom_line()
 
-ggplot(trees.died %>% filter(name=="HT14"), aes(x=Provenance, y=prop))+
+ggplot(trees.died %>% filter(name=="HT14"), aes(x=factor(Provenance, levels=prov_clim_adjusted_bi %>% arrange(y) %>% pull(Provenance)), y=prop))+
   geom_point()+
   theme(axis.text.x = element_text(angle=45, hjust=1))
-
-
-ggplot(ht_data %>% filter(!name=="HT74"), aes(x=factor(Provenance, levels=ht.order$Provenance), y=rel.growth, fill=factor(Provenance, levels=ht.order$Provenance)))+
-  geom_boxplot()+
-  geom_text(data=tree.num %>% filter(!name=="HT74"), aes(x=Provenance, y=0, label=n))+
-  facet_wrap(~factor(name, levels=c("HT79","HT85","HT91","HT96","HT06","HT14")), scales="free")+
-  scale_fill_discrete(name="Provenance")+
-  scale_x_discrete(name="Provenance")+
-  theme(axis.text.x = element_blank())
-
-
 ```
 
 ###models
 
 ```{r}
 #provenance climate affect on survival linear models
+
+survival_clim_data<- trees.died %>% 
+  filter(name=="HT14") %>% 
+  left_join(prov_pcapts, by="Provenance")
+
+survmod_pc<- lm(prop ~ PC1*PC2, data=survival_clim_data %>% filter(!Provenance=="Gila NF"))
+par(mfrow=c(2,2))
+plot(survmod_pc)
+summary(survmod_pc)
+
+##just pc1
+survmod_pc1<- lm(prop ~ PC1+ I(PC1^2), data=survival_clim_data %>% filter(!Provenance=="Gila NF"))
+par(mfrow=c(2,2))
+plot(survmod_pc1)
+summary(survmod_pc1)
+
+survival_clim_data_noG <- survival_clim_data %>% filter(!Provenance=="Gila NF")
+survmod_pc_all <- lm(prop ~ PC1*PC2 + I(PC1^2) + I(PC2^2), data=survival_clim_data_noG)
+dredge_survmod<- dredge(survmod_pc_all)
+dredge_survmod #best model is quadratic effect of PC1
+
+
+ggplot(data=survival_clim_data, aes(x=PC1, y=prop))+
+  geom_point()+
+  geom_smooth(method="lm")
+
+#pca distance
+surv_pcadist_data <- trees.died %>% 
+  filter(name=="HT14") %>% 
+  left_join(pca_dist_df, by="Provenance") %>% 
+  left_join(geo.dist.df)
+
+survmod_pcdist<- lm(prop ~ dist.to.plant, data=surv_pcadist_data)
+par(mfrow=c(2,2))
+plot(survmod_pcdist)
+summary(survmod_pcdist) #significant
+
+survmod_pc1dist<- lm(prop ~ PC1diff, data=surv_pcadist_data)
+par(mfrow=c(2,2))
+plot(survmod_pc1dist)
+summary(survmod_pc1dist)
+
+survmod_pc2dist<- lm(prop ~ PC2diff, data=surv_pcadist_data)
+par(mfrow=c(2,2))
+plot(survmod_pc2dist)
+summary(survmod_pc2dist)
+
+###make plot for pca distance model
+newdata_pcdist_surv <- data.frame(
+    dist.to.plant = seq(min(surv_pcadist_data$dist.to.plant), 
+                      max(surv_pcadist_data$dist.to.plant), 
+                      length.out = 100
+                      )
+    )
+
+predicted_scores_surv <- predict(
+  survmod_pcdist, 
+  newdata = newdata_pcdist_surv, interval='confidence') %>% as.data.frame()
+
+newdata_pcdist_surv_pred <- bind_cols(newdata_pcdist_surv, predicted_scores_surv)
+
+ggplot()+
+  geom_point(data=surv_pcadist_data, aes(x=dist.to.plant, y=prop))+
+  geom_ribbon(data=newdata_pcdist_surv_pred, aes(x=dist.to.plant,ymin=lwr,ymax=upr), alpha=0.4, fill="red")+
+  geom_line(data=newdata_pcdist_surv_pred, aes(x=dist.to.plant, y=fit), col="red")+
+  xlab("PCA distance")+
+  ylab("Proportion survival")
+
+###I should look at geographic distance also just as a point of discussion
+survmod_geodist<- lm(prop ~ geo.dist.to.plant.km, data=surv_pcadist_data)
+par(mfrow=c(2,2))
+plot(survmod_geodist)
+summary(survmod_geodist) #significant
 
 ```
 
@@ -1404,7 +1500,6 @@ cone_data <- moniger_data_comb %>%
                         name == "Cones91" ~ 1991,
                         name == "Cones96" ~ 1996,
                         name == "Cones06" ~ 2006))
-
 
 cone_sum <- cone_data %>%
   filter(!is.na(value)) %>% 
@@ -1462,12 +1557,50 @@ ggplot(moniger_data_comb, aes(x=DBH06, y=Cones06))+
 ggplot(cone_sum, aes(x=year, y=prop.w.cones, col=Provenance))+
   geom_point()+
   geom_line()
+
+##ANOVAs
+
+ggplot(data=cone_sum, aes(x=year, y=prop.w.cones, col=Provenance))+
+  geom_point()+
+  geom_line()
+
+cone_mod <- lm(prop.w.cones ~ year*Provenance, data=cone_sum)
+plot(cone_mod)
+anova(cone_mod)
+
+cone_mod_simple <- aov(prop.w.cones ~ year+Provenance, data=cone_sum)
+summary(cone_mod_simple)
+TukeyHSD(cone_mod_simple)$Provenance %>% as.data.frame() %>% filter(`p adj` < 0.05)
+Anova(cone_mod_simple, type="2")
+
+
 ```
 
 ###models
 
 ```{r}
-#provenance climate affect on cones linear models
+#dbh/height affect on cones linear models
+
+growth_cone_data<- left_join(ave_hts, ave_dbh) %>% 
+  left_join(cone_sum) %>% 
+  filter(!is.na(ave.dbh)) %>% 
+  left_join(prov_pcapts)
+
+growth_cone_mod <- lmer(prop.w.cones ~ year*ave.dbh + year*ave.ht + (1|Provenance), data=growth_cone_data %>% filter(!Provenance=="Gila NF"))
+plot(growth_cone_mod)
+qqmath(growth_cone_mod)
+summary(growth_cone_mod)
+
+ggarrange(
+ggplot(data=growth_cone_data %>% filter(!Provenance=="Gila NF"), aes(x=ave.ht, y=prop.w.cones, col=factor(year)))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  ggtitle("Height"),
+ggplot(data=growth_cone_data %>% filter(!Provenance=="Gila NF"), aes(x=ave.dbh, y=prop.w.cones, col=factor(year)))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  ggtitle("DBH"), common.legend = TRUE, nrow=1)
+
 
 ```
 
