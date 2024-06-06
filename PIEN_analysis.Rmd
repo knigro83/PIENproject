@@ -1623,6 +1623,68 @@ plot(clim_cone_mod)
 qqmath(clim_cone_mod)
 summary(clim_cone_mod)
 
+#provenance differences - logistic regression
+
+##get individual height, dbh and cone data
+cones91<- moniger_data_comb %>%
+  filter(!is.na(Cones91)) %>% 
+  filter(!is.na(HT91)) %>% 
+  filter(!is.na(DBH91))
+
+cones96<- moniger_data_comb %>%
+  filter(!is.na(Cones96)) %>% 
+  filter(!is.na(HT96)) %>% 
+  filter(!is.na(DBH96))
+
+cones06<- moniger_data_comb %>%
+  filter(!is.na(Cones06)) %>% 
+  filter(!is.na(HT06)) %>% 
+  filter(!is.na(DBH06))
+
+library(MASS)
+prov_cone_mod91 <- glmer(Cones91 ~ HT91*DBH91 + (1|Provenance), data=cones91, family=binomial(link="logit"))
+qqmath(prov_cone_mod91)
+summary(prov_cone_mod91)  ##DBH is significant in predicting cone presence in 1991. Provenance has a good amount of variance
+dotplot(ranef(prov_cone_mod91, condVar=TRUE))
+cor(cones91 %>% dplyr::select(DBH91,HT91)) #height and DBH are super correlated
+
+
+prov_cone_mod96 <- glmer(Cones96 ~ HT96*DBH96 + (1|Provenance), data=cones96, family=binomial(link="logit"))
+qqmath(prov_cone_mod96)
+summary(prov_cone_mod96)  ##Height,DBH and interaction are all significant in predicting cone presence in 1996. Provenance has a good amount of variance
+dotplot(ranef(prov_cone_mod96, condVar=TRUE))
+cor(cones96 %>% dplyr::select(DBH96,HT96))
+
+
+
+prov_cone_mod06 <- glmer(Cones06 ~ HT06*DBH06 + (1|Provenance), data=cones06, family=binomial(link="logit"))
+qqmath(prov_cone_mod06)
+summary(prov_cone_mod06)  ###Height,DBH and interaction are all significant in predicting cone presence in 2006. Provenance has a good amount of variance
+dotplot(ranef(prov_cone_mod06, condVar=TRUE))
+library(interactions)
+interact_plot(prov_cone_mod06, pred=HT06, modx=DBH06)
+interact_plot(prov_cone_mod06, pred=DBH06, modx=HT06)
+cor(cones06 %>% dplyr::select(DBH06,HT06))
+
+##looking for thresholds
+cone_data_comb<- bind_rows(cones91 %>% dplyr::select(HT91,DBH91,Cones91, Provenance) %>% 
+  mutate(year=1991) %>% 
+  rename(HT=HT91, DBH=DBH91, Cones=Cones91),
+  cones96 %>% dplyr::select(HT96,DBH96,Cones96, Provenance) %>% 
+  mutate(year=1996) %>% 
+  rename(HT=HT96, DBH=DBH96, Cones=Cones96),
+  cones06 %>% dplyr::select(HT06,DBH06,Cones06, Provenance) %>% 
+  mutate(year=2006) %>% 
+  rename(HT=HT06, DBH=DBH06, Cones=Cones06))
+
+ggplot(cone_data_comb, aes(x=HT, y=Cones, col=factor(year)))+
+  geom_jitter(height=.1, width=0)+
+  geom_smooth(method = "glm", method.args = list(family = "binomial"))+
+  facet_wrap(~Provenance)
+
+prov_cone_modall <- glmer(Cones ~ HT*factor(year) + (1|Provenance), data=cone_data_comb %>% filter(!Provenance=="Gila NF"),family=binomial(link="logit"))
+summary(prov_cone_modall)
+
 ```
 
 ##RWI
