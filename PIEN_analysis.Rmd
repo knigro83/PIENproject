@@ -2740,8 +2740,7 @@ growth_red_sum <- growth_red %>%
   left_join(growth_red, by=c("max.growth.red" = "growth_red", "tree")) %>% 
   left_join(name_conversion, by=c("Provenance"="oldname")) %>% 
   left_join(recover_time, by=c("newname"="Provenance", "tree")) %>% 
-  left_join(prov_pcapts, by=c("newname"="Provenance")) %>% 
-  left_join(pca_dist_df, by=c("newname"="Provenance")) %>% 
+  left_join(left_join(prov_pcapts,pca_dist_df), by=c("newname"="Provenance")) %>% 
   left_join(geo.dist.df, by=c("newname"="Provenance"))
 
 ##max growth reduction models
@@ -2847,29 +2846,50 @@ cor_clean <- gc_cor_df %>%
   filter(!is.na(cor))
   
 cor_summary<- gc_cor_df %>% 
+  filter(p.value<0.05) %>% 
   rename(climvar=V1, tree=V2, cor=rw_spline) %>%
   mutate(cor = as.numeric(cor)) %>% 
   left_join(growth_climate_df %>%dplyr::select(tree,Provenance) %>% unique(), by="tree") %>% 
   filter(!is.na(cor)) %>% 
   group_by(Provenance, climvar) %>% 
-  summarise(meancor = mean(cor), se=sd(cor)/sqrt(n())) %>% 
-  ungroup()
+  summarise(n=n(), meancor = mean(cor), se=sd(cor)/sqrt(n())) %>% 
+  ungroup() %>% 
+  left_join(name_conversion, by=c("Provenance"="oldname")) %>% 
+  dplyr::select(-Provenance) %>% 
+  rename(Provenance = newname) %>% 
+  left_join(prov_names)
 
-ggplot(cor_summary %>% filter(abs(meancor)>0.2), aes(x=climvar, y=meancor, fill=climvar))+
+ggplot(cor_summary %>% filter(n > 1), aes(x=climvar, y=meancor, fill=meancor>0))+
   geom_bar(stat="identity")+
   geom_errorbar(aes(ymax = meancor+se, ymin=meancor-se), width=0.2)+
-  facet_grid(~Provenance)+
+  scale_fill_viridis(discrete=TRUE, direction=-1)+
+  facet_grid(~code)+
   coord_flip()+
   geom_hline(yintercept=0)
 
-cor_summary %>% 
-  group_by(Provenance) %>% 
-  summarise(maxmeancor = max(meancor)) %>% 
-  arrange(maxmeancor)
+cor_summary2<- gc_cor_df %>% 
+   rename(climvar=V1, tree=V2, cor=rw_spline) %>%
+  mutate(cor = as.numeric(cor)) %>% 
+  left_join(growth_climate_df %>%dplyr::select(tree,Provenance) %>% unique(), by="tree") %>% 
+  filter(!is.na(cor)) %>% 
+  group_by(Provenance, climvar) %>% 
+  summarise(n=n(), meancor = mean(cor), se=sd(cor)/sqrt(n())) %>% 
+  ungroup() %>% 
+  left_join(name_conversion, by=c("Provenance"="oldname")) %>% 
+  dplyr::select(-Provenance) %>% 
+  rename(Provenance = newname) %>% 
+  left_join(prov_names)
 
-ggplot(cor_clean %>% inner_join(cor_summary %>% filter(abs(meancor)>0.2)), aes(x=climvar, y=cor, fill=climvar))+
+ggplot(data= cor_summary2 %>% 
+  group_by(Provenance, climvar) %>% 
+  summarise(n=n()), aes(x=Provenance, fill=climvar, y=n)) +
+    geom_bar(stat="identity")+
+  facet_wrap(~climvar)
+
+ggplot(cor_clean %>% inner_join(cor_summary2 %>% dplyr::select(climvar, Provenance) %>% unique()), aes(x=climvar, y=cor, fill=climvar))+
   geom_boxplot()+
   geom_point()+
+  scale_fill_viridis(discrete=TRUE)+
   facet_grid(~Provenance)+
   coord_flip()+
   geom_hline(yintercept=0)
@@ -2883,12 +2903,11 @@ pvalue<- modanova %>% mutate(var = rownames(modanova)) %>% filter(var=="Provenan
 allanovas <- bind_rows(allanovas, data.frame(climvar=climvars[i],pvalue=pvalue))
 }
 
-allanovas %>% filter(pvalue<0.05) #no significant differences between provenances in how correlated RWI is to climate vars. 
+allanovas %>% filter(pvalue<0.05) #no significant differences between provenances in how correlated RWI is to climate vars
 
-##ANOVA aet_sum
-anova_aetsum <- aov(cor ~ Provenance, data=cor_clean %>% filter(climvar == "aet_sum"))
-Anova(anova_aetsum, type="2")
-as.data.frame(TukeyHSD(anova_aetsum)$Provenance) %>% filter(`p adj` < 0.05)
+ggplot(data=cor_clean, aes(x=Provenance, y=cor))+
+  geom_boxplot()+
+  facet_wrap(~climvar)
 
 ######testing relationships between growth and climate across all trees with provenance as a random effect
 
@@ -2901,7 +2920,34 @@ all_lms <- bind_rows(all_lms, data.frame(var=climvars[i], pvalue=pvalue))
 }
 
 all_lms %>% 
-  filter(pvalue<0.05)
+  filter(pvalue<0.05) %>% 
+  pull(var) 
+
+plantation_clim %>% 
+  left_join(plantation_clim_minus1, by=c("year" = "prior_year", "CN" = "prior_CN")) %>% 
+  filter(! year %in% c(1971)) %>% 
+  ungroup() %>% 
+  filter(year>1970) %>% 
+  dplyr::select(c(all_lms %>% 
+  filter(pvalue<0.05) %>% 
+  pull(var) )) %>% 
+  dplyr::select(-c("ppt_sm","ppt_sp","ppt_fa","prior_ppt_sm","prior_ppt","prior_value_fa_tmax","prior_value_fa_tmean","prior_value_wt_tmax","prior_value_wt_tmean")) %>% 
+  cor() %>% 
+  ggcorrplot()
+
+all_lms %>% 
+  filter(pvalue<0.05) %>% 
+  filter(! var %in% c("ppt_sm","ppt_sp","ppt_fa","prior_ppt_sm","prior_ppt","prior_value_fa_tmax","prior_value_fa_tmean","prior_value_wt_tmax","prior_value_wt_tmean"))
+
+climmod_cor <- lmer(rw_spline ~ ppt_gs + ppt_wt + vpdmax_sm + vpdmax_fa + vpdmax_sp + prior_ppt_gs + prior_ppt_wt + prior_value_sm_tmin + prior_value_fa_tmin + prior_value_wt_tmin + prior_vpdmax_sm + prior_vpdmax_fa + prior_vpdmax_wt + prior_vpdmax_sp + (1|Provenance), data=growth_climate_df)
+plot(climmod_cor)
+qqmath(climmod_cor)
+summary(climmod_cor)
+vif(climmod_cor)
+```
+#START HERE 6/20
+```{r}
+
 ##############################################
 
 ##make a big climate model
@@ -2912,7 +2958,9 @@ qqmath(mod)
 summary(mod) ##singular model means that provenance doesn't really matter when it comes to growth-climate correlations. 
 ## they're all correlated with the same things...but is the strength of the correlation weaker or stronger depending on provenance? How do I test this...
 
-
+modclimprov <- lm(rw_spline ~ aet_sum*Provenance + vpdmax_wt*Provenance + prior_ppt_gs*Provenance + prior_cwd_wy*Provenance + prior_value_wt_tmin*Provenance + prior_value_wt_tmean*Provenance, data=growth_climate_df)
+plot(modclimprov)
+anova(modclimprov)
 
 cor_provclim<- cor_clean %>%
   left_join(name_conversion, by=c("Provenance" = "oldname")) %>% 
@@ -3085,12 +3133,14 @@ ggplot(pca_cor_data %>% filter(climvar%in%sig.cors20$V1), aes(x=PC2, y=cor))+
   geom_smooth(method="lm")+
   facet_wrap(~climvar, scales="free")
 
-cwd_pc1_mod <- lmer(cor~PC1 + (1|Provenance), data=pca_cor_data %>% filter(climvar=="cwd_wy"))
-summary(cwd_pc1_mod)
+pca_cor_data_filtered <- pca_cor_data %>% filter(climvar%in%sig.cors20$V1)
 
-fdsi_pc2_mod<- lmer(cor~PC2+(1|Provenance), data=pca_cor_data %>% filter(climvar=="FDSI"))
-summary(fdsi_pc2_mod)
-
+clim_pcmod <- lmer(cor ~ climvar*PC1 +  climvar*PC2 + climvar*pcadist + (1|Provenance), data=pca_cor_data)
+plot(clim_pcmod)
+qqmath(clim_pcmod)
+summary(clim_pcmod)
+dredge.climpcmod <- dredge(clim_pcmod)
+dredge.climpcmod ##the best model just has climvar in it meaning that all provenances regardless of their PC1 or PC2 position are more or less responding the same to the climate variables. 
 
 ##use distance in PC and geographic space between population and plantation
 ggplot(pca_cor_data %>% filter(climvar%in%sig.cors20$V1) %>% filter(!Provenance=="Gila NF"), aes(x=pcadist, y=cor))+
@@ -3098,15 +3148,23 @@ ggplot(pca_cor_data %>% filter(climvar%in%sig.cors20$V1) %>% filter(!Provenance=
   geom_smooth(method="lm")+
   facet_wrap(~climvar, scales="free")
 
-pcadist_mod <- lmer(cor ~ pcadist + (1|Provenance), data=pca_cor_data %>% filter(climvar%in%sig.cors20$V1) %>% filter(!Provenance=="Gila NF") %>% filter(climvar=="FDSI"))
-summary(pcadist_mod)
+pca_cor_data_dist<- pca_cor_data %>% filter(climvar%in%sig.cors20$V1)  %>% 
+  left_join(pca_dist_df) %>% 
+  left_join(geo.dist.df)
 
-pcadist_mod_cwd <- lmer(cor ~ pcadist + (1|Provenance), data=pca_cor_data %>% filter(climvar%in%sig.cors20$V1) %>% filter(!Provenance=="Gila NF") %>% filter(climvar=="cwd_wy"))
-summary(pcadist_mod_cwd)
-
-pcadist_mod_vpd <- lmer(cor ~ pcadist + (1|Provenance), data=pca_cor_data %>% filter(climvar%in%sig.cors20$V1) %>% filter(!Provenance=="Gila NF") %>% filter(climvar=="vpdmax_sm"))
+pcadist_mod_vpd_data <- pca_cor_data_dist %>% filter(climvar=="vpdmax_wt") %>% filter(!Provenance=="Gila NF")
+pcadist_mod_vpd <- lmer(cor ~ pcadist*geo.dist.to.plant.km + (1|Provenance), data=pcadist_mod_vpd_data)
+plot(pcadist_mod_vpd)
+qqmath(pcadist_mod_vpd)
 summary(pcadist_mod_vpd)
+dredge(pcadist_mod_vpd)
 
-
+pcadist_mod_aet_data<- pca_cor_data_dist %>% filter(climvar=="aet_sum")%>% filter(!Provenance=="Gila NF")
+pcadist_mod_aet <- lmer(cor ~ pcadist*geo.dist.to.plant.km + (1|Provenance), data=pcadist_mod_aet_data)
+plot(pcadist_mod_aet)
+qqmath(pcadist_mod_aet)
+summary(pcadist_mod_aet)
+dredge(pcadist_mod_aet)
+##neither model is significant with or without Gila. 
 
 ```
