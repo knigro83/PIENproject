@@ -42,6 +42,7 @@ library(MASS)
 library(indicspecies)
 library(SPEI)
 library(lattice)
+library(tibble)
 ```
 
 ##Plot locations
@@ -555,6 +556,10 @@ prov_clim_adjusted_bi %>%
   filter(!Provenance=="Gila NF") %>% 
   dplyr::select(c(MAT:pas,smrpb,y)) %>% 
   cor()
+
+env_vars %>% 
+  cor() %>% 
+  ggcorrplot()
 
 env_vars %>% 
   cor() %>% 
@@ -2860,6 +2865,21 @@ ggplot(cor_clean %>% filter(climvar %in% c("aet_sum" , "cwd_wy" , "FDSI", "spei_
         legend.title = element_text(color="black", size=14),
         strip.text = element_text(color="black", size=12))
   
+##all the rest of the climate variables
+ggplot(cor_clean %>% filter(!climvar %in% c("aet_sum" , "cwd_wy" , "FDSI", "spei_sum", "prior_aet_sum", "prior_cwd_wy", "prior_FDSI" , "prior_spei_sum")), aes(x=Provenance, y=cor, color=p.value<0.05))+
+  geom_jitter(height=0, width=0.1, size=3,alpha=0.7)+
+  facet_wrap(~climvar)+
+  scale_color_manual(values=c("gray20", "red"))+
+  geom_hline(yintercept=0)+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle=45, hjust=1, color="black", size=10),
+        axis.text = element_text(color="black", size=12),
+        axis.title = element_text(color="black", size=14),
+        legend.text = element_text(color="black", size=12),
+        legend.title = element_text(color="black", size=14),
+        strip.text = element_text(color="black", size=12))
+###
+
 cor_summary<- gc_cor_df %>% 
   filter(p.value<0.05) %>% 
   rename(climvar=V1, tree=V2, cor=rw_spline) %>%
@@ -3029,7 +3049,7 @@ qqmath(climmod_cor_composite)
 summary(climmod_cor_composite)
 vif(climmod_cor_composite)
 #dredge.composite <- dredge(climmod_cor_composite) takes a long time ~30 min
-dredge.composite ##best model by far has aet_sum + aet_sum^2 + cwd_wy + cwd_wy^2 + prior_aet_sum + prior_aet_sum^2 + prior_FDSI + prior_spei_sum + prior_spei_sum^2 + spei_sum + spei_sum^2
+#dredge.composite ##best model by far has aet_sum + aet_sum^2 + cwd_wy + cwd_wy^2 + prior_aet_sum + prior_aet_sum^2 + prior_FDSI + prior_spei_sum + prior_spei_sum^2 + spei_sum + spei_sum^2
 best.model.comp <- lm(rw_spline ~ aet_sum + I(aet_sum^2) + cwd_wy + I(cwd_wy^2) + prior_aet_sum + I(prior_aet_sum^2) + prior_FDSI + prior_spei_sum + I(prior_spei_sum^2) + spei_sum + I(spei_sum^2), data=growth_climate_df)
 par(mfrow=c(2,2))
 plot(best.model.comp)
@@ -3076,7 +3096,8 @@ ggplot(growth_climate_df_forplot, aes(x=aet_sum, y=rw_spline, col=prior_FDSI_cat
 
 
 ```
-#START HERE 6/20
+
+
 ```{r}
 
 ##############################################
@@ -3090,6 +3111,7 @@ summary(mod) ##singular model means that provenance doesn't really matter when i
 ## they're all correlated with the same things...but is the strength of the correlation weaker or stronger depending on provenance? How do I test this...
 
 modclimprov <- lm(rw_spline ~ aet_sum*Provenance + vpdmax_wt*Provenance + prior_ppt_gs*Provenance + prior_cwd_wy*Provenance + prior_value_wt_tmin*Provenance + prior_value_wt_tmean*Provenance, data=growth_climate_df)
+par(mfrow=c(2,2))
 plot(modclimprov)
 anova(modclimprov)
 
@@ -3137,8 +3159,10 @@ lmerdata <- bind_rows(lmerdata, data.frame(climvar=climvars[i], name=names[j], p
 lmerdata %>% filter(pvalue.lmer < 0.05)
 
 #ppt_wt x msp
-ggplot(data=cor_provclim_long %>% filter(climvar=="ppt_wt"& name=="msp"), aes(x=value, y=cor, col=Provenance))+
+ggplot(data=cor_provclim_long %>% filter(climvar=="ppt_wt"& name=="msp"), aes(x=value, y=cor))+
   geom_point()+
+  geom_smooth(method="lm")+
+  xlab("mean summer precip (mm)")+
   ggtitle("ppt_wt")
 
 ppt_wt_msp<- cor_provclim_long %>% filter(climvar=="ppt_wt" & name=="msp") 
@@ -3149,8 +3173,10 @@ qqmath(ppt_wt_msp_mod)
 summary(ppt_wt_msp_mod)
 
 #vpdmax_sm x PC1
-ggplot(data=cor_provclim_long %>% filter(climvar=="vpdmax_sm"& name=="PC1"), aes(x=value, y=cor, col=Provenance))+
+ggplot(data=cor_provclim_long %>% filter(climvar=="vpdmax_sm"& name=="PC1"), aes(x=value, y=cor))+
   geom_point()+
+  geom_smooth(method="lm")+
+  xlab("PC1")+
   ggtitle("vpdmax_sm")
 
 vpdmax_sm_PC1<- cor_provclim_long %>% filter(climvar=="vpdmax_sm" & name=="PC1") 
@@ -3160,21 +3186,36 @@ plot(vpdmax_sm_PC1_mod)
 qqmath(vpdmax_sm_PC1_mod)
 summary(vpdmax_sm_PC1_mod)
 
+vpdmax_sm_PC1_mod_noG <- lmer(cor ~ value + (1|Provenance), data=vpdmax_sm_PC1 %>% filter(!Provenance=="Gila NF"))
+plot(vpdmax_sm_PC1_mod_noG)
+qqmath(vpdmax_sm_PC1_mod_noG)
+summary(vpdmax_sm_PC1_mod_noG) #still significant without Gila
+
+
 #vpdmax_wt x smrpb
-ggplot(data=cor_provclim_long %>% filter(climvar=="vpdmax_sm"& name=="smrpb"), aes(x=value, y=cor, col=Provenance))+
+ggplot(data=cor_provclim_long %>% filter(climvar=="vpdmax_wt"& name=="smrpb"), aes(x=value, y=cor))+
   geom_point()+
-  ggtitle("vpdmax_sm")
+  geom_smooth(method="lm")+
+  xlab("smrpb")+
+  ggtitle("vpdmax_wt")
 
-vpdmax_sm_smrpb<- cor_provclim_long %>% filter(climvar=="vpdmax_sm" & name=="smrpb") 
+vpdmax_wt_smrpb<- cor_provclim_long %>% filter(climvar=="vpdmax_wt" & name=="smrpb") 
 
-vpdmax_sm_smrpb_mod <- lmer(cor ~ value + (1|Provenance), data=vpdmax_sm_smrpb)
-plot(vpdmax_sm_smrpb_mod)
-qqmath(vpdmax_sm_smrpb_mod)
-summary(vpdmax_sm_smrpb_mod)
+vpdmax_wt_smrpb_mod <- lmer(cor ~ value + (1|Provenance), data=vpdmax_wt_smrpb)
+plot(vpdmax_wt_smrpb_mod)
+qqmath(vpdmax_wt_smrpb_mod)
+summary(vpdmax_wt_smrpb_mod)
+
+vpdmax_wt_smrpb_mod_noG <- lmer(cor ~ value + (1|Provenance), data=vpdmax_wt_smrpb %>% filter(!Provenance=="Gila NF"))
+plot(vpdmax_wt_smrpb_mod_noG)
+qqmath(vpdmax_wt_smrpb_mod_noG)
+summary(vpdmax_wt_smrpb_mod_noG) #not significant when Gila is taken out (probably not a real trend)
 
 #FDSI x cmd
-ggplot(data=cor_provclim_long %>% filter(climvar=="FDSI"& name=="cmd"), aes(x=value, y=cor, col=Provenance))+
+ggplot(data=cor_provclim_long %>% filter(climvar=="FDSI"& name=="cmd"), aes(x=value, y=cor))+
   geom_point()+
+  geom_smooth(method="lm")+
+  xlab("CMD")+
   ggtitle("FDSI")
 
 fdsi_cmd<- cor_provclim_long %>% filter(climvar=="FDSI" & name=="cmd") 
@@ -3185,8 +3226,10 @@ qqmath(fdsi_cmd_mod)
 summary(fdsi_cmd_mod)
 
 #FDSI x pas
-ggplot(data=cor_provclim_long %>% filter(climvar=="FDSI"& name=="pas"), aes(x=value, y=cor, col=Provenance))+
+ggplot(data=cor_provclim_long %>% filter(climvar=="FDSI"& name=="pas"), aes(x=value, y=cor))+
   geom_point()+
+  geom_smooth(method="lm")+
+  xlab("precip as snow")+
   ggtitle("FDSI")
 
 fdsi_pas<- cor_provclim_long %>% filter(climvar=="FDSI" & name=="pas") 
@@ -3196,70 +3239,142 @@ plot(fdsi_pas_mod)
 qqmath(fdsi_pas_mod)
 summary(fdsi_pas_mod)
 
+fdsi_pas_mod_noO <- lmer(cor ~ value + (1|Provenance), data=fdsi_pas %>% filter(!Provenance=="Okanogan NF"))
+plot(fdsi_pas_mod_noO)
+qqmath(fdsi_pas_mod_noO)
+summary(fdsi_pas_mod_noO) #still significant without Okanogan
+
 #prior_value_fa_tmin x bFFP
-ggplot(data=cor_provclim_long %>% filter(climvar=="prior_value_fa_tmin"& name=="bFFP"), aes(x=value, y=cor, col=Provenance))+
+ggplot(data=cor_provclim_long %>% filter(climvar=="prior_value_fa_tmin"& name=="bFFP"), aes(x=value, y=cor))+
   geom_point()+
-  ggtitle("bFFP x prior_value_fa_tmin cor")
+  geom_smooth(method="lm")+
+  xlab("bFFP")+
+  ggtitle("prior_value_fa_tmin")
 
 prifatmin_bffp<- cor_provclim_long %>% filter(climvar=="prior_value_fa_tmin" & name=="bFFP") 
 
 prifatmin_bffp_mod <- lmer(cor ~ value + (1|Provenance), data=prifatmin_bffp)
+plot(prifatmin_bffp_mod)
+qqmath(prifatmin_bffp_mod)
 summary(prifatmin_bffp_mod) #significant
 
 #prior_value_fa_tmin x EMT
-ggplot(data=cor_provclim_long %>% filter(climvar=="prior_value_fa_tmin"& name=="EMT"), aes(x=value, y=cor, col=Provenance))+
+ggplot(data=cor_provclim_long %>% filter(climvar=="prior_value_fa_tmin"& name=="EMT"), aes(x=value, y=cor))+
   geom_point()+
-  ggtitle("EMT x prior_value_fa_tmin cor")
+  geom_smooth(method="lm")+
+  xlab("EMT")+
+  ggtitle("prior_value_fa_tmin")
 
 prifatmin_EMT<- cor_provclim_long %>% filter(climvar=="prior_value_fa_tmin" & name=="EMT") 
 
 prifatmin_EMT_mod <- lmer(cor ~ value + (1|Provenance), data=prifatmin_EMT)
-summary(prifatmin_EMT_mod) ##places with lower extreme minimum temperatures respond negatively to prior fall being hotter. 
+plot(prifatmin_EMT_mod)
+qqmath(prifatmin_EMT_mod)
+summary(prifatmin_EMT_mod) ##warmer places benefit from prior fall being hotter. 
 
 #prior_value_wt_tmean x map
-ggplot(data=cor_provclim_long %>% filter(climvar=="prior_value_wt_tmean"& name=="map"), aes(x=value, y=cor, col=Provenance))+
+ggplot(data=cor_provclim_long %>% filter(climvar=="prior_value_wt_tmean"& name=="map"), aes(x=value, y=cor))+
   geom_point()+
-  ggtitle("map x prior_value_wt_tmean cor")
+  geom_smooth(method="lm")+
+  xlab("MAP")+
+  ggtitle("prior_value_wt_tmean")
 
 priwttmean_map<- cor_provclim_long %>% filter(climvar=="prior_value_wt_tmean" & name=="map") 
 
-priswtmean_map_mod <- lmer(cor ~ value + (1|Provenance), data=priwttmean_map)
-summary(priswtmean_map_mod) #significant
+priwttmean_map_mod <- lmer(cor ~ value + (1|Provenance), data=priwttmean_map)
+plot(priwttmean_map_mod)
+qqmath(priwttmean_map_mod)
+summary(priwttmean_map_mod) #significant
+
+priwttmean_map_mod_noO <- lmer(cor ~ value + (1|Provenance), data=priwttmean_map %>% filter(!Provenance=="Okanogan NF"))
+plot(priwttmean_map_mod_noO)
+qqmath(priwttmean_map_mod_noO)
+summary(priwttmean_map_mod_noO) #still significant without Okanogan
+
+
+#prior_value_wt_tmin x map
+ggplot(data=cor_provclim_long %>% filter(climvar=="prior_value_wt_tmin"& name=="map"), aes(x=value, y=cor))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  xlab("MAP")+
+  ggtitle("prior_value_wt_tmin cor")
+
+priwttmin_map<- cor_provclim_long %>% filter(climvar=="prior_value_wt_tmin" & name=="map") 
+
+priwttmin_map_mod <- lmer(cor ~ value + (1|Provenance), data=priwttmin_map)
+plot(priwttmin_map_mod)
+qqmath(priwttmin_map_mod)
+summary(priwttmin_map_mod) #significant
+
+priwttmin_map_mod_noO <- lmer(cor ~ value + (1|Provenance), data=priwttmin_map %>% filter(!Provenance == "Okanogan NF"))
+plot(priwttmin_map_mod_noO)
+qqmath(priwttmin_map_mod_noO)
+summary(priwttmin_map_mod_noO) #not significant when Okanogan is taken out
 
 #prior_value_sp_tmax x PC1
-ggplot(data=cor_provclim_long %>% filter(climvar=="prior_value_sp_tmax"& name=="PC1"), aes(x=value, y=cor, col=Provenance))+
+ggplot(data=cor_provclim_long %>% filter(climvar=="prior_value_sp_tmax"& name=="PC1"), aes(x=value, y=cor))+
   geom_point()+
-  ggtitle("PC1 x prior_value_sp_tmax cor")
+  geom_smooth(method="lm")+
+  xlab("PC1")+
+  ggtitle("prior_value_sp_tmax cor")
 
 prisptmax_PC1<- cor_provclim_long %>% filter(climvar=="prior_value_sp_tmax" & name=="PC1") 
 
 prisptmax_PC1_mod <- lmer(cor ~ value + (1|Provenance), data=prisptmax_PC1)
+plot(prisptmax_PC1_mod)
+qqmath(prisptmax_PC1_mod)
 summary(prisptmax_PC1_mod) #significant
 
+prisptmax_PC1_mod_noG <- lmer(cor ~ value + (1|Provenance), data=prisptmax_PC1 %>% filter(!Provenance == "Gila NF"))
+plot(prisptmax_PC1_mod_noG)
+qqmath(prisptmax_PC1_mod_noG)
+summary(prisptmax_PC1_mod_noG) #not significant when Gila is taken out
 
 #prior_value_sp_tmean x PC1
-ggplot(data=cor_provclim_long %>% filter(climvar=="prior_value_sp_tmean"& name=="PC1"), aes(x=value, y=cor, col=Provenance))+
+ggplot(data=cor_provclim_long %>% filter(climvar=="prior_value_sp_tmean"& name=="PC1"), aes(x=value, y=cor))+
   geom_point()+
-  ggtitle("PC1 x prior_value_sp_tmean cor")
+  geom_smooth(method="lm")+
+  xlab("PC1")+
+  ggtitle("prior_value_sp_tmean")
 
 prisptmean_PC1<- cor_provclim_long %>% filter(climvar=="prior_value_sp_tmean" & name=="PC1") 
 
 prisptmean_PC1_mod <- lmer(cor ~ value + (1|Provenance), data=prisptmean_PC1)
+plot(prisptmean_PC1_mod)
+qqmath(prisptmean_PC1_mod)
 summary(prisptmean_PC1_mod) #significant
 
+prisptmean_PC1_mod_noG <- lmer(cor ~ value + (1|Provenance), data=prisptmean_PC1 %>% filter(!Provenance=="Gila NF"))
+plot(prisptmean_PC1_mod_noG)
+qqmath(prisptmean_PC1_mod_noG)
+summary(prisptmean_PC1_mod_noG) #still significant when Gila is removed
+
+
 #prior_value_sp_tmin x PC1
-ggplot(data=cor_provclim_long %>% filter(climvar=="prior_value_sp_tmin"& name=="PC1"), aes(x=value, y=cor, col=Provenance))+
+ggplot(data=cor_provclim_long %>% filter(climvar=="prior_value_sp_tmin"& name=="PC1"), aes(x=value, y=cor))+
   geom_point()+
-  ggtitle("PC1 x prior_value_sp_tmin cor")
+  geom_smooth(method="lm")+
+  xlab("PC1")+
+  ggtitle("prior_value_sp_tmin")
 
 prisptmin_PC1<- cor_provclim_long %>% filter(climvar=="prior_value_sp_tmin" & name=="PC1") 
 
 prisptmin_PC1_mod <- lmer(cor ~ value + (1|Provenance), data=prisptmin_PC1)
+plot(prisptmin_PC1_mod)
+qqmath(prisptmin_PC1_mod)
 summary(prisptmin_PC1_mod) #significant
 
+prisptmin_PC1_mod_noG <- lmer(cor ~ value + (1|Provenance), data=prisptmin_PC1 %>% filter(!Provenance == "Gila NF"))
+plot(prisptmin_PC1_mod_noG)
+qqmath(prisptmin_PC1_mod_noG)
+summary(prisptmin_PC1_mod_noG) #still significant when Gila is removed
+
+
 #prior_vpdmax_sp x map
-ggplot(data=cor_provclim_long %>% filter(climvar=="prior_vpdmax_sp"& name=="map"), aes(x=value, y=cor, col=Provenance))+
+ggplot(data=cor_provclim_long %>% filter(climvar=="prior_vpdmax_sp"& name=="map"), aes(x=value, y=cor))+
   geom_point()+
+  geom_smooth(method="lm")+
+  xlab("MAP")+
   ggtitle("prior_vpdmax_sp")
 
 prior_vpdmax_sp_map<- cor_provclim_long %>% filter(climvar=="prior_vpdmax_sp" & name=="map") 
@@ -3269,9 +3384,16 @@ plot(prior_vpdmax_sp_map_mod)
 qqmath(prior_vpdmax_sp_map_mod)
 summary(prior_vpdmax_sp_map_mod)
 
+prior_vpdmax_sp_map_mod_noO <- lmer(cor ~ value + (1|Provenance), data=prior_vpdmax_sp_map %>% filter(!Provenance == "Okanogan NF"))
+plot(prior_vpdmax_sp_map_mod_noO)
+qqmath(prior_vpdmax_sp_map_mod_noO)
+summary(prior_vpdmax_sp_map_mod_noO) #still significant when Okanogan is removed
+
 #prior_vpdmax_sp x pas
-ggplot(data=cor_provclim_long %>% filter(climvar=="prior_vpdmax_sp"& name=="pas"), aes(x=value, y=cor, col=Provenance))+
+ggplot(data=cor_provclim_long %>% filter(climvar=="prior_vpdmax_sp"& name=="pas"), aes(x=value, y=cor))+
   geom_point()+
+  geom_smooth(method="lm")+
+  xlab("precip as snow")+
   ggtitle("prior_vpdmax_sp")
 
 prior_vpdmax_sp_pas<- cor_provclim_long %>% filter(climvar=="prior_vpdmax_sp" & name=="pas") 
@@ -3282,8 +3404,10 @@ qqmath(prior_vpdmax_sp_pas_mod)
 summary(prior_vpdmax_sp_pas_mod)
 
 #prior_aet_sum x EMT
-ggplot(data=cor_provclim_long %>% filter(climvar=="prior_aet_sum"& name=="EMT"), aes(x=value, y=cor, col=Provenance))+
+ggplot(data=cor_provclim_long %>% filter(climvar=="prior_aet_sum"& name=="EMT"), aes(x=value, y=cor))+
   geom_point()+
+  geom_smooth(method="lm")+
+  xlab("EMT")+
   ggtitle("prior_aet_sum")
 
 prior_aet_sum_EMT<- cor_provclim_long %>% filter(climvar=="prior_aet_sum" & name=="EMT") 
@@ -3294,8 +3418,10 @@ qqmath(prior_aet_sum_EMT_mod)
 summary(prior_aet_sum_EMT_mod)
 
 #prior_cwd_wy x TD
-ggplot(data=cor_provclim_long %>% filter(climvar=="prior_cwd_wy"& name=="TD"), aes(x=value, y=cor, col=Provenance))+
+ggplot(data=cor_provclim_long %>% filter(climvar=="prior_cwd_wy"& name=="TD"), aes(x=value, y=cor))+
   geom_point()+
+  geom_smooth(method="lm")+
+  xlab("TD")+
   ggtitle("prior_cwd_wy")
 
 prior_cwd_wy_TD<- cor_provclim_long %>% filter(climvar=="prior_cwd_wy" & name=="TD") 
@@ -3305,7 +3431,63 @@ plot(prior_cwd_wy_TD_mod)
 qqmath(prior_cwd_wy_TD_mod)
 summary(prior_cwd_wy_TD_mod)
 ```
-#ENDED HERE ON 6/20
+
+###DBH as a predictor
+```{r}
+dbh_clim_data <- cor_provclim_long %>% 
+  dplyr::select(-c(name,value)) %>% 
+  unique() %>% 
+  left_join(dbh %>% 
+              mutate(tree=paste("X",Series, sep="")) %>% 
+              dplyr::select(tree,DBH06,DBH14)) %>% 
+  mutate(DBH_recent = case_when(is.na(DBH14) ~ DBH06,
+                                .default = DBH14))
+
+ggplot(dbh_clim_data, aes(x=DBH14, y=cor))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~climvar)
+
+dbhmods = data.frame()
+for(i in 1:length(climvars)){
+mod <- lmer(cor ~ DBH_recent + (1|Provenance), data=dbh_clim_data %>% filter(climvar==climvars[i]))
+dbhmods <- bind_rows(dbhmods, data.frame(climvar = climvars[i], pvalue = as.data.frame(summary(mod)$coefficients)[2,] %>% pull(`Pr(>|t|)`)))}
+
+dbhmods %>% filter(pvalue < 0.05)
+
+##DBH x prior FDSI
+DBH_priorFDSImod <- lmer(cor ~ DBH_recent + (1|Provenance), data=dbh_clim_data %>% filter(climvar=="prior_FDSI"))
+plot(DBH_priorFDSImod)
+qqmath(DBH_priorFDSImod)
+summary(DBH_priorFDSImod)
+
+ggplot(dbh_clim_data %>% filter(climvar=="prior_FDSI"), aes(x=DBH14, y=cor))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~climvar)
+
+```
+
+
+#multivariate
+
+```{r}
+data1 <- cor_provclim_long %>% 
+  dplyr::select(-p.value) %>% 
+  pivot_wider(names_from = climvar, values_from = cor) %>% 
+  filter(name=="PC1")
+
+data2<- data1 %>%
+  remove_rownames() %>% 
+  column_to_rownames("tree") %>% 
+  dplyr::select(ppt_sm:prior_spei_sum)
+
+scale(data2)
+```
+
+
+
+#extra
 ```{r}
 
 ##use PC1 and PC2 rather than climate variables
