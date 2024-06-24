@@ -1020,6 +1020,22 @@ qqmath(mod_dbh_smrpb)
 summary(mod_dbh_smrpb) 
 summary(lmer(DBH ~ smrpb + I(smrpb^2) + (1|Provenance), data=dbh_num14 %>% filter(!Provenance=="Gila NF")))
 
+#big model
+dbh_num14_alldist <- dbh_num14_pcadist %>% 
+  left_join(geo.dist.df)
+
+mod_dbh_big1 <- lmer(DBH ~ dist.to.plant + x + (1|Provenance), data=dbh_num14_alldist)
+summary(mod_dbh_big1)
+vif(mod_dbh_big1)
+
+dbh_num14_alldist %>% 
+  dplyr::select(c(PC1, PC2, dist.to.plant, geo.dist.to.plant.km, x, y)) %>% cor()
+
+mod_dbh_big <- lmer(DBH ~ dist.to.plant + x + I(x^2) + (1|Provenance), data=dbh_num14_alldist)
+plot(mod_dbh_big)
+qqmath(mod_dbh_big)
+summary(mod_dbh_big)
+vif(mod_dbh_big)
 ```
 
 ###dbh diff
