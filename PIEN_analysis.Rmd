@@ -808,6 +808,8 @@ ggplot(dbh_clim_data, aes(x=factor(cmd), y=DBH, col=Provenance))+
 
 ###models
 
+####ANOVA
+
 ```{r}
 dbh_numeric <- dbh_clim_data %>% 
   mutate(num.yr = as.numeric(ifelse(year=="DBH91", 1,
@@ -868,8 +870,89 @@ summary(dbh_aov14)
 TukeyHSD(dbh_aov14)$Provenance %>% 
   as.data.frame() %>% 
   filter(`p adj` < 0.05)
+```
 
+####distance
+```{r}
 ##does DBH vary with climate vars?
+
+#distance models
+dbh_num14_alldist <- dbh_num14_pcadist %>% 
+  left_join(geo.dist.df)
+
+dbh_num14_alldist_noG <- dbh_num14_alldist %>% 
+  filter(!Provenance=="Gila NF")
+
+mod_dbh_dist <- lmer(DBH ~ scale(geo.dist.to.plant.km)*scale(dist.to.plant) + (1|Provenance), data=dbh_num14_alldist)
+plot(mod_dbh_dist)
+qqmath(mod_dbh_dist)
+summary(mod_dbh_dist)
+dredge(mod_dbh_dist)
+
+mod_dbh_dist2 <- lmer(DBH ~ scale(geo.dist.to.plant.km)+scale(dist.to.plant) + (1|Provenance), data=dbh_num14_alldist)
+plot(mod_dbh_dist2)
+qqmath(mod_dbh_dist2)
+summary(mod_dbh_dist2)
+
+mod_dbh_dist2_noG <- lmer(DBH ~ scale(geo.dist.to.plant.km)+scale(dist.to.plant) + (1|Provenance), data=dbh_num14_alldist_noG)
+plot(mod_dbh_dist2_noG)
+qqmath(mod_dbh_dist2_noG)
+summary(mod_dbh_dist2_noG)
+
+ggplot(dbh_num14_alldist, aes(x=geo.dist.to.plant.km, y=DBH, col=Provenance))+
+  geom_point()+
+  geom_smooth(method="lm")
+ggplot(dbh_num14_alldist, aes(x=dist.to.plant, y=DBH, col=Provenance))+
+  geom_point()+
+  geom_smooth(method="lm")
+```
+
+####PCA
+```{r}
+##PCs and x 
+mod_dbh_pca_x <- lmer(DBH ~ PC1*PC2 + PC1*x + PC2*x + I(PC1^2) + I(PC2^2) + I(scale(x)^2) + (1|Provenance), data=dbh_num14_alldist)
+plot(mod_dbh_pca_x)
+qqmath(mod_dbh_pca_x)
+summary(mod_dbh_pca_x)
+dredge(mod_dbh_pca_x)
+
+bestmod_dbh_pca_x <- lmer(DBH ~ PC1 + I(scale(x)^2) + (1|Provenance), data=dbh_num14_alldist)
+summary(bestmod_dbh_pca_x)
+
+mod_dbh_pca_x_nog <- lmer(DBH ~ PC1*PC2 + PC1*x + PC2*x + I(PC1^2) + I(PC2^2) + I(scale(x)^2) + (1|Provenance), data=dbh_num14_alldist_noG)
+plot(mod_dbh_pca_x_nog)
+qqmath(mod_dbh_pca_x_nog)
+summary(mod_dbh_pca_x_nog)
+dredge(mod_dbh_pca_x_nog)
+
+bestmod_dbh_pca_x_nog <- lmer(DBH ~ I(scale(x)^2) + (1|Provenance), data=dbh_num14_alldist_noG)
+summary(bestmod_dbh_pca_x_nog) #no real patterns when you take out Gila
+
+##PCs and y 
+mod_dbh_pca_y <- lmer(DBH ~ PC1*PC2 + PC1*y + PC2*y + I(PC1^2) + I(PC2^2) + I(scale(y)^2) + (1|Provenance), data=dbh_num14_alldist)
+plot(mod_dbh_pca_y)
+qqmath(mod_dbh_pca_y)
+summary(mod_dbh_pca_y)
+dredge(mod_dbh_pca_y)
+
+bestmod_dbh_pca_y <- lmer(DBH ~ PC1 + I(scale(y)^2) + (1|Provenance), data=dbh_num14_alldist)
+summary(bestmod_dbh_pca_y)
+
+ggplot(dbh_num14_alldist, aes(x=y, y=DBH))+
+  geom_point()
+
+mod_dbh_pca_y_nog <- lmer(DBH ~ PC1*PC2 + PC1*y + PC2*y + I(PC1^2) + I(PC2^2) + I(scale(y)^2) + (1|Provenance), data=dbh_num14_alldist_noG)
+plot(mod_dbh_pca_y_nog)
+qqmath(mod_dbh_pca_y_nog)
+summary(mod_dbh_pca_y_nog)
+dredge(mod_dbh_pca_y_nog)
+
+bestmod_dbh_pca_y_nog <- lmer(DBH ~ I(scale(y)^2) + (1|Provenance), data=dbh_num14_alldist_noG)
+summary(bestmod_dbh_pca_y_nog) #quadratic y effect stil significant when you take out Gila
+```
+
+####extra models
+```{r}
 
 #just get most recent DBH measurement 
 dbh_num14 <- dbh_numeric %>% filter(year=="DBH14")
@@ -1019,61 +1102,6 @@ plot(mod_dbh_smrpb)
 qqmath(mod_dbh_smrpb)
 summary(mod_dbh_smrpb) 
 summary(lmer(DBH ~ smrpb + I(smrpb^2) + (1|Provenance), data=dbh_num14 %>% filter(!Provenance=="Gila NF")))
-
-#big model
-dbh_num14_alldist <- dbh_num14_pcadist %>% 
-  left_join(geo.dist.df)
-
-mod_dbh_big1 <- lmer(DBH ~ dist.to.plant + x + (1|Provenance), data=dbh_num14_alldist)
-summary(mod_dbh_big1)
-vif(mod_dbh_big1)
-
-dbh_num14_alldist %>% 
-  dplyr::select(c(PC1, PC2, dist.to.plant, geo.dist.to.plant.km, x, y)) %>% cor()
-
-mod_dbh_big <- lmer(DBH ~ dist.to.plant + x + I(x^2) + (1|Provenance), data=dbh_num14_alldist)
-plot(mod_dbh_big)
-qqmath(mod_dbh_big)
-summary(mod_dbh_big)
-vif(mod_dbh_big)
-```
-
-###dbh diff
-```{r}
-#difference between first and last DBH
-
-dbh_diffs<- dbh %>% 
-  left_join(name_conversion, by=c("Provenance" = "oldname")) %>% 
-  dplyr::select(-Provenance) %>% 
-  rename(Provenance = newname) %>% 
-  mutate(diff_total = DBH14 - DBH91, 
-         diff3 = DBH14 - DBH06,
-         diff2 = DBH06 - DBH96,
-         diff1 = DBH96 - DBH91)
-
-dbh_diffs_long <- dbh_diffs %>% 
-  pivot_longer(c(DBH91:DBH14,diff_total:diff1)) %>% 
-  left_join(prov_pcapts, by="Provenance") %>% 
-  filter(!is.na(value))
-  
-ggplot(dbh_diffs_long %>% filter(name %in% c("diff_total","diff1","diff2","diff3")), aes(x=factor(Provenance, levels=provs_arranged_lat), y=value, fill=Provenance))+
-  geom_boxplot()+
-  facet_wrap(~name, scales="free")+
-  theme(axis.text.x = element_text(angle=45, hjust=1))
-
-##models
-diff_total_df <- dbh_diffs_long %>% 
-  filter(name == "diff_total")
-
-dbhdiff_mod <- lmer(value ~ PC1 * PC2 + (1|Provenance), data=diff_total_df)
-plot(dbhdiff_mod)
-lattice::qqmath(dbhdiff_mod)
-summary(dbhdiff_mod)
-
-ggplot(dbh_diffs_long, aes(x= PC1, y=value))+
-  geom_point()+
-  geom_smooth(method="lm")+
-  facet_wrap(~name, scales="free")
 
 ```
 
@@ -1236,11 +1264,98 @@ TukeyHSD(totht_mod14)$Provenance %>%
 
 ```
 
+####distance
+```{r}
+
+ht_data_clim14 <- ht_data_clim %>% 
+  filter(name=="HT14") %>% 
+  left_join(pca_dist_df %>% dplyr::select(code, dist.to.plant)) %>% 
+  left_join(geo.dist.df)
+
+ht_data_clim14_nog <- ht_data_clim14 %>% filter(!Provenance=="Gila NF")
+
+## Distance model
+ht_dist_mod <- lmer(value ~ scale(geo.dist.to.plant.km)*scale(dist.to.plant) + (1|Provenance), data=ht_data_clim14)
+plot(ht_dist_mod)
+qqmath(ht_dist_mod)
+summary(ht_dist_mod)
+
+ggplot(data=ht_data_clim14, aes(x=dist.to.plant, y=value))+
+  geom_point()+
+  geom_smooth(method="lm")
+ggplot(data=ht_data_clim14, aes(x=geo.dist.to.plant.km, y=value))+
+  geom_point()+
+  geom_smooth(method="lm")
+
+ht_dist_mod_nog <- lmer(value ~ scale(geo.dist.to.plant.km)*scale(dist.to.plant) + (1|Provenance), data=ht_data_clim14_nog)
+plot(ht_dist_mod_nog)
+qqmath(ht_dist_mod_nog)
+summary(ht_dist_mod_nog)
+
+ggplot(data=ht_data_clim14_nog, aes(x=dist.to.plant, y=value, col=geo.dist.to.plant.km>800))+
+  geom_point()+
+  geom_smooth(method="lm")
+ggplot(data=ht_data_clim14_nog, aes(x=geo.dist.to.plant.km, y=value))+
+  geom_point()+
+  geom_smooth(method="lm")
+
+```
+
+####PCA
+
+```{r}
+
+##PCs and x 
+mod_ht_pca_x <- lmer(value ~ PC1*PC2 + PC1*x + PC2*x + I(PC1^2) + I(PC2^2) + I(scale(x)^2) + (1|Provenance), data=ht_data_clim14)
+plot(mod_ht_pca_x)
+qqmath(mod_ht_pca_x)
+summary(mod_ht_pca_x)
+dredge(mod_ht_pca_x)
+
+bestmod_ht_pca_x <- lmer(value ~ PC1 + I(PC1^2) + (1|Provenance), data=ht_data_clim14)
+summary(bestmod_ht_pca_x)
+
+ggplot(data=ht_data_clim14, aes(x=PC1, y=value))+
+  geom_point()
+
+mod_ht_pca_x_nog <- lmer(value ~ PC1*PC2 + PC1*x + PC2*x + I(PC1^2) + I(PC2^2) + I(scale(x)^2) + (1|Provenance), data=ht_data_clim14_nog)
+plot(mod_ht_pca_x_nog)
+qqmath(mod_ht_pca_x_nog)
+summary(mod_ht_pca_x_nog)
+dredge(mod_ht_pca_x_nog) ##null model is best when Gila is removed
+
+
+##PCs and y 
+mod_ht_pca_y <- lmer(value ~ PC1*PC2 + PC1*y + PC2*y + I(PC1^2) + I(PC2^2) + I(scale(y)^2) + (1|Provenance), data=ht_data_clim14)
+plot(mod_ht_pca_y)
+qqmath(mod_ht_pca_y)
+summary(mod_ht_pca_y)
+dredge(mod_ht_pca_y)
+
+bestmod_ht_pca_y <- lmer(value ~ PC1 + I(PC1^2) + scale(y) + I(scale(y)^2) + (1|Provenance), data=ht_data_clim14)
+summary(bestmod_ht_pca_y)
+
+ggplot(ht_data_clim14, aes(x=y, y=value))+
+  geom_point()
+ggplot(ht_data_clim14, aes(x=PC1, y=value))+
+  geom_point()
+
+mod_ht_pca_y_nog <- lmer(value ~ PC1*PC2 + PC1*y + PC2*y + I(PC1^2) + I(PC2^2) + I(scale(y)^2) + (1|Provenance), data=ht_data_clim14_nog)
+plot(mod_ht_pca_y_nog)
+qqmath(mod_ht_pca_y_nog)
+summary(mod_ht_pca_y_nog)
+dredge(mod_ht_pca_y_nog)
+
+bestmod_ht_pca_y_nog <- lmer(value ~ y + I(scale(y)^2) + (1|Provenance), data=ht_data_clim14_nog)
+summary(bestmod_ht_pca_y_nog) #quadratic y effect still significant when you take out Gila
+
+```
+ 
+####extra models
 
 ```{r}
 ##continuous variable effects on height
 
-ht_data_clim14 <- ht_data_clim %>% filter(name=="HT14")
 
 #cmd
 mod_totht_cmd <- lmer(value ~ cmd + (1|Provenance), data=ht_data_clim14)
@@ -1405,15 +1520,6 @@ summary(totht_mod_nursery) ##significant effect of nursery height on total heigh
 
 ggplot(data= ht_data_clim14, aes(x=Seedling.Ht..from.Nursery, y=value, col=Provenance))+
   geom_point()
-
-###big model
-totht_mod_allvars <- lmer(value ~  MAT + I(MAT^2) + map + I(map^2) + TD + I(TD^2) + SHM + I(SHM^2) + nffd  + I(nffd^2) + smrpb + I(smrpb^2) + Seedling.Ht..from.Nursery + (1|Provenance), data=ht_data_clim14)
-plot(totht_mod_allvars)
-qqmath(totht_mod_allvars)
-summary(totht_mod_allvars)
-
-
-
 ```
 
 
