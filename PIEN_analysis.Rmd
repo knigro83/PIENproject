@@ -361,7 +361,7 @@ dem_plantation <- rast("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspac
 
 slpasp <- terrain(dem_plantation, v = c("slope","aspect"))
 
-slpasp_plantation <- terra::extract(slpasp, adjusted_provs %>% filter(Provenance=="Plantation"), method="simple")
+slpasp_plantation <- terra::extract(slpasp, adjusted_provs %>% filter(Provenance=="Plantation") %>% terra::project(slpasp), method="simple")
 
 plantation_cwd_data <- all_climate %>% left_join(as.data.frame(adjusted_provs) %>% bind_cols(crds(adjusted_provs)) %>% filter(Provenance=="Plantation"), by=c("CN"="Provenance")) %>% 
   mutate(soilawc=116.5, foldedaspect = abs(180-abs(slpasp_plantation$aspect - 225)), slope=slpasp_plantation$slope)
@@ -410,9 +410,6 @@ ggplot(wateryear_cwd, aes(x=year, y=cwd_wy))+
   geom_point(data= fa_cwd, aes(x=year, y=cwd_fa),col="orange")+
   geom_line(data= fa_cwd, aes(x=year, y=cwd_fa),col="orange")  ##1970s and 80s droughts were influenced more by fall lack of moisture than 2002 drought. 
 
-
-wateryear_cwd %>% 
-  filter(cwd_wy>quantile(wateryear_cwd$cwd_wy[-1], c(0.75))+ 1.5*IQR(wateryear_cwd$cwd_wy[-1]))
 
 ##spring drought
 ggplot( plantation_cwd %>% 
