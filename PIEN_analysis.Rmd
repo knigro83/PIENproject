@@ -54,6 +54,9 @@ us <- geodata::gadm(country = "USA",  level = 1, resolution = 2,
 west_states<- c("Arizona","Colorado","Idaho","Montana","Nevada","New Mexico","South Dakota","North Dakota","Nebraska","Utah","Wyoming","California","Oregon","Washington","Kansas","Oklahoma","Texas")
 westernus <- us[match(toupper(west_states),toupper(us$NAME_1)),]
 
+canada <- geodata::gadm(country = "Canada",  level = 1, resolution = 2,
+             path = "C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/PIENproject")
+
 ##use coordinates adjusted based on elevation and google maps
 adjusted_coords<- read.csv("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/PIENproject/PIEN_corrected_coords.csv")
 
@@ -63,6 +66,7 @@ geo.dist.df<- data.frame(Provenance = adjusted_provs$Provenance, geo.dist.to.pla
 
 ggplot()+
   geom_spatvector(data=westernus)+
+  geom_spatvector(data=canada)+
   geom_spatvector(data=adjusted_provs, color="maroon")
 
 #make key for provenance names
@@ -666,11 +670,18 @@ autoplot(clim_pca,x=1,y=3,colour="aquamarine3",loadings.colour="red", loadings=T
   geom_text_repel(data=prov_pcapts, aes(x=PC1, y=PC3, label=code))+
   theme(text=element_text(size=14, color="black"))
   
+zoom(canada, e=ext(westernus), new=FALSE)
+
+canada_crop <- crop(canada, ext(-126.92, -97.23, 41.6769, 52))
 
 ggplot()+
-  geom_spatvector(data=westernus)+
-  geom_spatvector(data=adjusted_provs %>% left_join(prov_names), color="maroon")+
-  geom_spatvector_text(data=adjusted_provs %>% left_join(prov_names), aes(label=code), hjust=c(rep(c(-0.2,1),2),-.2,-.2,-.2,0,rep(c(-.2,1),5),1,1,1))
+  geom_spatvector(data=westernus, col="grey")+
+  geom_spatvector(data=canada_crop, col="grey")+
+  geom_spatvector(data=adjusted_provs %>% left_join(prov_names) %>% filter(!Provenance == "Plantation"), color="black", shape="\u2605", size=4)+
+  geom_spatvector(data=adjusted_provs %>% left_join(prov_names) %>% filter(Provenance == "Plantation"), color="darkred", size=3)+
+  geom_spatvector_text(data=adjusted_provs %>% left_join(prov_names)%>% filter(!Provenance == "Plantation"), aes(label=code), hjust=c(rep(c(-0.2,1),2),-.2,-.2,-.2,0,rep(c(-.2,1),5),1,1), vjust=c(rep(0,7),1.4,rep(0,12)))+
+    geom_spatvector_text(data=adjusted_provs %>% left_join(prov_names)%>% filter(Provenance == "Plantation"), aes(label="Plantation"), hjust = 1, vjust=-0.6, col="darkred")+
+  theme_bw()
 
 ```
 
