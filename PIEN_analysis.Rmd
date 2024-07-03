@@ -670,18 +670,95 @@ autoplot(clim_pca,x=1,y=3,colour="aquamarine3",loadings.colour="red", loadings=T
   geom_text_repel(data=prov_pcapts, aes(x=PC1, y=PC3, label=code))+
   theme(text=element_text(size=14, color="black"))
   
-zoom(canada, e=ext(westernus), new=FALSE)
-
 canada_crop <- crop(canada, ext(-126.92, -97.23, 41.6769, 52))
 
-ggplot()+
-  geom_spatvector(data=westernus, col="grey")+
-  geom_spatvector(data=canada_crop, col="grey")+
-  geom_spatvector(data=adjusted_provs %>% left_join(prov_names) %>% filter(!Provenance == "Plantation"), color="black", shape="\u2605", size=4)+
-  geom_spatvector(data=adjusted_provs %>% left_join(prov_names) %>% filter(Provenance == "Plantation"), color="darkred", size=3)+
-  geom_spatvector_text(data=adjusted_provs %>% left_join(prov_names)%>% filter(!Provenance == "Plantation"), aes(label=code), hjust=c(rep(c(-0.2,1),2),-.2,-.2,-.2,0,rep(c(-.2,1),5),1,1), vjust=c(rep(0,7),1.4,rep(0,12)))+
-    geom_spatvector_text(data=adjusted_provs %>% left_join(prov_names)%>% filter(Provenance == "Plantation"), aes(label="Plantation"), hjust = 1, vjust=-0.6, col="darkred")+
-  theme_bw()
+map<- ggplot()+
+  geom_spatvector(data=westernus, col="grey", fill="gray100")+
+  geom_spatvector(data=canada_crop, col="grey", fill="gray100")+
+  geom_spatvector(data=adjusted_provs %>% left_join(prov_names) %>% filter(!Provenance == "Plantation"), aes(fill=factor(Provenance, levels=provs_bylat$Provenance)), shape=24, size=1.5)+
+    scale_fill_manual(values=unname(stepped()), name="Provenance")+
+  geom_spatvector(data=adjusted_provs %>% left_join(prov_names) %>% filter(Provenance == "Plantation"), color="black", size=1.5)+
+  geom_spatvector_text(data=adjusted_provs %>% left_join(prov_names)%>% filter(!Provenance == "Plantation"), aes(label=code), hjust=c(1.2,-.2,-.2,1.1,-.2,-.2,1,.1,0,1.2,-0.2,1.0, 1.1,1.0,0,1,-0.2,1.2,1,1.2), vjust=c(.4,0,0,0,0,0,1.3,1.4,1.3,rep(0,5),1.3,0,-.2,0,0,0), size=2.5)+
+    geom_spatvector_text(data=adjusted_provs %>% left_join(prov_names)%>% filter(Provenance == "Plantation"), aes(label="Plantation"), hjust = 1, vjust=-0.4, col="black", size=2.5)+
+  theme(panel.grid = element_blank(), legend.position = "none", axis.title=element_blank(), axis.text = element_text(color="black", size=6))+
+  ggspatial::annotation_scale(
+    location = "bl",
+    bar_cols = c("black", "white"),
+      height = unit(0.1, "cm"),
+    text_cex = 0.5) +
+  ggspatial::annotation_north_arrow(
+    location = "bl", which_north = "true",
+    pad_x = unit(0.1, "in"), pad_y = unit(0.2, "in"),
+    style=north_arrow_fancy_orienteering(text_size=8, line_width = 0.8),
+    height=unit(.25, "in"),
+    width=unit(.25, "in"))
+
+png("figures/map.png", width=3, height=3, res=300, units = "in")
+map
+dev.off()
+
+prov_pcapts_onlyprovs<- prov_pcapts %>% 
+  filter(!Provenance=="Plantation")
+
+provs_bylat <- prov_pcapts_onlyprovs %>% arrange(y)
+
+install.packages("pals")
+library(pals)
+
+
+pcaplot <- autoplot(clim_pca,x=1,y=2,colour=NA,loadings.colour="gray80", loadings=T, loadings.label=T, loadings.label.colour="darkgrey", scale=0, loadings.label.size=2.5, loadings.label.hjust=1, loadings.label.vjust=1)+
+  geom_point(data=prov_pcapts_onlyprovs, aes(x=PC1, y=PC2, fill=factor(Provenance, levels=provs_bylat$Provenance)), size=1.5, shape=24)+
+  scale_fill_manual(values=unname(stepped()), name="Provenance")+
+  geom_text(data=prov_pcapts_onlyprovs, aes(x=PC1, y=PC2, label=code), size=2,
+            hjust = c(1.2,
+                      0.5,
+                      .5,
+                      0.5,
+                      0.5,
+                      1.2,
+                      0.7,
+                      .2,
+                      1,
+                      1,
+                      0,
+                      1,
+                      1,
+                      -.2,
+                      1.2,
+                      0.5,
+                      0,
+                      -.4,
+                      0.5,
+                      -.2),
+            vjust = c(0,
+                      -1,
+                      1.4,
+                      1.4,
+                      -1,
+                      0,
+                      1.4,
+                      1.4,
+                      0,
+                      1.4,
+                      -1,
+                      1.4,
+                      1.4,
+                      0,
+                      0,
+                      1.4,
+                      1.4,
+                      .2,
+                      -1,
+                      0))+
+  theme(text=element_text(size=14, color="black"))+
+  geom_point(data=prov_pcapts %>% filter(Provenance=="Plantation"), aes(x=PC1, y=PC2), col="black", size=1.5)+
+  geom_text(data=prov_pcapts %>% filter(Provenance=="Plantation"), aes(x=PC1, y=PC2, label=Provenance), size=2, hjust=0, vjust=1.4)+
+  theme_bw()+
+  theme(legend.position = "none", axis.text = element_text(color="black", size=6), axis.title = element_text(size=8))
+  
+png("figures/pcaplot.png", width=3, height=3, res=300, units = "in")
+pcaplot
+dev.off()
 
 ```
 
@@ -829,6 +906,7 @@ dbh_aov <- lm(DBH ~ year*Provenance, data = dbh_numeric)
 par(mfrow=c(2,2))
 plot(dbh_aov)
 anova(dbh_aov) #no significant interaction
+Anova(dbh_aov, type="3")
 dbh_aov_noint <- lm(DBH ~ year + Provenance, data = dbh_numeric)
 Anova(dbh_aov_noint, type="2") #both year and provenance are significant but do not interact (relatively similar order of provenance DBH in each year measured)
 
@@ -838,17 +916,25 @@ prov_dbh_order<- dbh_numeric %>%
   summarise(med_DBH = median(DBH, na.rm=T)) %>% 
   arrange(med_DBH)
 
-dbh_early<- ggplot(dbh_numeric %>% filter(!year=="DBH14"), aes(x=factor(year, levels=c("DBH91","DBH96","DBH06"), labels=c(1991,1996,2006)), y=DBH, fill=factor(Provenance, levels=prov_dbh_order$Provenance)))+
+dbh_early<- ggplot(dbh_numeric %>% filter(!year=="DBH14"), aes(x=factor(year, levels=c("DBH91","DBH96","DBH06"), labels=c(1991,1996,2006)), y=DBH, fill=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_boxplot()+
+  scale_fill_manual(values=unname(stepped()), name="Provenance")+
+  scale_x_discrete(name="Year")
+
+dbh_2014<- ggplot(dbh_numeric %>% filter(year=="DBH14"), aes(x=factor(year, levels=c("DBH14"), labels=c(2014)), y=DBH, fill=factor(Provenance, levels=provs_bylat$Provenance)))+
   geom_boxplot()+
   scale_x_discrete(name="Year")+
-  scale_fill_discrete(name="Provenance")
-  
-dbh_2014<- ggplot(dbh_numeric %>% filter(year=="DBH14"), aes(x=factor(year, levels=c("DBH14"), labels=c(2014)), y=DBH, fill=factor(Provenance, levels=prov_dbh_order$Provenance)))+
-  geom_boxplot()+
-  scale_x_discrete(name="Year")+
-  scale_fill_discrete(name="Provenance")
+  scale_fill_manual(values=unname(stepped()), name="Provenance")+
+  theme_bw()
 
 ggarrange(dbh_early,dbh_2014, nrow=2, common.legend = TRUE)
+
+dbh_plot<- ggplot(dbh_numeric %>% filter(year=="DBH14"), aes(x=factor(Provenance, levels=provs_bylat$Provenance), y=DBH, fill=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_boxplot()+
+  scale_fill_manual(values=unname(stepped()), name="Provenance")+
+  geom_text(data=data.frame(Provenance = c("Gila NF","Dixie NF","Cutting Permit 31"), symbol = c("B","B","A")), aes(x=Provenance, y=25, label=symbol))+
+  theme_bw()+
+  theme(legend.position = "none", axis.text.x = element_text(angle=45, color="black", size=8, hjust=1), axis.title.x = element_blank(), axis.text.y = element_text(color="black", size=8), axis.title.y = element_text(color="black", size=10))
 
 ###model each year separately
 dbh_aov91 <- aov(DBH ~ Provenance, data = dbh_numeric %>% filter(year=="DBH91"))
@@ -884,6 +970,7 @@ TukeyHSD(dbh_aov14)$Provenance %>%
 ```{r}
 ##does DBH vary with climate vars?
 
+
 #just get most recent DBH measurement 
 dbh_num14 <- dbh_numeric %>% filter(year=="DBH14")
 ##distance in PCA space from plantation
@@ -894,6 +981,8 @@ dbh_num14_pcadist<- dbh_num14 %>%
 #distance models
 dbh_num14_alldist <- dbh_num14_pcadist %>% 
   left_join(geo.dist.df)
+
+dbh_num14_alldist %>% dplyr::select(PC1,PC2,dist.to.plant,geo.dist.to.plant.km,x,y) %>% cor()
 
 dbh_num14_alldist_noG <- dbh_num14_alldist %>% 
   filter(!Provenance=="Gila NF")
@@ -965,6 +1054,10 @@ dredge(mod_dbh_pca_y_nog)
 
 bestmod_dbh_pca_y_nog <- lmer(DBH ~ I(scale(y)^2) + (1|Provenance), data=dbh_num14_alldist_noG)
 summary(bestmod_dbh_pca_y_nog) #quadratic y effect stil significant when you take out Gila
+
+###make plot
+
+
 ```
 
 ####extra models
@@ -1636,8 +1729,6 @@ wald.test(b = coef(logmod_cat), Sigma = vcov(logmod_cat), Terms=3:21) ##Provenan
 wald.test(b = coef(logmod_cat), Sigma = vcov(logmod_cat), Terms=22:40) ##interaction is significant
 coef(logmod_cat)
 
-exp(cbind(OR = coef(logmod_cat), confint(logmod_cat)))
-
 ##predictions
 newdata1 <- with(cone_data, data.frame(year = seq(min(year),max(year),1), Provenance = rep(unique(cone_data$Provenance), each=22)))
 
@@ -1648,9 +1739,22 @@ newdata3 <- within(newdata2, {
     UL <- plogis(fit + (1.96 * se.fit))
 })
 
-ggplot(newdata3, aes(x = year, y = PredictedProb)) + geom_ribbon(aes(ymin = LL,
-    ymax = UL, fill = Provenance), alpha = 0.2) + geom_line(aes(colour = Provenance),
-    linewidth = 1)
+cone_fig<- ggplot(newdata3, aes(x = year, y = PredictedProb)) + geom_ribbon(aes(ymin = LL,
+    ymax = UL, fill = factor(Provenance, levels=provs_bylat$Provenance)), alpha = 0.2) + geom_line(aes(colour = factor(Provenance, levels=provs_bylat$Provenance)),
+    linewidth = 1)+
+  scale_color_manual(values=unname(stepped()),name="Provenance")+
+  scale_fill_manual(values=unname(stepped()),name="Provenance")+
+  ylab("Predicted Probability")+
+  theme_bw()+
+  theme(axis.text = element_text(color="black", size=10),
+        axis.title = element_text(color="black", size=10),
+        legend.position = "none",
+        legend.text = element_text(color="black", size=8),
+        legend.title = element_text(color="black", size=10))
+
+png("figures/cone_fig.png", height=3, width=3, res=300, units="in")
+cone_fig
+dev.off()
 
 ```
 
@@ -2201,12 +2305,15 @@ growth.detrended.byprov <- growth.detrended.df %>%
   group_by(Provenance,year) %>% 
   summarise(meanrwi = mean(rw_spline, na.rm=T), se=sd(rw_spline,na.rm=T)/sqrt(n()))
 
-ggplot(growth.detrended.byprov, aes(x=year, y=meanrwi))+
-    geom_bar(data=plantation_clim, aes(x=year, y=spei_sum/5), stat="identity")+
-  geom_point(aes( col=Provenance))+
-  geom_errorbar(width=0.2,aes(x=year, ymin=meanrwi-se, ymax=meanrwi+se, col=Provenance))+
-  geom_line(aes( col=Provenance))+
-  geom_hline(yintercept=1, linetype=2)
+ggplot(growth.detrended.byprov, aes(x=year, y=meanrwi-1))+
+    geom_bar(data=plantation_clim, aes(x=year, y=FDSI), stat="identity")+
+  geom_point(aes( col=Provenance), size=2)+
+  geom_errorbar(width=0.2,aes(x=year, ymin=meanrwi-se-1, ymax=meanrwi+se-1, col=Provenance), linewidth=1)+
+  scale_color_manual(values=unname(stepped()))+
+  geom_line(aes( col=Provenance), linewidth=1)+
+  geom_hline(yintercept=0, linetype=2)+
+  theme_bw()+
+  theme(axis.text = element_text(color="black",size=10), axis.title = element_text(color="black", size=12), panel.grid = element_blank())
 
 ##look at whole time series
 growth.detrended.all.byprov <- growth.detrended.df.all %>% 
@@ -2350,6 +2457,18 @@ ggplot(as.data.frame(spline_calcs_list[[3]]), aes(x=Provenance, y=resilience))+
 summary(splinemodlist_resilience[[4]]) 
 
 ####
+
+lapply(spline_calcs_list, summary)
+spline_calcs_list[[1]] %>% dplyr::select(c(resistance,resilience)) %>% as.data.frame() %>% 
+  summarise(sd.resist=sd(resistance), sd.resil = sd(resilience))
+spline_calcs_list[[2]] %>% dplyr::select(c(resistance,resilience)) %>% as.data.frame() %>% 
+  summarise(sd.resist=sd(resistance), sd.resil = sd(resilience))
+spline_calcs_list[[3]] %>% dplyr::select(c(resistance,resilience)) %>% as.data.frame() %>% 
+  summarise(sd.resist=sd(resistance), sd.resil = sd(resilience))
+spline_calcs_list[[4]] %>% dplyr::select(c(resistance,resilience)) %>% as.data.frame() %>% 
+  summarise(sd.resist=sd(resistance), sd.resil = sd(resilience,na.rm=T))
+
+
 ```
 
 ####Even time periods
@@ -2801,6 +2920,25 @@ TukeyHSD(splinemodlist_resilience_9904)$Provenance %>% as.data.frame() %>% filte
 ggplot(as.data.frame(spline_calcs_9904), aes(x=Provenance, y=resilience))+
   geom_boxplot()+
   theme(axis.text.x = element_text(angle=45, hjust=1))
+
+###### summary stats
+spline_calcs_0102 %>% dplyr::select(c(resistance,resilience)) %>% as.data.frame() %>% 
+  summarise(mean.resist = mean(resistance), sd.resist=sd(resistance), mean.resil = mean(resilience), sd.resil = sd(resilience))
+
+spline_calcs_0203 %>% dplyr::select(c(resistance,resilience)) %>% as.data.frame() %>% 
+  summarise(mean.resist = mean(resistance), sd.resist=sd(resistance), mean.resil = mean(resilience), sd.resil = sd(resilience))
+
+spline_calcs_0104 %>% dplyr::select(c(resistance,resilience)) %>% as.data.frame() %>% 
+  summarise(mean.resist = mean(resistance), sd.resist=sd(resistance), mean.resil = mean(resilience), sd.resil = sd(resilience))
+
+spline_calcs_0003 %>% dplyr::select(c(resistance,resilience)) %>% as.data.frame() %>% 
+  summarise(mean.resist = mean(resistance), sd.resist=sd(resistance), mean.resil = mean(resilience), sd.resil = sd(resilience))
+
+spline_calcs_0005 %>% dplyr::select(c(resistance,resilience)) %>% as.data.frame() %>% 
+  summarise(mean.resist = mean(resistance), sd.resist=sd(resistance), mean.resil = mean(resilience,na.rm=T), sd.resil = sd(resilience,na.rm=T))
+
+spline_calcs_9904 %>% dplyr::select(c(resistance,resilience)) %>% as.data.frame() %>% 
+  summarise(mean.resist = mean(resistance), sd.resist=sd(resistance), mean.resil = mean(resilience, na.rm=T), sd.resil = sd(resilience, na.rm=T))
 ```
 
 ####Climate Trends in RR
@@ -2819,18 +2957,33 @@ ggplot(RR4_clim, aes(x=PC2, y=resilience))+
   geom_point()+
   geom_smooth(method="lm")
 
+survmod_pcx<- glmer(Stat14 ~ PC1+ I(PC1^2) + PC2 + I(PC2^2) + scale(x) + I(scale(x)^2) + (1|Provenance), data=moniger_survival, family="binomial")
+
+
 ##PCA models
-resis_mod_pc <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance), data=RR4_clim)
-plot(resis_mod_pc)
-qqmath(resis_mod_pc)
-summary(resis_mod_pc) 
+resis_mod_pcx <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2) + (1|Provenance), data=RR4_clim)
+plot(resis_mod_pcx)
+qqmath(resis_mod_pcx)
+summary(resis_mod_pcx) 
 
-resis_mod_pc_noG <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance), data=RR4_clim %>% filter(!Provenance=="Gila NF"))
-plot(resis_mod_pc_noG)
-qqmath(resis_mod_pc_noG)
-summary(resis_mod_pc_noG) #nothing significant when Gila removed
+resis_mod_pcx_noG <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2)+ (1|Provenance), data=RR4_clim %>% filter(!Provenance=="Gila NF"))
+plot(resis_mod_pcx_noG)
+qqmath(resis_mod_pcx_noG)
+summary(resis_mod_pcx_noG) #nothing significant when Gila removed
 
-dredge(resis_mod_pc) ##null model is the best
+dredge(resis_mod_pcx) ##null model is the best
+
+resis_mod_pcy <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2) + (1|Provenance), data=RR4_clim)
+plot(resis_mod_pcy)
+qqmath(resis_mod_pcy)
+summary(resis_mod_pcy) 
+
+resis_mod_pcy_noG <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2)+ (1|Provenance), data=RR4_clim %>% filter(!Provenance=="Gila NF"))
+plot(resis_mod_pcy_noG)
+qqmath(resis_mod_pcy_noG)
+summary(resis_mod_pcy_noG) #nothing significant when Gila removed
+
+dredge(resis_mod_pcy) ##null model is the best
 
 
 #distance model
@@ -2871,23 +3024,39 @@ ggplot()+
 
 ```{r}
 ###resilience
-resil_mod_pc <- lmer(resilience ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance), data=RR4_clim)
-plot(resil_mod_pc)
-qqmath(resil_mod_pc)
-summary(resil_mod_pc)
+resil_mod_pcx <- lmer(resilience ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2) + (1|Provenance), data=RR4_clim)
+plot(resil_mod_pcx)
+qqmath(resil_mod_pcx)
+summary(resil_mod_pcx)
 ggplot(RR4_clim, aes(x=PC1, y=resilience))+
   geom_point()+
   geom_smooth(method="lm")
 
 RR4_clim_noG <- RR4_clim %>% filter(!Provenance == "Gila NF")
 
-resil_mod_pc_noG <- lmer(resilience ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance), data=RR4_clim_noG)
-plot(resil_mod_pc_noG)
-qqmath(resil_mod_pc_noG)
-summary(resil_mod_pc_noG)
+resil_mod_pcx_noG <- lmer(resilience ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2) + (1|Provenance), data=RR4_clim_noG)
+plot(resil_mod_pcx_noG)
+qqmath(resil_mod_pcx_noG)
+summary(resil_mod_pcx_noG)
 
-dredge(resil_mod_pc) #PC1 is only term when Gila is included
-dredge(resil_mod_pc_noG) #null is best when Gila is excluded
+dredge(resil_mod_pcx) #PC1 is only term when Gila is included
+dredge(resil_mod_pcx_noG) #null is best when Gila is excluded
+
+resil_mod_pcy <- lmer(resilience ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2) + (1|Provenance), data=RR4_clim)
+plot(resil_mod_pcy)
+qqmath(resil_mod_pcy)
+summary(resil_mod_pcy)
+ggplot(RR4_clim, aes(y=PC1, y=resilience))+
+  geom_point()+
+  geom_smooth(method="lm")
+
+resil_mod_pcy_noG <- lmer(resilience ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2) + (1|Provenance), data=RR4_clim_noG)
+plot(resil_mod_pcy_noG)
+qqmath(resil_mod_pcy_noG)
+summary(resil_mod_pcy_noG)
+
+dredge(resil_mod_pcy) #PC1 is only term when Gila is included
+dredge(resil_mod_pcy_noG) #null is best when Gila is excluded
 
 
 ##distance
@@ -2939,7 +3108,9 @@ predrought_new<- growth.detrended.df %>%
 #resistance
 new_calcs <- left_join(drought_new,predrought_new) %>% 
   mutate(resistance = drought_ave/predrought_ave) %>% 
-  left_join(dbh_age %>%dplyr::select(tree,Provenance) %>% unique(), by="tree")
+  left_join(dbh_age %>% dplyr::select(tree,Provenance) %>% unique(), by="tree")
+
+mean(new_calcs$resistance)
 
 new_aov_resist <- aov(resistance ~ Provenance, data=new_calcs)
 par(mfrow=c(2,2))
@@ -3019,15 +3190,23 @@ recover_time_clim <- recover_time %>%
   left_join(pca_dist_df) %>% 
   left_join(geo.dist.df)
 
-recov_mod_pca <- lmer(log(recoverytime) ~ PC1*PC2 + (1|Provenance), data=recover_time_clim)
-plot(recov_mod_pca)
-qqmath(recov_mod_pca)
-summary(recov_mod_pca)
+recov_mod_pcax <- lmer(log(recoverytime) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2) + (1|Provenance), data=recover_time_clim)
+plot(recov_mod_pcax)
+qqmath(recov_mod_pcax)
+summary(recov_mod_pcax)
+dredge(recov_mod_pcax) #null model is best
+
+recov_mod_pcay <- lmer(log(recoverytime) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2) + (1|Provenance), data=recover_time_clim)
+plot(recov_mod_pcay)
+qqmath(recov_mod_pcay)
+summary(recov_mod_pcay)
+dredge(recov_mod_pcay) #null model is best
 
 recov_mod_dist <- lmer(log(recoverytime) ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=recover_time_clim)
 plot(recov_mod_dist)
 qqmath(recov_mod_dist)
 summary(recov_mod_dist)
+dredge(recov_mod_dist) #null model is best
 
 ###
 not_recovered<- dbh_age_good %>% 
@@ -3064,10 +3243,17 @@ plot(aov.mgr)
 summary(aov.mgr)  #no significant difference in max growth reduction between provenances
 
 #linear models
-mgr.pcmod <- lmer(max.growth.red ~ PC1*PC2 + (1|Provenance), data=growth_red_sum)
-plot(mgr.pcmod)
-qqmath(mgr.pcmod)
-summary(mgr.pcmod)
+mgr.pcmodx <- lmer(max.growth.red ~ PC1*PC2 + scale(x) + I(scale(x)^2) + (1|Provenance), data=growth_red_sum)
+plot(mgr.pcmodx)
+qqmath(mgr.pcmodx)
+summary(mgr.pcmodx)
+dredge(mgr.pcmodx) #null is best
+
+mgr.pcmody <- lmer(max.growth.red ~ PC1*PC2 + scale(y) + I(scale(y)^2) + (1|Provenance), data=growth_red_sum)
+plot(mgr.pcmody)
+qqmath(mgr.pcmody)
+summary(mgr.pcmody)
+dredge(mgr.pcmody) #null is best
 
 mgr.distmod <- lmer(max.growth.red ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=growth_red_sum)
 plot(mgr.distmod)
@@ -3075,6 +3261,36 @@ qqmath(mgr.distmod)
 summary(mgr.distmod) #nothing significant
 
 ggplot(growth_red_sum, aes(x=Provenance, y=max.growth.red))+
+  geom_boxplot()+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+
+##sum growth reduction models
+#anova
+aov.sumgr <- aov(log(sum.growth.red) ~ Provenance, data=growth_red_sum)
+par(mfrow=c(2,2))
+plot(aov.sumgr)
+summary(aov.sumgr)  #no significant difference in sum growth reduction between provenances
+
+#linear models
+sumgr.pcmodx <- lmer(log(sum.growth.red) ~ PC1*PC2 + scale(x) + I(scale(x)^2) + (1|Provenance), data=growth_red_sum)
+plot(sumgr.pcmodx)
+qqmath(sumgr.pcmodx)
+summary(sumgr.pcmodx)
+dredge(sumgr.pcmodx) #null is best
+
+sumgr.pcmody <- lmer(log(sum.growth.red) ~ PC1*PC2 + scale(y) + I(scale(y)^2) + (1|Provenance), data=growth_red_sum)
+plot(sumgr.pcmody)
+qqmath(sumgr.pcmody)
+summary(sumgr.pcmody)
+dredge(sumgr.pcmody) #null is best
+
+sumgr.distmod <- lmer(log(sum.growth.red) ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=growth_red_sum)
+plot(sumgr.distmod)
+qqmath(sumgr.distmod)
+summary(sumgr.distmod) #nothing significant
+
+ggplot(growth_red_sum, aes(x=Provenance, y=sum.growth.red))+
   geom_boxplot()+
   theme(axis.text.x = element_text(angle=45, hjust=1))
 
@@ -3177,7 +3393,7 @@ ggplot(cor_clean %>% filter(climvar %in% c("aet_sum" , "cwd_wy" , "FDSI", "spei_
         strip.text = element_text(color="black", size=12))
   
 ##all the rest of the climate variables
-ggplot(cor_clean %>% filter(!climvar %in% c("aet_sum" , "cwd_wy" , "FDSI", "spei_sum", "prior_aet_sum", "prior_cwd_wy", "prior_FDSI" , "prior_spei_sum")), aes(x=Provenance, y=cor, color=p.value<0.05))+
+ggplot(cor_clean %>% filter(!climvar %in% c("aet_sum" , "cwd_wy" , "FDSI", "spei_sum", "prior_aet_sum", "prior_cwd_wy", "prior_FDSI" , "prior_spei_sum")) %>% left_join(name_conversion, by=c("Provenance"="oldname")) %>% left_join(prov_names, by=c("newname"="Provenance")), aes(x=code, y=cor, color=p.value<0.05))+
   geom_jitter(height=0, width=0.1, size=3,alpha=0.7)+
   facet_wrap(~climvar)+
   scale_color_manual(values=c("gray20", "red"))+
@@ -3222,7 +3438,7 @@ provSS <- modanova %>% mutate(var = rownames(modanova)) %>% filter(var=="Provena
 provdf <- modanova %>% mutate(var = rownames(modanova)) %>% filter(var=="Provenance") %>%  pull(`Df`)
 residSS <- modanova %>% mutate(var = rownames(modanova)) %>% filter(var=="Residuals") %>%  pull(`Sum Sq`)
 residdf <- modanova %>% mutate(var = rownames(modanova)) %>% filter(var=="Residuals") %>%  pull(`Df`)
-allanovas <- bind_rows(allanovas, data.frame(climvar=climvars[i],pvalue=pvalue, provMS = provSS/provdf, residMS = residSS/residdf))
+allanovas <- bind_rows(allanovas, data.frame(climvar=climvars[i],pvalue=pvalue, provMS = provSS/provdf, residMS = residSS/residdf, provdf=provdf, residdf = residdf))
 }
 
 allanovas %>% mutate(diff = residMS - provMS) %>% arrange(diff) ##when residMS is greater than provMS (diff > 0)--> variation within provenances is greater than variation between them 
@@ -3272,20 +3488,29 @@ nonsig.provs <- cor_clean %>% left_join(ttestdata %>% filter(pvalue < 0.05)) %>%
   filter(sum==0)%>% 
   left_join(name_conversion, by=c("Provenance"="oldname"))
 
-ggplot(data=sig.cors.byprov, aes(x=factor(newname, levels=provs_arranged_lat), y=estimate, col=Provenance))+
-  geom_point(size=4, alpha=0.5)+
-  geom_errorbar(aes(x=factor(newname, levels=provs_arranged_lat), ymin=lwr, ymax=upr),width=0.5, linewidth=2, alpha=0.5)+
-  geom_hline(yintercept=0, col="red")+
-  geom_jitter(data= cor_clean %>% filter(climvar %in% c("aet_sum" , "cwd_wy" , "FDSI", "spei_sum", "prior_aet_sum", "prior_cwd_wy", "prior_FDSI" , "prior_spei_sum")) %>%   left_join(name_conversion, by=c("Provenance"="oldname")), aes(x=factor(newname, levels=provs_arranged_lat), y=cor), fill="gray", color="black", size=2, height=0, width=0.1, alpha=0.2)+
-  geom_point(data=nonsig.provs, aes(x=factor(newname, levels=provs_arranged_lat), y=sum), shape=4, size=6, color="red")+
+nonsig_data<- data.frame(climvar=rep(unique(sig.cors.byprov$climvar),2),newname=rep(nonsig.provs$newname, each=8), Provenance = rep(nonsig.provs$Provenance, each=8))
+
+correlation_plot<- ggplot(data=sig.cors.byprov %>% bind_rows(nonsig_data) %>% left_join(prov_names, by=c("newname"="Provenance")), aes(x=factor(code, levels=provs_bylat$code), y=estimate))+
+    geom_jitter(data= cor_clean %>% filter(climvar %in% c("aet_sum" , "cwd_wy" , "FDSI", "spei_sum", "prior_aet_sum", "prior_cwd_wy", "prior_FDSI" , "prior_spei_sum")) %>% left_join(name_conversion, by=c("Provenance"="oldname")) %>% dplyr::select(-Provenance) %>% left_join(prov_names, by=c("newname"="Provenance")), aes(x=factor(code, levels=provs_bylat$code), y=cor), fill="gray", color="black", size=2, height=0, width=0.1, alpha=0.2)+
+  geom_errorbar(aes(x=factor(code, levels=provs_bylat$code), ymin=lwr, ymax=upr, color = factor(code, levels=provs_bylat$code)),width=0.8, linewidth=1)+
+    geom_errorbar(aes(x=factor(code, levels=provs_bylat$code), ymin=lwr, ymax=upr),width=0.8, color="black", linewidth=0.5)+
+  geom_point(size=2, shape=21, aes(fill=factor(code, levels=provs_bylat$code)))+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  scale_fill_manual(values=unname(stepped()), name="Provenance")+
+  geom_hline(yintercept=0, col="black")+
   facet_wrap(~factor(climvar, levels=c("aet_sum","prior_aet_sum","cwd_wy","prior_cwd_wy","FDSI","prior_FDSI","spei_sum","prior_spei_sum")),ncol=2)+
   xlab("")+
   theme_bw()+
-  theme(axis.text.x = element_text(angle=45, hjust=1, size=14, color="black"),
-        axis.text.y = element_text(size=14, color="black"),
-        axis.title = element_text(size=14, color="black"),
-        legend.text = element_text(size=12, color="black"),
-        legend.title = element_text(size=14, color="black"))
+  theme(axis.text.x = element_text(angle=45, hjust=1, size=8, color="black"),
+        axis.text.y = element_text(size=10, color="black"),
+        axis.title = element_text(size=10, color="black"),
+        legend.position = "none",
+        strip.text = element_text(color="black", size=10),
+        panel.grid = element_blank())
+
+png("figures/correlation_plot.png", width=6.5, height=5, res = 300, units = "in")
+correlation_plot
+dev.off()
 ```
 
 ###linear models G x C
@@ -3320,7 +3545,7 @@ all_lms %>%
   filter(pvalue<0.05) %>% 
   filter(! var %in% c("ppt_sm","ppt_sp","ppt_fa","prior_ppt_sm","prior_ppt","prior_value_fa_tmax","prior_value_fa_tmean","prior_value_wt_tmax","prior_value_wt_tmean"))
 
-climmod_cor <- lmer(rw_spline ~ ppt_gs + ppt_wt + vpdmax_sm + vpdmax_fa + vpdmax_wt + vpdmax_sp + prior_ppt_gs + prior_ppt_wt + prior_value_sm_tmin + prior_value_fa_tmin + prior_value_wt_tmin + prior_vpdmax_sm + prior_vpdmax_fa + prior_vpdmax_wt + prior_vpdmax_sp + (1|Provenance), data=growth_climate_df)
+climmod_cor <- lmer(log(rw_spline) ~ ppt_gs + ppt_wt + vpdmax_sm + vpdmax_fa + vpdmax_wt + vpdmax_sp + prior_ppt_gs + prior_ppt_wt + prior_value_sm_tmin + prior_value_fa_tmin + prior_value_wt_tmin + prior_vpdmax_sm + prior_vpdmax_fa + prior_vpdmax_wt + prior_vpdmax_sp + (1|Provenance), data=growth_climate_df)
 plot(climmod_cor)
 qqmath(climmod_cor)
 summary(climmod_cor)
@@ -3723,6 +3948,17 @@ plot(prior_cwd_wy_TD_mod)
 qqmath(prior_cwd_wy_TD_mod)
 summary(prior_cwd_wy_TD_mod)
 ```
+
+```{r}
+##plot with just bioclimate variables
+ggplot(data=cor_provclim_long %>% filter(climvar %in% c("FDSI","prior_aet_sum","prior_cwd_wy") & name=="msp"), aes(x=value, y=cor))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  xlab("mean summer precip (mm)")+
+  ggtitle("ppt_wt")
+
+```
+
 
 ###DBH as a predictor
 ```{r}
