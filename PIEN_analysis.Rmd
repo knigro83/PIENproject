@@ -43,6 +43,7 @@ library(indicspecies)
 library(SPEI)
 library(lattice)
 library(tibble)
+library(pals)
 ```
 
 ##Plot locations
@@ -360,15 +361,19 @@ ggplot(FDSI_raw, aes(x=year, y=FDSI))+
 ```{r}
 source("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/grad school/cwd_function_v3.r")
 
-#get dem
-dem_plantation <- rast("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/PIENproject/USGS_13_n40w107_20220216.tif")
+# #get dem
+# dem_plantation <- rast("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/PIENproject/USGS_13_n40w107_20220216.tif")
+# 
+# slpasp <- terrain(dem_plantation, v = c("slope","aspect"))
+# 
+# slpasp_plantation <- terra::extract(slpasp, adjusted_provs %>% filter(Provenance=="Plantation"), method="simple")
+# 
+# plantation_cwd_data <- all_climate %>% left_join(as.data.frame(adjusted_provs) %>% bind_cols(crds(adjusted_provs)) %>% filter(Provenance=="Plantation"), by=c("CN"="Provenance")) %>% 
+#   mutate(soilawc=116.5, foldedaspect = abs(180-abs(slpasp_plantation$aspect - 225)), slope=slpasp_plantation$slope)
+# 
+# write.csv(plantation_cwd_data, "plantation_cwd_data.csv")
 
-slpasp <- terrain(dem_plantation, v = c("slope","aspect"))
-
-slpasp_plantation <- terra::extract(slpasp, adjusted_provs %>% filter(Provenance=="Plantation") %>% terra::project(slpasp), method="simple")
-
-plantation_cwd_data <- all_climate %>% left_join(as.data.frame(adjusted_provs) %>% bind_cols(crds(adjusted_provs)) %>% filter(Provenance=="Plantation"), by=c("CN"="Provenance")) %>% 
-  mutate(soilawc=116.5, foldedaspect = abs(180-abs(slpasp_plantation$aspect - 225)), slope=slpasp_plantation$slope)
+plantation_cwd_data<- read.csv("plantation_cwd_data.csv")
 
 plantation_cwd <- cwd_function(site="plantation",slope=plantation_cwd_data$slope, latitude=plantation_cwd_data$y, foldedaspect = plantation_cwd_data$foldedaspect, ppt = plantation_cwd_data$ppt, tmean = plantation_cwd_data$tmean, month = plantation_cwd_data$month, soilawc = plantation_cwd_data$soilawc, year = plantation_cwd_data$year, type="annual")
 
@@ -693,17 +698,14 @@ map<- ggplot()+
     height=unit(.25, "in"),
     width=unit(.25, "in"))
 
-png("figures/map.png", width=3, height=3, res=300, units = "in")
-map
-dev.off()
+# png("figures/map.png", width=3, height=3, res=300, units = "in")
+# map
+# dev.off()
 
 prov_pcapts_onlyprovs<- prov_pcapts %>% 
   filter(!Provenance=="Plantation")
 
 provs_bylat <- prov_pcapts_onlyprovs %>% arrange(y)
-
-install.packages("pals")
-library(pals)
 
 
 pcaplot <- autoplot(clim_pca,x=1,y=2,colour=NA,loadings.colour="gray80", loadings=T, loadings.label=T, loadings.label.colour="darkgrey", scale=0, loadings.label.size=2.5, loadings.label.hjust=1, loadings.label.vjust=1)+
@@ -755,10 +757,10 @@ pcaplot <- autoplot(clim_pca,x=1,y=2,colour=NA,loadings.colour="gray80", loading
   geom_text(data=prov_pcapts %>% filter(Provenance=="Plantation"), aes(x=PC1, y=PC2, label=Provenance), size=2, hjust=0, vjust=1.4)+
   theme_bw()+
   theme(legend.position = "none", axis.text = element_text(color="black", size=6), axis.title = element_text(size=8))
-  
-png("figures/pcaplot.png", width=3, height=3, res=300, units = "in")
-pcaplot
-dev.off()
+#   
+# png("figures/pcaplot.png", width=3, height=3, res=300, units = "in")
+# pcaplot
+# dev.off()
 
 ```
 
@@ -1063,55 +1065,46 @@ summary(bestmod_dbh_pca_y_nog) #quadratic y effect stil significant when you tak
 ####extra models
 ```{r}
 
+colnames(dbh_num14)
 
-#cmd
-mod_dbh_cmd <- lmer(DBH ~ cmd + (1|Provenance), data=dbh_num14)
-par(mfrow=c(1,1))
-plot(mod_dbh_cmd)
-qqmath(mod_dbh_cmd)
-summary(mod_dbh_cmd) 
-summary(lmer(DBH ~ cmd + (1|Provenance), data=dbh_num14 %>% filter(!Provenance=="Gila NF")))
-##when Gila is taken out, CMD is not significant
+provenance_climvars <- dbh_num14 %>% 
+  dplyr::select(MAT:PPT_sm, smrpb, monsoonality) %>% 
+  colnames()
 
-ggplot(dbh_num14%>% filter(!Provenance=="Gila NF"), aes(x=cmd, y=DBH))+
-  geom_point()+
-  geom_smooth(method="lm")
+dbh_num14_long <- dbh_num14 %>% 
+  pivot_longer(c(MAT:PPT_sm, smrpb, monsoonality))
 
-#cluster
-mod_dbh_cluster <- aov(DBH ~ cluster, data=dbh_num14)
-par(mfrow=c(2,2))
-plot(mod_dbh_cluster)
-par(mfrow=c(1,1))
-summary(mod_dbh_cluster) ##no significant difference between identified "clusters"
+dbh_mods<- data.frame()
+dbh_num14_nog <- dbh_num14 %>% filter(!Provenance=="Gila NF")
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(DBH ~ value + (1|Provenance), data=dbh_num14_long %>% filter(name==provenance_climvars[i]))
+pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
 
-ggplot(dbh_num14, aes(x=factor(cluster), y=DBH))+
-  geom_boxplot() 
+mod_nog <- lmer(DBH ~ value + (1|Provenance), data=dbh_num14_long %>% filter(name==provenance_climvars[i]) %>% filter(!Provenance=="Gila NF"))
+pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|t|)`
 
-#PC1
-mod_dbh_pc1 <- lmer(DBH ~ PC1 + (1|Provenance), data=dbh_num14 %>% filter(!Provenance=="Gila NF"))
-plot(mod_dbh_pc1)
-qqmath(mod_dbh_pc1)
-summary(mod_dbh_pc1) ##when Gila is taken out, PC1 is not significant
+dbh_mods <- bind_rows(dbh_mods, data.frame(var=provenance_climvars[i], pvalue = pvalue, pvalue_nog = pvalue_nog))
 
-ggplot(dbh_num14 %>% filter(!Provenance=="Gila NF"), aes(x=PC1, y=DBH))+
-  geom_point()+
-  geom_smooth(method="lm")
+}
 
-#PC2
-mod_dbh_pc2 <- lmer(DBH ~ PC2 + (1|Provenance), data=dbh_num14)
-plot(mod_dbh_pc2)
-qqmath(mod_dbh_pc2)
-summary(mod_dbh_pc2) 
+dbh_mods %>% arrange(pvalue)
 
-ggplot(dbh_num14 , aes(x=PC2, y=DBH))+
-  geom_point()+
-  geom_smooth(method="lm")
+###quadratic
 
+dbh_mods_quad<- data.frame()
 
-ggplot(dbh_numeric %>% 
-  filter(year=="DBH14"), aes(x=y, y=DBH))+
-  geom_point()+
-  geom_smooth(method="lm")
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(DBH ~ value + I(value^2) + (1|Provenance), data=dbh_num14_long %>% filter(name==provenance_climvars[i]))
+pvalues<- as.data.frame(summary(mod)$coefficients)[2:3,]$`Pr(>|t|)`
+
+mod_nog <- lmer(DBH ~ value + I(value^2) + (1|Provenance), data=dbh_num14_long %>% filter(name==provenance_climvars[i]) %>% filter(!Provenance=="Gila NF"))
+pvalues_nog<- as.data.frame(summary(mod_nog)$coefficients)[2:3,]$`Pr(>|t|)`
+
+dbh_mods_quad <- bind_rows(dbh_mods_quad, data.frame(var=provenance_climvars[i], pvalue1 = pvalues[1], pvalue2 = pvalues[2], pvalue1_nog = pvalues_nog[1], pvalue2_nog = pvalues_nog[2]))
+
+}
+
+dbh_mods_quad %>% arrange(pvalue2_nog) #nothing significant
 
 #Latitude
 mod_dbh_lat <- lmer(DBH ~ y+ I(y^2) + (1|Provenance), data=dbh_num14)
@@ -1151,61 +1144,14 @@ ggplot()+
   xlab("Latitude")
 
 #Longitude
-mod_dbh_lon <- lmer(DBH ~ x+ I(x^2)+(1|Provenance), data=dbh_num14)
+mod_dbh_lon <- lmer(DBH ~ scale(x) + I(scale(x)^2)+(1|Provenance), data=dbh_num14)
 plot(mod_dbh_lon)
 qqmath(mod_dbh_lon)
 summary(mod_dbh_lon) #no significant effects of longitude
 
   #take out Gila
-mod_dbh_lon_nogila <- lmer(DBH ~ x+ I(x^2) + (1|Provenance), data=dbh_num14_nogila)
+mod_dbh_lon_nogila <- lmer(DBH ~ scale(x) + I(scale(x)^2) + (1|Provenance), data=dbh_num14_nogila)
 summary(mod_dbh_lon_nogila) #still not significant
-
-
-
-mod_dbh_pcadist <- lmer(DBH ~ dist.to.plant + (1|Provenance), data=dbh_num14_pcadist)
-plot(mod_dbh_pcadist)
-qqmath(mod_dbh_pcadist)
-summary(mod_dbh_pcadist) #no significant effects of distance to plantation in PCA space
-
-#TD
-mod_dbh_td <- lmer(DBH ~ TD + I(TD^2) + (1|Provenance), data=dbh_num14)
-plot(mod_dbh_td)
-qqmath(mod_dbh_td)
-summary(mod_dbh_td) 
-summary(lmer(DBH ~ TD + I(TD^2) + (1|Provenance), data=dbh_num14 %>% filter(!Provenance=="Gila NF")))
-
-#PAS
-mod_dbh_pas <- lmer(DBH ~ pas + I(pas^2) + (1|Provenance), data=dbh_num14)
-plot(mod_dbh_pas)
-qqmath(mod_dbh_pas)
-summary(mod_dbh_pas) 
-summary(lmer(DBH ~ pas + I(pas^2) + (1|Provenance), data=dbh_num14 %>% filter(!Provenance=="Gila NF")))
-
-
-dbh_clim_data <- dbh_num14 %>% 
-  dplyr::select(c(Series, Provenance, DBH, colnames(env_vars_cut)))
-
-env_vars_cut %>% 
-  cor()
-
-dbh_clim_nogila<- dbh_clim_data %>% filter(!Provenance=="Gila NF")
-
-mod_dbh_allclim <- lmer(DBH ~ MAT + I(MAT^2) + map + I(map^2) + TD + I(TD^2) + SHM + I(SHM^2) + nffd  + I(nffd^2) + smrpb + I(smrpb^2) + (1|Provenance), data=dbh_clim_nogila)
-plot(mod_dbh_allclim)
-qqmath(mod_dbh_allclim)
-vif(mod_dbh_allclim)
-summary(mod_dbh_allclim)
-
-options(na.action = "na.fail")
-#mod_dbh_allclim_dredge <- dredge(mod_dbh_allclim)
-#mod_dbh_allclim_dredge
-
-#smrpb
-mod_dbh_smrpb <- lmer(DBH ~ smrpb + I(smrpb^2) + (1|Provenance), data=dbh_num14)
-plot(mod_dbh_smrpb)
-qqmath(mod_dbh_smrpb)
-summary(mod_dbh_smrpb) 
-summary(lmer(DBH ~ smrpb + I(smrpb^2) + (1|Provenance), data=dbh_num14 %>% filter(!Provenance=="Gila NF")))
 
 ```
 
@@ -1458,46 +1404,43 @@ summary(bestmod_ht_pca_y_nog) #quadratic y effect still significant when you tak
 ####extra models
 
 ```{r}
-##continuous variable effects on height
+
+ht_data_clim14_long <- ht_data_clim14 %>% 
+  pivot_longer(c(MAT:PPT_sm, smrpb, monsoonality), names_to="climvar.name", values_to = "climvar.value")
+
+ht_mods<- data.frame()
+
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(value ~ climvar.value + (1|Provenance), data=ht_data_clim14_long %>% filter(climvar.name==provenance_climvars[i]))
+pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
+
+mod_nog <- lmer(value ~ climvar.value + (1|Provenance), data=ht_data_clim14_long %>% filter(climvar.name==provenance_climvars[i]) %>% filter(!Provenance=="Gila NF"))
+pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|t|)`
+
+ht_mods <- bind_rows(ht_mods, data.frame(var=provenance_climvars[i], pvalue = pvalue, pvalue_nog = pvalue_nog))
+
+}
+
+ht_mods %>% arrange(pvalue) ##lots significant with Gila, but when it's taken out, nothing is significant
+
+###quadratic
+
+ht_mods_quad<- data.frame()
+
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(value ~ climvar.value + I(climvar.value^2) + (1|Provenance), data=ht_data_clim14_long %>% filter(climvar.name==provenance_climvars[i]))
+pvalues<- as.data.frame(summary(mod)$coefficients)[2:3,]$`Pr(>|t|)`
+
+mod_nog <- lmer(value ~ climvar.value + I(climvar.value^2) + (1|Provenance), data=ht_data_clim14_long %>% filter(climvar.name==provenance_climvars[i]) %>% filter(!Provenance=="Gila NF"))
+pvalues_nog<- as.data.frame(summary(mod_nog)$coefficients)[2:3,]$`Pr(>|t|)`
+
+ht_mods_quad <- bind_rows(ht_mods_quad, data.frame(var=provenance_climvars[i], pvalue1 = pvalues[1], pvalue2 = pvalues[2], pvalue1_nog = pvalues_nog[1], pvalue2_nog = pvalues_nog[2]))
+
+}
+
+ht_mods_quad %>% arrange(pvalue2_nog) #nothing significant when Gila is taken out
 
 
-#cmd
-mod_totht_cmd <- lmer(value ~ cmd + (1|Provenance), data=ht_data_clim14)
-par(mfrow=c(1,1))
-plot(mod_totht_cmd)
-qqmath(mod_totht_cmd)
-summary(mod_totht_cmd) 
-summary(lmer(value ~ cmd + (1|Provenance), data=ht_data_clim14 %>% filter(!Provenance=="Gila NF")))
-##when Gila is taken out, CMD is not significant -- same as DBH model
-
-ggplot(ht_data_clim14, aes(x=cmd, y=value, col=Provenance=="Gila NF"))+
-  geom_point()+
-  geom_smooth(method="lm")
-
-#PC1
-mod_totht_PC1 <- lmer(value ~ PC1 + (1|Provenance), data=ht_data_clim14)
-par(mfrow=c(1,1))
-plot(mod_totht_PC1)
-qqmath(mod_totht_PC1)
-summary(mod_totht_PC1) 
-summary(lmer(value ~ PC1 + (1|Provenance), data=ht_data_clim14 %>% filter(!Provenance=="Gila NF")))
-##when Gila is taken out, PC1 is not significant 
-
-ggplot(ht_data_clim14%>% filter(!Provenance=="Gila NF"), aes(x=PC1, y=value))+
-  geom_point()+
-  geom_smooth(method="lm")
-
-#PC2
-mod_totht_PC2 <- lmer(value ~ PC2 + (1|Provenance), data=ht_data_clim14)
-par(mfrow=c(1,1))
-plot(mod_totht_PC2)
-qqmath(mod_totht_PC2)
-summary(mod_totht_PC2) 
-summary(lmer(value ~ PC2 + (1|Provenance), data=ht_data_clim14 %>% filter(!Provenance=="Gila NF")))
-##neither is significant
-
-#both PC1 and PC2
-summary(lmer(value ~ PC1*PC2 + (1|Provenance), data=ht_data_clim14 %>% filter(!Provenance=="Gila NF")))
 
 #Latitude
 mod_totht_lat <- lmer(value ~ y+ I(y^2) + (1|Provenance), data=ht_data_clim14)
@@ -1560,43 +1503,46 @@ ggplot(data=ht_data_clim14, aes(x=x, y=value, col=Provenance))+
   geom_point()+
   geom_smooth(method="lm")
 
-#TD
-mod_totht_TD <- lmer(value ~ TD*map + (1|Provenance), data=ht_data_clim14)
-plot(mod_totht_TD)
-qqmath(mod_totht_TD)
-summary(mod_totht_TD) 
-summary(lmer(value ~ TD + (1|Provenance), data=ht_data_clim14_nogila)) 
+```
 
-summary(lmer(value ~ TD*map + (1|Provenance), data=ht_data_clim14_nogila)) 
-
-ggplot(data=ht_data_clim14_nogila, aes(x=TD, y=value, col=map>700))+
-  geom_point()+
-  geom_smooth(method="lm") ##seems like there could be an interaction going on here. 
-
-#nffd
-mod_totht_nffd <- lmer(value ~ nffd + (1|Provenance), data=ht_data_clim14)
-plot(mod_totht_nffd)
-qqmath(mod_totht_nffd)
-summary(mod_totht_nffd) 
-summary(lmer(value ~ nffd*SHM + (1|Provenance), data=ht_data_clim14_nogila)) 
-
-
-ht_data_clim14_noXT <- ht_data_clim14 %>% 
-  filter(TD > 20 & TD < 23)
-
-mod_totht_TD_noXT <- lmer(value ~ TD + I(TD^2) + (1|Provenance), data=ht_data_clim14_noXT)
-plot(mod_totht_TD_noXT)
-qqmath(mod_totht_TD_noXT)
-summary(mod_totht_TD_noXT) 
-
-ggplot(data=ht_data_clim14_noXT, aes(x=TD, y=value, col=Provenance))+
-  geom_point()+
-  geom_smooth(method="lm")
-
-
+####Southern Rockies
+```{r}
 ##Look at just southern Rockies, excluding Gila
 ht_SR <- ht_data_clim14_nogila %>% filter(y < 44)
   
+ht_SR_long <- ht_SR %>% 
+  pivot_longer(c(MAT:PPT_sm, smrpb, monsoonality), names_to="climvar.name", values_to = "climvar.value")
+
+ht_SR_mods<- data.frame()
+
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(value ~ climvar.value + (1|Provenance), data=ht_SR_long %>% filter(climvar.name==provenance_climvars[i]))
+pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
+
+ht_SR_mods <- bind_rows(ht_SR_mods, data.frame(var=provenance_climvars[i], pvalue = pvalue))
+
+}
+
+ht_SR_mods %>% arrange(pvalue) ##TD is significant
+
+###quadratic
+
+ht_SR_mods_quad<- data.frame()
+
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(value ~ climvar.value + I(climvar.value^2) + (1|Provenance), data=ht_SR_long %>% filter(climvar.name==provenance_climvars[i]))
+pvalues<- as.data.frame(summary(mod)$coefficients)[2:3,]$`Pr(>|t|)`
+
+ht_SR_mods_quad <- bind_rows(ht_SR_mods_quad, data.frame(var=provenance_climvars[i], pvalue1 = pvalues[1], pvalue2 = pvalues[2]))
+
+}
+
+ht_SR_mods_quad %>% arrange(pvalue2) #MAP has significant quadratic effect
+
+ggplot(ht_SR, aes(x=map, y=value))+
+  geom_point()
+
+##Latitude
 htmod_SR <- lmer(value ~ y + (1|Provenance), data=ht_SR)
 plot(htmod_SR)
 qqmath(htmod_SR)
@@ -1605,8 +1551,6 @@ summary(htmod_SR)
 ggplot(data=ht_SR, aes(x=y, y=value, col=Provenance))+
   geom_point()+
   geom_smooth(method="lm")
-
-colnames(ht_SR)
 
 cor(ht_SR %>% dplyr::select(c(MAT:PPT_sm,elev,x,y,smrpb,monsoonality)))
 
@@ -1617,10 +1561,15 @@ qqmath(TD_htmod_SR)
 summary(TD_htmod_SR) ##Temperature differential is the main differntiating feature between latitude in the southern Rockies (excluding Gila)
 
 #nursery height
-totht_mod_nursery <- lmer(value ~ Seedling.Ht..from.Nursery + (1|Provenance), data=ht_data_clim14_nogila)
+totht_mod_nursery <- lmer(value ~ Seedling.Ht..from.Nursery + (1|Provenance), data=ht_data_clim14)
 plot(totht_mod_nursery)
 qqmath(totht_mod_nursery)
 summary(totht_mod_nursery) ##significant effect of nursery height on total height in 2014 when Gila is removed
+
+totht_mod_nursery_nog <- lmer(value ~ Seedling.Ht..from.Nursery + (1|Provenance), data=ht_data_clim14_nogila)
+plot(totht_mod_nursery_nog)
+qqmath(totht_mod_nursery_nog)
+summary(totht_mod_nursery_nog) ##significant effect of nursery height on total height in 2014 when Gila is removed
 
 ggplot(data= ht_data_clim14, aes(x=Seedling.Ht..from.Nursery, y=value, col=Provenance))+
   geom_point()
@@ -1863,36 +1812,122 @@ ggplot(CDnewdata3, aes(x = dist.to.plant, y = PredictedProb)) + geom_ribbon(aes(
 
 ####other
 ```{r}
+moniger_provclim<- moniger_data_comb %>% 
+  dplyr::select(c(SORT, Cones85, Cones91, Cones96, Cones06, code)) %>%
+  pivot_longer(Cones85:Cones06, values_to = "Cones") %>% 
+    mutate(year=case_when(name == "Cones85" ~ 1985,
+                        name == "Cones91" ~ 1991,
+                        name == "Cones96" ~ 1996,
+                        name == "Cones06" ~ 2006)) %>% 
+  dplyr::select(-name) %>% 
+  left_join(moniger_data_comb) %>% 
+  pivot_longer(c(MAT:PPT_sm, smrpb, monsoonality), names_to="climvar.name", values_to = "climvar.value") %>% 
+  filter(!is.na(Cones))
+
+cone_mods<- data.frame()
+
+for(i in 1:length(provenance_climvars)){
+mod <- glmer(Cones ~ climvar.value*factor(year) + (1|code), data=moniger_provclim %>% filter(climvar.name==provenance_climvars[i]), family="binomial")
+pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|z|)`
+
+mod_nog <- glmer(Cones ~ climvar.value*factor(year) + (1|code), data=moniger_provclim %>% filter(climvar.name==provenance_climvars[i]) %>% filter(!code=="GiNF"), family="binomial")
+pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|z|)`
+
+cone_mods <- bind_rows(cone_mods, data.frame(var=provenance_climvars[i], pvalue = pvalue, pvalue_nog = pvalue_nog))
+
+}
+
+cone_mods %>% arrange(pvalue_nog) ##smrpb is significant for both
+
+###smrpb
+cone_smrpb_mod <- glmer(Cones ~ scale(climvar.value) + (1|code), data=moniger_provclim %>% filter(climvar.name=="smrpb"), family="binomial")
+summary(cone_smrpb_mod)
+
+cone_smrpb_data <- moniger_provclim %>% filter(climvar.name=="smrpb")
+
+newdata_smrpb_cone <- data.frame(
+    climvar.value = seq(min(cone_smrpb_data$climvar.value), 
+                      max(cone_smrpb_data$climvar.value), 
+                      length.out = 100
+                      ))
+
+##take random effect out to make predictions
+cone_smrpb_mod_glm <- glm(Cones ~ scale(climvar.value), data=moniger_provclim %>% filter(climvar.name=="smrpb"), family="binomial")
+
+##predictions
+conesmrpb_newdata1 <- with(cone_smrpb_data, data.frame(climvar.value = seq(min(climvar.value),max(climvar.value),length.out=50)))
+
+conesmrpb_newdata2 <- cbind(conesmrpb_newdata1, predict(cone_smrpb_mod_glm, newdata = conesmrpb_newdata1, type = "link", se=TRUE))
+conesmrpb_newdata3 <- within(conesmrpb_newdata2, {
+    PredictedProb <- plogis(fit)
+    LL <- plogis(fit - (1.96 * se.fit))
+    UL <- plogis(fit + (1.96 * se.fit))
+})
+
+ggplot(conesmrpb_newdata3, aes(x = climvar.value, y = PredictedProb)) + geom_ribbon(aes(ymin = LL,
+    ymax = UL), alpha = 0.2) + 
+  geom_line(linewidth = 1)+
+  geom_point(aes(x=climvar.value, y=PredictedProb))+
+  xlab("smrpb")
+
+#without Gila is still significant
+cone_smrpb_mod_nog <- glmer(Stat14 ~ scale(climvar.value) + (1|Provenance), data=moniger_coneival_long %>% filter(climvar.name=="smrpb") %>% filter(!Provenance=="Gila NF"), family="binomial")
+summary(cone_smrpb_mod_nog)
+
+###quadratic
+
+cone_mods_quad<- data.frame()
+
+for(i in 1:length(provenance_climvars)){
+mod <- glmer(Cones ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|code), data=moniger_provclim %>% filter(climvar.name==provenance_climvars[i]), family="binomial")
+pvalues<- as.data.frame(summary(mod)$coefficients)[2:3,]$`Pr(>|z|)`
+
+mod_nog <- glmer(Cones ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|code), data=moniger_provclim %>% filter(climvar.name==provenance_climvars[i]) %>% filter(!code=="GiNF"), family="binomial")
+pvalues_nog<- as.data.frame(summary(mod_nog)$coefficients)[2:3,]$`Pr(>|z|)`
+
+cone_mods_quad <- bind_rows(cone_mods_quad, data.frame(var=provenance_climvars[i], pvalue1 = pvalues[1], pvalue2 = pvalues[2], pvalue1_nog = pvalues_nog[1], pvalue2_nog = pvalues_nog[2]))
+}
+
+cone_mods_quad %>% arrange(pvalue2_nog) ##TD is only quadratic effect significant both with and without Gila
+
+###TD
+cone_TD_mod <- glmer(Cones ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|code), data=moniger_provclim %>% filter(climvar.name=="TD"), family="binomial")
+summary(cone_TD_mod)
+
+cone_TD_data <- moniger_provclim %>% filter(climvar.name=="TD")
+
+newdata_TD_cone <- data.frame(
+    climvar.value = seq(min(cone_TD_data$climvar.value), 
+                      max(cone_TD_data$climvar.value), 
+                      length.out = 100
+                      ))
+
+##take random effect out to make predictions
+cone_TD_mod_glm <- glm(Cones ~ scale(climvar.value) + I(scale(climvar.value)^2), data=moniger_provclim %>% filter(climvar.name=="TD"), family="binomial")
+
+##predictions
+coneTD_newdata1 <- with(cone_TD_data, data.frame(climvar.value = seq(min(climvar.value),max(climvar.value),length.out=50)))
+
+coneTD_newdata2 <- cbind(coneTD_newdata1, predict(cone_TD_mod_glm, newdata = coneTD_newdata1, type = "link", se=TRUE))
+coneTD_newdata3 <- within(coneTD_newdata2, {
+    PredictedProb <- plogis(fit)
+    LL <- plogis(fit - (1.96 * se.fit))
+    UL <- plogis(fit + (1.96 * se.fit))
+})
+
+ggplot(coneTD_newdata3, aes(x = climvar.value, y = PredictedProb)) + geom_ribbon(aes(ymin = LL,
+    ymax = UL), alpha = 0.2) + 
+  geom_line(linewidth = 1)+
+  geom_point(aes(x=climvar.value, y=PredictedProb))+
+  xlab("TD")
+
+#without Gila is still significant
+cone_TD_mod_nog <- glmer(Cones ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|code), data=moniger_provclim %>% filter(climvar.name=="TD") %>% filter(!Provenance=="Gila NF"), family="binomial")
+summary(cone_TD_mod_nog)
+
+
+
 #dbh/height affect on cones linear models
-
-growth_cone_data<- left_join(ave_hts, ave_dbh) %>% 
-  left_join(cone_sum) %>% 
-  filter(!is.na(ave.dbh)) %>% 
-  left_join(prov_pcapts)
-
-growth_cone_mod <- lmer(prop.w.cones ~ year*ave.dbh + year*ave.ht + (1|Provenance), data=growth_cone_data %>% filter(!Provenance=="Gila NF"))
-plot(growth_cone_mod)
-qqmath(growth_cone_mod)
-summary(growth_cone_mod)
-
-ggarrange(
-ggplot(data=growth_cone_data %>% filter(!Provenance=="Gila NF"), aes(x=ave.ht, y=prop.w.cones, col=factor(year)))+
-  geom_point()+
-  geom_smooth(method="lm")+
-  ggtitle("Height"),
-ggplot(data=growth_cone_data %>% filter(!Provenance=="Gila NF"), aes(x=ave.dbh, y=prop.w.cones, col=factor(year)))+
-  geom_point()+
-  geom_smooth(method="lm")+
-  ggtitle("DBH"), common.legend = TRUE, nrow=1)
-
-#climate
-clim_cone_mod <- lmer(prop.w.cones ~ year*PC1 + year*PC2 + (1|Provenance), data=growth_cone_data %>% filter(!Provenance=="Gila NF"))
-plot(clim_cone_mod)
-qqmath(clim_cone_mod)
-summary(clim_cone_mod)
-
-#provenance differences - logistic regression
-
 ##get individual height, dbh and cone data
 cones91<- moniger_data_comb %>%
   filter(!is.na(Cones91)) %>% 
@@ -1908,31 +1943,6 @@ cones06<- moniger_data_comb %>%
   filter(!is.na(Cones06)) %>% 
   filter(!is.na(HT06)) %>% 
   filter(!is.na(DBH06))
-
-library(MASS)
-prov_cone_mod91 <- glmer(Cones91 ~ HT91*DBH91 + (1|Provenance), data=cones91, family=binomial(link="logit"))
-qqmath(prov_cone_mod91)
-summary(prov_cone_mod91)  ##DBH is significant in predicting cone presence in 1991. Provenance has a good amount of variance
-dotplot(ranef(prov_cone_mod91, condVar=TRUE))
-cor(cones91 %>% dplyr::select(DBH91,HT91)) #height and DBH are super correlated
-
-
-prov_cone_mod96 <- glmer(Cones96 ~ HT96*DBH96 + (1|Provenance), data=cones96, family=binomial(link="logit"))
-qqmath(prov_cone_mod96)
-summary(prov_cone_mod96)  ##Height,DBH and interaction are all significant in predicting cone presence in 1996. Provenance has a good amount of variance
-dotplot(ranef(prov_cone_mod96, condVar=TRUE))
-cor(cones96 %>% dplyr::select(DBH96,HT96))
-
-
-
-prov_cone_mod06 <- glmer(Cones06 ~ HT06*DBH06 + (1|Provenance), data=cones06, family=binomial(link="logit"))
-qqmath(prov_cone_mod06)
-summary(prov_cone_mod06)  ###Height,DBH and interaction are all significant in predicting cone presence in 2006. Provenance has a good amount of variance
-dotplot(ranef(prov_cone_mod06, condVar=TRUE))
-library(interactions)
-interact_plot(prov_cone_mod06, pred=HT06, modx=DBH06)
-interact_plot(prov_cone_mod06, pred=DBH06, modx=HT06)
-cor(cones06 %>% dplyr::select(DBH06,HT06))
 
 ##looking for thresholds
 cone_data_comb<- bind_rows(cones91 %>% dplyr::select(HT91,DBH91,Cones91, Provenance) %>% 
@@ -2066,11 +2076,11 @@ newdata_pcdist_surv <- data.frame(
     dist.to.plant = seq(min(surv_pcadist_data$dist.to.plant), 
                       max(surv_pcadist_data$dist.to.plant), 
                       length.out = 50),
-    geo.dist.to.plant = rep(seq(87,1593,100),each=50)
+    geo.dist.to.plant.km = rep(seq(87,1593,100),each=50)
     )
 
 predicted_scores_surv <- predict(
-  survmod_pcdist, 
+  survmod_dist_glm, 
   newdata = newdata_pcdist_surv, interval='confidence') %>% as.data.frame()
 
 newdata_pcdist_surv_pred <- bind_cols(newdata_pcdist_surv, predicted_scores_surv)
@@ -2088,6 +2098,224 @@ par(mfrow=c(2,2))
 plot(survmod_geodist)
 summary(survmod_geodist) #significant
 
+```
+
+####extra
+
+```{r}
+moniger_survival_long <- moniger_survival %>% 
+  pivot_longer(c(MAT:PPT_sm, smrpb, monsoonality), names_to="climvar.name", values_to = "climvar.value")
+
+surv_mods<- data.frame()
+
+for(i in 1:length(provenance_climvars)){
+mod <- glmer(Stat14 ~ climvar.value + (1|Provenance), data=moniger_survival_long %>% filter(climvar.name==provenance_climvars[i]), family="binomial")
+pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|z|)`
+
+mod_nog <- glmer(Stat14 ~ climvar.value + (1|Provenance), data=moniger_survival_long %>% filter(climvar.name==provenance_climvars[i]) %>% filter(!Provenance=="Gila NF"), family="binomial")
+pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|z|)`
+
+surv_mods <- bind_rows(surv_mods, data.frame(var=provenance_climvars[i], pvalue = pvalue, pvalue_nog = pvalue_nog))}
+
+surv_mods %>% arrange(pvalue_nog) ##length of growing season seems to be influential both with and without Gila
+
+#nffd
+surv_nffd_mod <- glmer(Stat14 ~ scale(climvar.value) + (1|Provenance), data=moniger_survival_long %>% filter(climvar.name=="nffd"), family="binomial")
+summary(surv_nffd_mod)
+
+surv_nffd_data <- moniger_survival_long %>% filter(climvar.name=="nffd")
+
+newdata_nffd_surv <- data.frame(
+    climvar.value = seq(min(surv_nffd_data$climvar.value), 
+                      max(surv_nffd_data$climvar.value), 
+                      length.out = 100
+                      ))
+
+##take random effect out to make predictions
+surv_nffd_mod_glm <- glm(Stat14 ~ scale(climvar.value), data=moniger_survival_long %>% filter(climvar.name=="nffd"), family="binomial")
+
+##predictions
+survnffd_newdata1 <- with(surv_nffd_data, data.frame(climvar.value = seq(min(climvar.value),max(climvar.value),length.out=50)))
+
+survnffd_newdata2 <- cbind(survnffd_newdata1, predict(surv_nffd_mod_glm, newdata = survnffd_newdata1, type = "link", se=TRUE))
+survnffd_newdata3 <- within(survnffd_newdata2, {
+    PredictedProb <- plogis(fit)
+    LL <- plogis(fit - (1.96 * se.fit))
+    UL <- plogis(fit + (1.96 * se.fit))
+})
+
+ggplot(survnffd_newdata3, aes(x = climvar.value, y = PredictedProb)) + geom_ribbon(aes(ymin = LL,
+    ymax = UL), alpha = 0.2) + 
+  geom_line(linewidth = 1)+
+  geom_point(aes(x=climvar.value, y=PredictedProb))+
+  xlab("NFFD")
+
+#without Gila is still significant
+surv_nffd_mod_nog <- glmer(Stat14 ~ scale(climvar.value) + (1|Provenance), data=moniger_survival_long %>% filter(climvar.name=="nffd") %>% filter(!Provenance=="Gila NF"), family="binomial")
+summary(surv_nffd_mod_nog)
+############
+
+
+#bFFP
+surv_bFFP_mod <- glmer(Stat14 ~ scale(climvar.value) + (1|Provenance), data=moniger_survival_long %>% filter(climvar.name=="bFFP"), family="binomial")
+summary(surv_bFFP_mod)
+
+surv_bFFP_data <- moniger_survival_long %>% filter(climvar.name=="bFFP")
+
+newdata_bFFP_surv <- data.frame(
+    climvar.value = seq(min(surv_bFFP_data$climvar.value), 
+                      max(surv_bFFP_data$climvar.value), 
+                      length.out = 100
+                      ))
+
+##take random effect out to make predictions
+surv_bFFP_mod_glm <- glm(Stat14 ~ scale(climvar.value), data=moniger_survival_long %>% filter(climvar.name=="bFFP"), family="binomial")
+
+##predictions
+survbFFP_newdata1 <- with(surv_bFFP_data, data.frame(climvar.value = seq(min(climvar.value),max(climvar.value),length.out=50)))
+
+survbFFP_newdata2 <- cbind(survbFFP_newdata1, predict(surv_bFFP_mod_glm, newdata = survbFFP_newdata1, type = "link", se=TRUE))
+survbFFP_newdata3 <- within(survbFFP_newdata2, {
+    PredictedProb <- plogis(fit)
+    LL <- plogis(fit - (1.96 * se.fit))
+    UL <- plogis(fit + (1.96 * se.fit))
+})
+
+ggplot(survbFFP_newdata3, aes(x = climvar.value, y = PredictedProb)) + geom_ribbon(aes(ymin = LL,
+    ymax = UL), alpha = 0.2) + 
+  geom_line(linewidth = 1)+
+  geom_point(aes(x=climvar.value, y=PredictedProb))+
+  xlab("bFFP")
+
+#without Gila is still significant
+surv_bFFP_mod_nog <- glmer(Stat14 ~ scale(climvar.value) + (1|Provenance), data=moniger_survival_long %>% filter(climvar.name=="bFFP") %>% filter(!Provenance=="Gila NF"), family="binomial")
+summary(surv_bFFP_mod_nog)
+#########
+
+#eFFP
+surv_eFFP_mod <- glmer(Stat14 ~ scale(climvar.value) + (1|Provenance), data=moniger_survival_long %>% filter(climvar.name=="eFFP"), family="binomial")
+summary(surv_eFFP_mod)
+
+surv_eFFP_data <- moniger_survival_long %>% filter(climvar.name=="eFFP")
+
+newdata_eFFP_surv <- data.frame(
+    climvar.value = seq(min(surv_eFFP_data$climvar.value), 
+                      max(surv_eFFP_data$climvar.value), 
+                      length.out = 100
+                      ))
+
+##take random effect out to make predictions
+surv_eFFP_mod_glm <- glm(Stat14 ~ scale(climvar.value), data=moniger_survival_long %>% filter(climvar.name=="eFFP"), family="binomial")
+
+##predictions
+surveFFP_newdata1 <- with(surv_eFFP_data, data.frame(climvar.value = seq(min(climvar.value),max(climvar.value),length.out=50)))
+
+surveFFP_newdata2 <- cbind(surveFFP_newdata1, predict(surv_eFFP_mod_glm, newdata = surveFFP_newdata1, type = "link", se=TRUE))
+surveFFP_newdata3 <- within(surveFFP_newdata2, {
+    PredictedProb <- plogis(fit)
+    LL <- plogis(fit - (1.96 * se.fit))
+    UL <- plogis(fit + (1.96 * se.fit))
+})
+
+ggplot(surveFFP_newdata3, aes(x = climvar.value, y = PredictedProb)) + geom_ribbon(aes(ymin = LL,
+    ymax = UL), alpha = 0.2) + 
+  geom_line(linewidth = 1)+
+  geom_point(aes(x=climvar.value, y=PredictedProb))+
+  xlab("eFFP")
+
+#without Gila is still significant
+surv_eFFP_mod_nog <- glmer(Stat14 ~ scale(climvar.value) + (1|Provenance), data=moniger_survival_long %>% filter(climvar.name=="eFFP") %>% filter(!Provenance=="Gila NF"), family="binomial")
+summary(surv_eFFP_mod_nog)
+#########
+
+
+###quadratic
+
+surv_mods_quad<- data.frame()
+
+for(i in 1:length(provenance_climvars)){
+mod <- glmer(Stat14 ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance), data=moniger_survival_long %>% filter(climvar.name==provenance_climvars[i]), family="binomial")
+pvalues<- as.data.frame(summary(mod)$coefficients)[2:3,]$`Pr(>|z|)`
+
+mod_nog <- glmer(Stat14 ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance), data=moniger_survival_long %>% filter(climvar.name==provenance_climvars[i]) %>% filter(!Provenance=="Gila NF"), family="binomial")
+pvalues_nog<- as.data.frame(summary(mod_nog)$coefficients)[2:3,]$`Pr(>|z|)`
+
+surv_mods_quad <- bind_rows(surv_mods_quad, data.frame(var=provenance_climvars[i], pvalue1 = pvalues[1], pvalue2 = pvalues[2], pvalue1_nog = pvalues_nog[1], pvalue2_nog = pvalues_nog[2]))
+
+}
+
+surv_mods_quad %>% arrange(pvalue2_nog) ##MWMT and CMD are significant both with and without Gila
+
+##MWMT
+surv_MWMT_mod <- glmer(Stat14 ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance), data=moniger_survival_long %>% filter(climvar.name=="MWMT"), family="binomial")
+summary(surv_MWMT_mod)
+
+surv_MWMT_data <- moniger_survival_long %>% filter(climvar.name=="MWMT")
+
+newdata_MWMT_surv <- data.frame(
+    climvar.value = seq(min(surv_MWMT_data$climvar.value), 
+                      max(surv_MWMT_data$climvar.value), 
+                      length.out = 100
+                      ))
+
+##take random effect out to make predictions
+surv_MWMT_mod_glm <- glm(Stat14 ~ scale(climvar.value) + I(scale(climvar.value)^2), data=moniger_survival_long %>% filter(climvar.name=="MWMT"), family="binomial")
+
+##predictions
+survMWMT_newdata1 <- with(surv_MWMT_data, data.frame(climvar.value = seq(min(climvar.value),max(climvar.value),length.out=50)))
+
+survMWMT_newdata2 <- cbind(survMWMT_newdata1, predict(surv_MWMT_mod_glm, newdata = survMWMT_newdata1, type = "link", se=TRUE))
+survMWMT_newdata3 <- within(survMWMT_newdata2, {
+    PredictedProb <- plogis(fit)
+    LL <- plogis(fit - (1.96 * se.fit))
+    UL <- plogis(fit + (1.96 * se.fit))
+})
+
+ggplot(survMWMT_newdata3, aes(x = climvar.value, y = PredictedProb)) + geom_ribbon(aes(ymin = LL,
+    ymax = UL), alpha = 0.2) + 
+  geom_line(linewidth = 1)+
+  geom_point(aes(x=climvar.value, y=PredictedProb))+
+  xlab("MWMT")
+
+#without Gila is still significant
+surv_MWMT_mod_nog <- glmer(Stat14 ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance), data=moniger_survival_long %>% filter(climvar.name=="MWMT") %>% filter(!Provenance=="Gila NF"), family="binomial")
+summary(surv_MWMT_mod_nog)
+#########
+
+##cmd
+surv_cmd_mod <- glmer(Stat14 ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance), data=moniger_survival_long %>% filter(climvar.name=="cmd"), family="binomial")
+summary(surv_cmd_mod)
+
+surv_cmd_data <- moniger_survival_long %>% filter(climvar.name=="cmd")
+
+newdata_cmd_surv <- data.frame(
+    climvar.value = seq(min(surv_cmd_data$climvar.value), 
+                      max(surv_cmd_data$climvar.value), 
+                      length.out = 100
+                      ))
+
+##take random effect out to make predictions
+surv_cmd_mod_glm <- glm(Stat14 ~ scale(climvar.value) + I(scale(climvar.value)^2), data=moniger_survival_long %>% filter(climvar.name=="cmd"), family="binomial")
+
+##predictions
+survcmd_newdata1 <- with(surv_cmd_data, data.frame(climvar.value = seq(min(climvar.value),max(climvar.value),length.out=50)))
+
+survcmd_newdata2 <- cbind(survcmd_newdata1, predict(surv_cmd_mod_glm, newdata = survcmd_newdata1, type = "link", se=TRUE))
+survcmd_newdata3 <- within(survcmd_newdata2, {
+    PredictedProb <- plogis(fit)
+    LL <- plogis(fit - (1.96 * se.fit))
+    UL <- plogis(fit + (1.96 * se.fit))
+})
+
+ggplot(survcmd_newdata3, aes(x = climvar.value, y = PredictedProb)) + geom_ribbon(aes(ymin = LL,
+    ymax = UL), alpha = 0.2) + 
+  geom_line(linewidth = 1)+
+  geom_point(aes(x=climvar.value, y=PredictedProb))+
+  xlab("cmd")
+
+#without Gila is still significant
+surv_cmd_mod_nog <- glmer(Stat14 ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance), data=moniger_survival_long %>% filter(climvar.name=="cmd") %>% filter(!Provenance=="Gila NF"), family="binomial")
+summary(surv_cmd_mod_nog)
 ```
 
 ##RWI
@@ -3046,7 +3274,7 @@ resil_mod_pcy <- lmer(resilience ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(
 plot(resil_mod_pcy)
 qqmath(resil_mod_pcy)
 summary(resil_mod_pcy)
-ggplot(RR4_clim, aes(y=PC1, y=resilience))+
+ggplot(RR4_clim, aes(x=PC1, y=resilience))+
   geom_point()+
   geom_smooth(method="lm")
 
