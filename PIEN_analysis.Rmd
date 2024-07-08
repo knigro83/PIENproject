@@ -2100,7 +2100,9 @@ summary(cone_dist_mod)
 
 cone_dist_mod_glm <- glm(Cones ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km)*scale(height), data=cone_dist_data, family="binomial")
 
-
+```
+#START HERE 7/9/24
+```{r}
 ##predictions
 CDnewdata1 <- with(cone_dist_data, data.frame(geo.dist.to.plant.km = seq(min(geo.dist.to.plant.km), max(geo.dist.to.plant.km), length.out=50), 
                                               dist.to.plant=mean(dist.to.plant), 
