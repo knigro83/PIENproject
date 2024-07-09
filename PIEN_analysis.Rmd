@@ -44,6 +44,7 @@ library(SPEI)
 library(lattice)
 library(tibble)
 library(pals)
+library(aod)
 library(interactions)
 library(gridExtra)
 ```
@@ -1589,7 +1590,7 @@ ht_mods_quad %>% arrange(pvalue2_nog) #nothing significant when Gila is taken ou
 #####height
 ```{r}
 ##Look at just southern Rockies, excluding Gila
-ht_SR <- ht_data_clim14_nogila %>% filter(y < 44)
+ht_SR <- ht_data_clim14_nog %>% filter(y < 44)
   
 ht_SR_long <- ht_SR %>% 
   pivot_longer(c(MAT:PPT_sm, smrpb, monsoonality), names_to="climvar.name", values_to = "climvar.value")
@@ -1672,7 +1673,7 @@ plot(totht_mod_nursery)
 qqmath(totht_mod_nursery)
 summary(totht_mod_nursery) ##significant effect of nursery height on total height in 2014 when Gila is removed
 
-totht_mod_nursery_nog <- lmer(value ~ Seedling.Ht..from.Nursery + (1|Provenance), data=ht_data_clim14_nogila)
+totht_mod_nursery_nog <- lmer(value ~ Seedling.Ht..from.Nursery + (1|Provenance), data=ht_data_clim14_nog)
 plot(totht_mod_nursery_nog)
 qqmath(totht_mod_nursery_nog)
 summary(totht_mod_nursery_nog) ##significant effect of nursery height on total height in 2014 when Gila is removed
@@ -1765,7 +1766,7 @@ ggplot()+
 #####height
 ```{r}
 ##Look at just southern Rockies, excluding Gila
-ht_NR <- ht_data_clim14_nogila %>% filter(y > 44)
+ht_NR <- ht_data_clim14_nog %>% filter(y > 44)
   
 ht_NR_long <- ht_NR %>% 
   pivot_longer(c(MAT:PPT_sm, smrpb, monsoonality), names_to="climvar.name", values_to = "climvar.value")
@@ -1825,7 +1826,7 @@ plot(totht_mod_nursery)
 qqmath(totht_mod_nursery)
 summary(totht_mod_nursery) ##significant effect of nursery height on total height in 2014 when Gila is removed
 
-totht_mod_nursery_nog <- lmer(value ~ Seedling.Ht..from.Nursery + (1|Provenance), data=ht_data_clim14_nogila)
+totht_mod_nursery_nog <- lmer(value ~ Seedling.Ht..from.Nursery + (1|Provenance), data=ht_data_clim14_nog)
 plot(totht_mod_nursery_nog)
 qqmath(totht_mod_nursery_nog)
 summary(totht_mod_nursery_nog) ##significant effect of nursery height on total height in 2014 when Gila is removed
@@ -1920,12 +1921,11 @@ cone_sum <- cone_data %>%
   mutate(prop.w.cones = value/n)
 
 ave_dbhs <- moniger_data_comb %>% 
-  dplyr::select(c(SORT,Provenance,dbh85:dbh06)) %>% 
-  pivot_longer(dbh85:dbh06) %>% 
-  mutate(year=case_when(name == "dbh85" ~ 1985,
-                        name == "dbh91" ~ 1991,
-                        name == "dbh96" ~ 1996,
-                        name == "dbh06" ~ 2006)) %>% 
+  dplyr::select(c(SORT,Provenance,DBH91:DBH06)) %>% 
+  pivot_longer(DBH91:DBH06) %>% 
+  mutate(year=case_when(name == "DBH91" ~ 1991,
+                        name == "DBH96" ~ 1996,
+                        name == "DBH06" ~ 2006)) %>% 
   filter(!is.na(value)) %>% 
   group_by(Provenance, year) %>% 
   summarise(ave.dbh = mean(value), se.dbh = sd(value)/sqrt(n())) %>% 
@@ -1946,19 +1946,6 @@ ggplot(ave_dbhs, aes(x=ave.dbh, y=prop.w.cones, col=Provenance))+
   geom_point()+
   geom_errorbar(aes(xmin=ave.dbh - se.dbh, xmax=ave.dbh+se.dbh))
 
-ggplot(ave_dbh, aes(x=ave.dbh, y=prop.w.cones, col=Provenance))+
-  geom_point()+
-  geom_errorbar(aes(xmin=ave.dbh-se.dbh, xmax=ave.dbh+se.dbh))
-
-ggplot(moniger_data_comb, aes(x=dbh85, y=Cones85))+
-  geom_jitter(heigdbh=0.1)
-ggplot(moniger_data_comb, aes(x=dbh91, y=Cones91))+
-  geom_jitter(heigdbh=0.1)
-ggplot(moniger_data_comb, aes(x=dbh96, y=Cones96))+
-  geom_jitter(heigdbh=0.1)
-ggplot(moniger_data_comb, aes(x=dbh06, y=Cones06))+
-  geom_jitter(heigdbh=0.1)
-
 ggplot(moniger_data_comb, aes(x=DBH91, y=Cones91))+
   geom_jitter(heigdbh=0.1)
 ggplot(moniger_data_comb, aes(x=DBH96, y=Cones96))+
@@ -1970,12 +1957,6 @@ ggplot(cone_sum, aes(x=year, y=prop.w.cones, col=Provenance))+
   geom_point()+
   geom_line()
 
-##ANOVAs
-
-ggplot(data=cone_sum, aes(x=year, y=prop.w.cones, col=Provenance))+
-  geom_point()+
-  geom_line()
-
 ```
 
 ###models
@@ -1984,7 +1965,6 @@ ggplot(data=cone_sum, aes(x=year, y=prop.w.cones, col=Provenance))+
 ```{r}
 cone_data 
 
-library(aod)
 logmod_cat <- glm(value ~ year*Provenance, data= cone_data, family="binomial")
 summary(logmod_cat)
 confint(logmod_cat)
@@ -2016,9 +1996,9 @@ cone_fig<- ggplot(newdata3, aes(x = year, y = PredictedProb)) + geom_ribbon(aes(
         legend.text = element_text(color="black", size=8),
         legend.title = element_text(color="black", size=10))
 
-png("figures/cone_fig.png", height=3, width=3, res=300, units="in")
-cone_fig
-dev.off()
+# png("figures/cone_fig.png", height=3, width=3, res=300, units="in")
+# cone_fig
+# dev.off()
 
 ```
 
@@ -2070,7 +2050,7 @@ cone_clim_mod_glm <- glm(Cones ~ scale(height)*scale(PC1) + scale(height)*scale(
 summary(cone_clim_mod_glm)
 
 ##predictions
-CCnewdata1 <- with(moniger_subset, data.frame(height = seq(min(height),max(height),length.out=50), PC1=mean(PC1), PC2 = mean(PC2), x = rep(seq(-121, -105, 1),each=50)))
+CCnewdata1 <- with(moniger_subset, data.frame(height = seq(min(height),max(height),length.out=50), PC1=mean(PC1), PC2 = mean(PC2), x = rep(seq(-121, -105, 2),each=50)))
 
 CCnewdata2 <- cbind(CCnewdata1, predict(cone_clim_mod_glm, newdata = CCnewdata1, type = "link", se=TRUE))
 CCnewdata3 <- within(CCnewdata2, {
@@ -2079,10 +2059,17 @@ CCnewdata3 <- within(CCnewdata2, {
     UL <- plogis(fit + (1.96 * se.fit))
 })
 
-ggplot(CCnewdata3, aes(x = height, y = PredictedProb, col= factor(x))) + geom_ribbon(aes(ymin = LL,
-    ymax = UL, fill = factor(x)), alpha = 0.2) + geom_line(aes(colour = factor(x)),
+cone_x_plot<- ggplot(CCnewdata3, aes(x = height, y = PredictedProb, col= factor(x))) + geom_ribbon(aes(ymin = LL,
+    ymax = UL, fill = factor(x)), alpha = 0.2, col=NA) + geom_line(aes(colour = factor(x)),
     linewidth = 1)+
-  geom_point(aes(x=height, y=PredictedProb, col=factor(x)))
+  geom_line(aes(x=height, y=PredictedProb, col=factor(x)))+
+  scale_color_manual(values=viridis::mako(n=10)[1:9], name = "Longitude")+
+  scale_fill_manual(values=viridis::mako(n=10)[1:9],name="Longitude")+
+  theme_bw()+
+  xlab("Height (m)")+
+  ylab("Predicted Probability")+
+  theme(legend.position = "bottom")
+
 
 ```
 
@@ -2098,13 +2085,14 @@ cone_dist_mod <- glmer(Cones ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km)*
 plot(cone_dist_mod)
 summary(cone_dist_mod)
 
+cone_dist_mod_nog <- glmer(Cones ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km)*scale(height) + (1|code) + (1|year), data=cone_dist_data %>% filter(!Provenance == "Gila NF"), family="binomial")
+plot(cone_dist_mod_nog)
+summary(cone_dist_mod_nog)
+
 cone_dist_mod_glm <- glm(Cones ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km)*scale(height), data=cone_dist_data, family="binomial")
 
-```
-#START HERE 7/9/24
-```{r}
 ##predictions
-CDnewdata1 <- with(cone_dist_data, data.frame(geo.dist.to.plant.km = seq(min(geo.dist.to.plant.km), max(geo.dist.to.plant.km), length.out=50), 
+CDnewdata1 <- with(cone_dist_data, data.frame(geo.dist.to.plant.km = rep(seq(80,1600, by=190), each=50), 
                                               dist.to.plant=mean(dist.to.plant), 
                    height=seq(min(height), max(height), length.out=50)))
 
@@ -2115,10 +2103,34 @@ CDnewdata3 <- within(CDnewdata2, {
     UL <- plogis(fit + (1.96 * se.fit))
 })
 
-ggplot(CDnewdata3, aes(x = geo.dist.to.plant.km, y = PredictedProb, col=height>5)) + geom_ribbon(aes(ymin = LL,
-    ymax = UL, fill=height>5), alpha = 0.2) + geom_line(linewidth = 1, aes(col=height>5))+
-  geom_point()
+ggplot(CDnewdata3, aes(x = height, y = PredictedProb, col=factor(geo.dist.to.plant.km))) + geom_ribbon(aes(ymin = LL,
+    ymax = UL, fill=factor(geo.dist.to.plant.km)), alpha = 0.2) + geom_line(linewidth = 1, aes(col=factor(geo.dist.to.plant.km)))+
+  scale_color_viridis(discrete = TRUE)+
+  scale_fill_viridis(discrete = TRUE)
 
+#no g predictions
+cone_dist_mod_glm_nog <- glm(Cones ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km)*scale(height), data=cone_dist_data  %>% filter(!Provenance == "Gila NF"), family="binomial")
+
+CDNGnewdata1 <- expand.grid(dist.to.plant = seq(0,6, by=2), 
+                                              geo.dist.to.plant.km=seq(80,1600,by=190), 
+                   height=seq(min(cone_dist_data  %>% filter(!Provenance == "Gila NF") %>% pull(height)), max(cone_dist_data  %>% filter(!Provenance == "Gila NF") %>% pull(height)), length.out=50))
+
+CDNGnewdata2 <- cbind(CDNGnewdata1, predict(cone_dist_mod_glm_nog, newdata = CDNGnewdata1, type = "link", se=TRUE))
+CDNGnewdata3 <- within(CDNGnewdata2, {
+    PredictedProb <- plogis(fit)
+    LL <- plogis(fit - (1.96 * se.fit))
+    UL <- plogis(fit + (1.96 * se.fit))
+})
+
+cone_dist_plot<- ggplot(CDNGnewdata3, aes(x = height, y = PredictedProb, col=factor(geo.dist.to.plant.km))) + geom_ribbon(aes(ymin = LL,
+    ymax = UL, fill=factor(geo.dist.to.plant.km)), alpha = 0.2, col=NA) + geom_line(linewidth = 1, aes(col=factor(geo.dist.to.plant.km)))+
+  scale_color_viridis(discrete = TRUE, name="Geographic\ndistance (km)")+
+  scale_fill_viridis(discrete = TRUE, name="Geographic\ndistance (km)")+
+  facet_wrap(~factor(dist.to.plant, labels=c("PCA distance = 0", "PCA distance = 2","PCA distance = 4", "PCA distance = 6")))+
+  xlab("Height (m)")+
+  ylab("Predicted Probability")+
+  theme_bw()+
+  theme(legend.position = "bottom")
 
 ```
 
@@ -2139,20 +2151,21 @@ moniger_provclim<- moniger_data_comb %>%
 cone_mods<- data.frame()
 
 for(i in 1:length(provenance_climvars)){
-mod <- glmer(Cones ~ climvar.value*factor(year) + (1|code), data=moniger_provclim %>% filter(climvar.name==provenance_climvars[i]), family="binomial")
+mod <- glmer(Cones ~ climvar.value + (1|year) + (1|code), data=moniger_provclim %>% filter(climvar.name==provenance_climvars[i]), family="binomial")
 pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|z|)`
 
-mod_nog <- glmer(Cones ~ climvar.value*factor(year) + (1|code), data=moniger_provclim %>% filter(climvar.name==provenance_climvars[i]) %>% filter(!code=="GiNF"), family="binomial")
+mod_nog <- glmer(Cones ~ climvar.value + (1|year) + (1|code), data=moniger_provclim %>% filter(climvar.name==provenance_climvars[i]) %>% filter(!code=="GiNF"), family="binomial")
 pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|z|)`
 
 cone_mods <- bind_rows(cone_mods, data.frame(var=provenance_climvars[i], pvalue = pvalue, pvalue_nog = pvalue_nog))
 
 }
 
-cone_mods %>% arrange(pvalue_nog) ##smrpb is significant for both
+cone_mods %>% arrange(pvalue) ##smrpb is significant for both
+cone_mods %>% arrange(pvalue_nog) 
 
 ###smrpb
-cone_smrpb_mod <- glmer(Cones ~ scale(climvar.value) + (1|code), data=moniger_provclim %>% filter(climvar.name=="smrpb"), family="binomial")
+cone_smrpb_mod <- glmer(Cones ~ climvar.value + (1|year) + (1|code), data=moniger_provclim %>% filter(climvar.name=="smrpb"), family="binomial")
 summary(cone_smrpb_mod)
 
 cone_smrpb_data <- moniger_provclim %>% filter(climvar.name=="smrpb")
@@ -2179,22 +2192,52 @@ conesmrpb_newdata3 <- within(conesmrpb_newdata2, {
 ggplot(conesmrpb_newdata3, aes(x = climvar.value, y = PredictedProb)) + geom_ribbon(aes(ymin = LL,
     ymax = UL), alpha = 0.2) + 
   geom_line(linewidth = 1)+
-  geom_point(aes(x=climvar.value, y=PredictedProb))+
   xlab("smrpb")
 
-#without Gila is still significant
-cone_smrpb_mod_nog <- glmer(Cones ~ scale(climvar.value) + (1|Provenance), data=moniger_provclim %>% filter(climvar.name=="smrpb") %>% filter(!Provenance=="Gila NF"), family="binomial")
+#without Gila is still significant, but in opposite direction
+cone_smrpb_mod_nog <- glmer(Cones ~ climvar.value + (1|year) + (1|Provenance), data=moniger_provclim %>% filter(climvar.name=="smrpb") %>% filter(!Provenance=="Gila NF"), family="binomial")
 summary(cone_smrpb_mod_nog)
+
+cone_smrpb_data_nog <- moniger_provclim %>% filter(climvar.name=="smrpb") %>% filter(!Provenance=="Gila NF")
+
+ggplot(data=moniger_provclim %>% filter(climvar.name=="smrpb"), aes(x=climvar.value, y=Cones))+
+  geom_jitter()+
+  facet_wrap(~year)
+ggplot(data=moniger_provclim %>% filter(climvar.name=="smrpb") %>% filter(!Provenance=="Gila NF"), aes(x=climvar.value, y=Cones))+
+  geom_jitter()+
+  facet_wrap(~year)
+
+#prediction
+##take random effect out to make predictions
+cone_smrpb_mod_nog_glm <- glm(Cones ~ scale(climvar.value), data=cone_smrpb_data_nog, family="binomial")
+
+##predictions
+conesmrpb_nog_newdata1 <- with(cone_smrpb_data_nog, data.frame(climvar.value = seq(min(climvar.value),max(climvar.value),length.out=50)))
+
+conesmrpb_nog_newdata2 <- cbind(conesmrpb_nog_newdata1, predict(cone_smrpb_mod_nog_glm, newdata = conesmrpb_nog_newdata1, type = "link", se=TRUE))
+conesmrpb_nog_newdata3 <- within(conesmrpb_nog_newdata2, {
+    PredictedProb <- plogis(fit)
+    LL <- plogis(fit - (1.96 * se.fit))
+    UL <- plogis(fit + (1.96 * se.fit))
+})
+
+smrpb_cone_plot_nog <- ggplot(conesmrpb_nog_newdata3, aes(x = climvar.value, y = PredictedProb)) + geom_ribbon(aes(ymin = LL,
+    ymax = UL), alpha = 0.2) + 
+  geom_line(linewidth = 1)+
+  xlab("Summer/Spring precip ratio")+
+  ylab("Predicted Probability")+
+  theme_bw()+
+  ggtitle("Cones")
 
 ###quadratic
 
 cone_mods_quad<- data.frame()
 
 for(i in 1:length(provenance_climvars)){
-mod <- glmer(Cones ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|code), data=moniger_provclim %>% filter(climvar.name==provenance_climvars[i]), family="binomial")
+mod <- glmer(Cones ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|code) + (1|year), data=moniger_provclim %>% filter(climvar.name==provenance_climvars[i]), family="binomial")
 pvalues<- as.data.frame(summary(mod)$coefficients)[2:3,]$`Pr(>|z|)`
 
-mod_nog <- glmer(Cones ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|code), data=moniger_provclim %>% filter(climvar.name==provenance_climvars[i]) %>% filter(!code=="GiNF"), family="binomial")
+mod_nog <- glmer(Cones ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|code) + (1|year), data=moniger_provclim %>% filter(climvar.name==provenance_climvars[i]) %>% filter(!code=="GiNF"), family="binomial")
 pvalues_nog<- as.data.frame(summary(mod_nog)$coefficients)[2:3,]$`Pr(>|z|)`
 
 cone_mods_quad <- bind_rows(cone_mods_quad, data.frame(var=provenance_climvars[i], pvalue1 = pvalues[1], pvalue2 = pvalues[2], pvalue1_nog = pvalues_nog[1], pvalue2_nog = pvalues_nog[2]))
@@ -2203,7 +2246,7 @@ cone_mods_quad <- bind_rows(cone_mods_quad, data.frame(var=provenance_climvars[i
 cone_mods_quad %>% arrange(pvalue2_nog) ##TD is only quadratic effect significant both with and without Gila
 
 ###TD
-cone_TD_mod <- glmer(Cones ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|code), data=moniger_provclim %>% filter(climvar.name=="TD"), family="binomial")
+cone_TD_mod <- glmer(Cones ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|code) + (1|year), data=moniger_provclim %>% filter(climvar.name=="TD"), family="binomial")
 summary(cone_TD_mod)
 
 cone_TD_data <- moniger_provclim %>% filter(climvar.name=="TD")
@@ -2227,53 +2270,42 @@ coneTD_newdata3 <- within(coneTD_newdata2, {
     UL <- plogis(fit + (1.96 * se.fit))
 })
 
-ggplot(coneTD_newdata3, aes(x = climvar.value, y = PredictedProb)) + geom_ribbon(aes(ymin = LL,
+td_cone_plot<- ggplot(coneTD_newdata3, aes(x = climvar.value, y = PredictedProb)) + geom_ribbon(aes(ymin = LL,
     ymax = UL), alpha = 0.2) + 
   geom_line(linewidth = 1)+
-  geom_point(aes(x=climvar.value, y=PredictedProb))+
-  xlab("TD")
+  xlab("Temperature Differential")+
+  ylab("Predicted Probability")+
+  theme_bw()+
+  ggtitle("Cones")
 
 #without Gila is still significant
-cone_TD_mod_nog <- glmer(Cones ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|code), data=moniger_provclim %>% filter(climvar.name=="TD") %>% filter(!Provenance=="Gila NF"), family="binomial")
+cone_TD_mod_nog <- glmer(Cones ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|code) + (1|year), data=moniger_provclim %>% filter(climvar.name=="TD") %>% filter(!Provenance=="Gila NF"), family="binomial")
 summary(cone_TD_mod_nog)
+```
 
+####plots
+```{r}
+cone_sig_clim_data<- bind_rows(
+conesmrpb_nog_newdata3 %>% 
+  mutate(var = "smrpb"),
+coneTD_newdata3 %>% 
+  mutate(var="TD"))
 
+cone_sig_clim_plot<- ggplot(cone_sig_clim_data, aes(x = climvar.value, y = PredictedProb)) + geom_ribbon(aes(ymin = LL,
+    ymax = UL), alpha = 0.2) + 
+  geom_line(linewidth = 1)+
+  xlab("value")+
+  ylab("Predicted Probability")+
+  theme_bw()+
+  ggtitle("Cones")+
+  facet_grid(cols=vars(var), scales="free_x")
 
-#dbh/height affect on cones linear models
-##get individual height, dbh and cone data
-cones91<- moniger_data_comb %>%
-  filter(!is.na(Cones91)) %>% 
-  filter(!is.na(HT91)) %>% 
-  filter(!is.na(DBH91))
+cone_x_plot
+cone_dist_plot
 
-cones96<- moniger_data_comb %>%
-  filter(!is.na(Cones96)) %>% 
-  filter(!is.na(HT96)) %>% 
-  filter(!is.na(DBH96))
-
-cones06<- moniger_data_comb %>%
-  filter(!is.na(Cones06)) %>% 
-  filter(!is.na(HT06)) %>% 
-  filter(!is.na(DBH06))
-
-##looking for thresholds
-cone_data_comb<- bind_rows(cones91 %>% dplyr::select(HT91,DBH91,Cones91, Provenance) %>% 
-  mutate(year=1991) %>% 
-  rename(HT=HT91, DBH=DBH91, Cones=Cones91),
-  cones96 %>% dplyr::select(HT96,DBH96,Cones96, Provenance) %>% 
-  mutate(year=1996) %>% 
-  rename(HT=HT96, DBH=DBH96, Cones=Cones96),
-  cones06 %>% dplyr::select(HT06,DBH06,Cones06, Provenance) %>% 
-  mutate(year=2006) %>% 
-  rename(HT=HT06, DBH=DBH06, Cones=Cones06))
-
-ggplot(cone_data_comb, aes(x=HT, y=Cones, col=factor(year)))+
-  geom_jitter(height=.1, width=0)+
-  geom_smooth(method = "glm", method.args = list(family = "binomial"))+
-  facet_wrap(~Provenance)
-
-prov_cone_modall <- glmer(Cones ~ HT*factor(year) + (1|Provenance), data=cone_data_comb %>% filter(!Provenance=="Gila NF"),family=binomial(link="logit"))
-summary(prov_cone_modall)
+png("figures/cone_plot.png", width=9.5, height=6.5, units = "in", res=500)
+ggarrange(ggarrange(cone_x_plot, cone_dist_plot, ncol=2),cone_sig_clim_plot, nrow=2, heights=c(1,0.8))
+dev.off()
 
 ```
 
@@ -2332,10 +2364,14 @@ newdata3 <- within(newdata2, {
     UL <- plogis(fit + (1.96 * se.fit))
 })
 
-ggplot(newdata3, aes(x = Provenance, y = PredictedProb)) + 
-  geom_errorbar(aes(ymin = LL, ymax = UL, col = Provenance)) + 
-  geom_point(aes(colour = Provenance))+
-  theme(axis.text.x = element_text(angle=45, hjust=1))
+surv_byprov <- ggplot(newdata3, aes(x = factor(Provenance, levels=provs_bylat$Provenance), y = PredictedProb)) + 
+  geom_errorbar(aes(ymin = LL, ymax = UL, col = factor(Provenance, levels=provs_bylat$Provenance))) + 
+  geom_point(aes(colour = factor(Provenance, levels=provs_bylat$Provenance)))+
+  theme(axis.text.x = element_text(angle=45, hjust=1))+
+  scale_color_manual(values=unname(stepped()))+
+  ylab("Predicted Probability")+
+  theme_bw()+
+  theme(legend.position = "none", axis.text.x = element_text(color="black",angle=45, hjust=1), axis.title.x = element_blank())
 ```
 
 ####PCA
@@ -2348,6 +2384,41 @@ summary(survmod_pcx)
 survmod_pcy<- glmer(Stat14 ~ PC1+ I(PC1^2) + PC2 + I(PC2^2) + scale(y) + I(scale(y)^2) + (1|Provenance), data=moniger_survival, family="binomial")
 plot(survmod_pcy)
 summary(survmod_pcy)
+
+AICc(survmod_pcx, survmod_pcy)
+
+dredge(survmod_pcy)
+bestsurvmod_pcy <- glmer(Stat14 ~ PC1+ I(PC1^2) + scale(y) + I(scale(y)^2) + (1|Provenance), data=moniger_survival, family="binomial")
+summary(bestsurvmod_pcy)
+
+moniger_survival_nog <- moniger_survival %>% filter(!Provenance=="Gila NF")
+
+survmod_pcy_nog<- glmer(Stat14 ~ PC1+ I(PC1^2) + PC2 + I(PC2^2) + scale(y) + I(scale(y)^2) + (1|Provenance), data=moniger_survival_nog, family="binomial")
+plot(survmod_pcy_nog)
+summary(survmod_pcy_nog)
+dredge(survmod_pcy_nog)
+
+bestsurvmod_pcy_nog <- glmer(Stat14 ~ PC1+ I(PC1^2) + scale(y) + I(scale(y)^2) + (1|Provenance), data=moniger_survival_nog, family="binomial")
+summary(bestsurvmod_pcy_nog)
+
+bestsurvmod_pcy_nog_glm <- glm(Stat14 ~ PC1+ I(PC1^2) + scale(y) + I(scale(y)^2), data=moniger_survival_nog, family="binomial")
+
+
+#predict
+newdata1 <- with(moniger_survival, data.frame(PC1 = mean(PC1),
+                                              y = seq(min(y),max(y),length.out=50)))
+
+newdata2 <- cbind(newdata1, predict(bestsurvmod_pcy_nog_glm, newdata = newdata1, type = "link", se=TRUE))
+newdata3 <- within(newdata2, {
+    PredictedProb <- plogis(fit)
+    LL <- plogis(fit - (1.96 * se.fit))
+    UL <- plogis(fit + (1.96 * se.fit))
+})
+
+ggplot(newdata3, aes(x = y, y = PredictedProb)) + 
+  geom_ribbon(aes(ymin = LL, ymax = UL), alpha=0.5) +
+  geom_line(aes(x = y, y = PredictedProb))+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
 ```
 
 ####distance
@@ -2368,7 +2439,7 @@ survmod_dist_glm<- glm(Stat14 ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km)
 SDnewdata1 <- with(surv_pcadist_data, data.frame(dist.to.plant = seq(min(surv_pcadist_data$dist.to.plant), 
                       max(surv_pcadist_data$dist.to.plant), 
                       length.out = 50),
-    geo.dist.to.plant.km = rep(seq(87,1593,100),each=50)))
+    geo.dist.to.plant.km = rep(seq(80,1600,190),each=50)))
 
 SDnewdata2 <- cbind(SDnewdata1, predict(survmod_dist_glm, newdata = SDnewdata1, type = "link", se=TRUE))
 SDnewdata3 <- within(SDnewdata2, {
@@ -2377,10 +2448,48 @@ SDnewdata3 <- within(SDnewdata2, {
     UL <- plogis(fit + (1.96 * se.fit))
 })
 
-ggplot(SDnewdata3, aes(x = dist.to.plant, y = PredictedProb, col= factor(geo.dist.to.plant.km))) + geom_ribbon(aes(ymin = LL,
-    ymax = UL, fill = factor(geo.dist.to.plant.km)), alpha = 0.2) + geom_line(aes(colour = factor(geo.dist.to.plant.km)),
+surv_dist_plot<-ggplot(SDnewdata3, aes(x = dist.to.plant, y = PredictedProb, col= factor(geo.dist.to.plant.km))) + geom_ribbon(aes(ymin = LL,
+    ymax = UL, fill = factor(geo.dist.to.plant.km)),col=NA, alpha = 0.2) + geom_line(aes(colour = factor(geo.dist.to.plant.km)),
     linewidth = 1)+
-  geom_point()
+  geom_line()+
+  scale_color_viridis(discrete=T, name="Geographic\ndistance (km)")+
+  scale_fill_viridis(discrete=T, name="Geographic\ndistance (km)")+
+  xlab("Climatic distance")+
+  ylab("Predicted Probability")+
+  theme_bw()+
+  theme(legend.position = "bottom")
+
+##no gila
+surv_pcadist_data_nog <- surv_pcadist_data %>% filter(!Provenance=="Gila NF")
+
+survmod_dist_nog<- glmer(Stat14 ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=surv_pcadist_data_nog, family = "binomial")
+plot(survmod_dist_nog)
+summary(survmod_dist_nog) 
+
+survmod_dist_glm_nog<- glm(Stat14 ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km), data=surv_pcadist_data_nog, family = "binomial")
+
+###make plot for distance model
+SDnewdata_nog1 <- with(surv_pcadist_data_nog, data.frame(dist.to.plant = seq(min(dist.to.plant), 
+                      max(dist.to.plant), 
+                      length.out = 50),
+    geo.dist.to.plant.km = rep(seq(80,1600,190),each=50)))
+
+SDnewdata_nog2 <- cbind(SDnewdata_nog1, predict(survmod_dist_glm_nog, newdata = SDnewdata_nog1, type = "link", se=TRUE))
+SDnewdata_nog3 <- within(SDnewdata_nog2, {
+    PredictedProb <- plogis(fit)
+    LL <- plogis(fit - (1.96 * se.fit))
+    UL <- plogis(fit + (1.96 * se.fit))
+})
+
+ggplot(SDnewdata_nog3, aes(x = dist.to.plant, y = PredictedProb, col= factor(geo.dist.to.plant.km))) + geom_ribbon(aes(ymin = LL,
+    ymax = UL, fill = factor(geo.dist.to.plant.km)),col=NA, alpha = 0.2) + geom_line(aes(colour = factor(geo.dist.to.plant.km)),
+    linewidth = 1)+
+  geom_line()+
+  scale_color_viridis(discrete=T, name="Geographic distance (km)")+
+  scale_fill_viridis(discrete=T, name="Geographic distance (km)")+
+  xlab("Climatic distance")+
+  ylab("Predicted Probability")+
+  theme_bw()
 ```
 
 ####extra
@@ -2427,11 +2536,13 @@ survnffd_newdata3 <- within(survnffd_newdata2, {
     UL <- plogis(fit + (1.96 * se.fit))
 })
 
-ggplot(survnffd_newdata3, aes(x = climvar.value, y = PredictedProb)) + geom_ribbon(aes(ymin = LL,
+surv_nffd_plot<- ggplot(survnffd_newdata3, aes(x = climvar.value, y = PredictedProb)) + geom_ribbon(aes(ymin = LL,
     ymax = UL), alpha = 0.2) + 
   geom_line(linewidth = 1)+
-  geom_point(aes(x=climvar.value, y=PredictedProb))+
-  xlab("NFFD")
+  xlab("NFFD")+
+    ylab("Predicted Probability")+
+  ggtitle("Survival")+
+  theme_bw()
 
 #without Gila is still significant
 surv_nffd_mod_nog <- glmer(Stat14 ~ scale(climvar.value) + (1|Provenance), data=moniger_survival_long %>% filter(climvar.name=="nffd") %>% filter(!Provenance=="Gila NF"), family="binomial")
@@ -2535,12 +2646,6 @@ summary(surv_MWMT_mod)
 
 surv_MWMT_data <- moniger_survival_long %>% filter(climvar.name=="MWMT")
 
-newdata_MWMT_surv <- data.frame(
-    climvar.value = seq(min(surv_MWMT_data$climvar.value), 
-                      max(surv_MWMT_data$climvar.value), 
-                      length.out = 100
-                      ))
-
 ##take random effect out to make predictions
 surv_MWMT_mod_glm <- glm(Stat14 ~ scale(climvar.value) + I(scale(climvar.value)^2), data=moniger_survival_long %>% filter(climvar.name=="MWMT"), family="binomial")
 
@@ -2554,11 +2659,13 @@ survMWMT_newdata3 <- within(survMWMT_newdata2, {
     UL <- plogis(fit + (1.96 * se.fit))
 })
 
-ggplot(survMWMT_newdata3, aes(x = climvar.value, y = PredictedProb)) + geom_ribbon(aes(ymin = LL,
+surv_mwmt_plot<- ggplot(survMWMT_newdata3, aes(x = climvar.value, y = PredictedProb)) + geom_ribbon(aes(ymin = LL,
     ymax = UL), alpha = 0.2) + 
   geom_line(linewidth = 1)+
-  geom_point(aes(x=climvar.value, y=PredictedProb))+
-  xlab("MWMT")
+  xlab("MWMT")+
+    ylab("Predicted Probability")+
+  ggtitle("Survival")+
+  theme_bw()
 
 #without Gila is still significant
 surv_MWMT_mod_nog <- glmer(Stat14 ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance), data=moniger_survival_long %>% filter(climvar.name=="MWMT") %>% filter(!Provenance=="Gila NF"), family="binomial")
@@ -2570,12 +2677,6 @@ surv_cmd_mod <- glmer(Stat14 ~ scale(climvar.value) + I(scale(climvar.value)^2) 
 summary(surv_cmd_mod)
 
 surv_cmd_data <- moniger_survival_long %>% filter(climvar.name=="cmd")
-
-newdata_cmd_surv <- data.frame(
-    climvar.value = seq(min(surv_cmd_data$climvar.value), 
-                      max(surv_cmd_data$climvar.value), 
-                      length.out = 100
-                      ))
 
 ##take random effect out to make predictions
 surv_cmd_mod_glm <- glm(Stat14 ~ scale(climvar.value) + I(scale(climvar.value)^2), data=moniger_survival_long %>% filter(climvar.name=="cmd"), family="binomial")
@@ -2590,15 +2691,44 @@ survcmd_newdata3 <- within(survcmd_newdata2, {
     UL <- plogis(fit + (1.96 * se.fit))
 })
 
-ggplot(survcmd_newdata3, aes(x = climvar.value, y = PredictedProb)) + geom_ribbon(aes(ymin = LL,
+surv_cmd_plot<- ggplot(survcmd_newdata3, aes(x = climvar.value, y = PredictedProb)) + geom_ribbon(aes(ymin = LL,
     ymax = UL), alpha = 0.2) + 
   geom_line(linewidth = 1)+
-  geom_point(aes(x=climvar.value, y=PredictedProb))+
-  xlab("cmd")
+  xlab("cmd")+
+    ylab("Predicted Probability")+
+  ggtitle("Survival")+
+  theme_bw()
+
+surv_sig_clim<- bind_rows(
+survcmd_newdata3 %>% 
+  mutate(var = "cmd"),
+survnffd_newdata3 %>% 
+  mutate(var="nffd"),
+survMWMT_newdata3 %>% 
+  mutate(var="mwmt"))
+
+surv_sig_clim_plot <- ggplot(surv_sig_clim, aes(x = climvar.value, y = PredictedProb)) + geom_ribbon(aes(ymin = LL,
+    ymax = UL), alpha = 0.2) + 
+  geom_line(linewidth = 1)+
+  xlab("value")+
+    ylab("Predicted Probability")+
+  ggtitle("Survival")+
+  theme_bw()+
+   facet_grid(cols=vars(var), scales="free_x")
 
 #without Gila is still significant
 surv_cmd_mod_nog <- glmer(Stat14 ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance), data=moniger_survival_long %>% filter(climvar.name=="cmd") %>% filter(!Provenance=="Gila NF"), family="binomial")
 summary(surv_cmd_mod_nog)
+```
+
+####plots
+
+```{r}
+#plots
+
+png("figures/survival_plot.png", width=7, height=6, units = "in", res=500)
+ggarrange(ggarrange(surv_byprov, surv_dist_plot, ncol=2),surv_sig_clim_plot,nrow=2)
+dev.off()
 ```
 
 ##RWI
@@ -2670,7 +2800,10 @@ dbh_rwi_comp <- dbh_age %>%
   group_by(Provenance, tree) %>% 
   summarise(sum=sum(rw, na.rm = TRUE)) %>% 
   arrange(tree) %>% 
-  bind_cols(dbh %>% arrange(Series) %>% 
+  bind_cols(dbh %>%
+              filter(Series %in% unique(dbh_age$Series)) %>% 
+              dplyr::select(-Provenance) %>% 
+              arrange(Series) %>% 
   filter(!is.na(DBH14))) %>% 
   mutate(lowsum=ifelse(sum<16,"yes","no"))
 
@@ -3529,6 +3662,459 @@ ggplot()+
   geom_point(data=RR4_clim, aes(x=geo.dist.to.plant.km, y=log(resistance)))+
   geom_ribbon(data=newdata_geodist_pred, aes(x=geo.dist.to.plant.km,ymin=lwr,ymax=upr), alpha=0.4, fill="turquoise")+
   geom_line(data=newdata_geodist_pred, aes(x=geo.dist.to.plant.km, y=fit), col="turquoise")
+```
+
+######all other time periods
+```{r}
+
+#####01-02
+RR0102_clim<- spline_calcs_0102 %>% 
+  left_join(prov_pcapts) %>% 
+  left_join(pca_dist_df) %>% 
+  left_join(geo.dist.df)
+
+ggplot(RR0102_clim, aes(x=PC2, y=resilience))+
+  geom_point()+
+  geom_smooth(method="lm")
+
+##PCA models
+resis_0102mod_pcx <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2) + (1|Provenance), data=RR0102_clim)
+plot(resis_0102mod_pcx)
+qqmath(resis_0102mod_pcx)
+summary(resis_0102mod_pcx) 
+
+resis_0102mod_pcx_noG <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2)+ (1|Provenance), data=RR0102_clim %>% filter(!Provenance=="Gila NF"))
+plot(resis_0102mod_pcx_noG)
+qqmath(resis_0102mod_pcx_noG)
+summary(resis_0102mod_pcx_noG) #nothing significant when Gila removed
+
+dredge(resis_0102mod_pcx) ##null model is the best
+
+resis_0102mod_pcy <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2) + (1|Provenance), data=RR0102_clim)
+plot(resis_0102mod_pcy)
+qqmath(resis_0102mod_pcy)
+summary(resis_0102mod_pcy) 
+
+resis_0102mod_pcy_noG <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2)+ (1|Provenance), data=RR0102_clim %>% filter(!Provenance=="Gila NF"))
+plot(resis_0102mod_pcy_noG)
+qqmath(resis_0102mod_pcy_noG)
+summary(resis_0102mod_pcy_noG) #latitude is significant when Gila removed
+
+dredge(resis_0102mod_pcy) ##null model is the best still though 
+
+#distance model
+resis_0102mod_dist <- lmer(log(resistance) ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR0102_clim)
+plot(resis_0102mod_dist)
+qqmath(resis_0102mod_dist)
+summary(resis_0102mod_dist) #geographic distance to the plantation is significant
+
+resis_0102mod_dist_noG <- lmer(log(resistance) ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR0102_clim %>% filter(!Provenance=="Gila NF"))
+plot(resis_0102mod_dist_noG)
+qqmath(resis_0102mod_dist_noG)
+summary(resis_0102mod_dist_noG) #geographic distance to the plantation is not significant
+
+dredge(resis_0102mod_dist) ##null model is best 
+```
+
+```{r}
+#####02-03
+RR0203_clim<- spline_calcs_0203 %>% 
+  left_join(prov_pcapts) %>% 
+  left_join(pca_dist_df) %>% 
+  left_join(geo.dist.df)
+
+ggplot(RR0203_clim, aes(x=PC2, y=resilience))+
+  geom_point()+
+  geom_smooth(method="lm")
+
+##PCA models
+resis_0203mod_pcx <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2) + (1|Provenance), data=RR0203_clim)
+plot(resis_0203mod_pcx)
+qqmath(resis_0203mod_pcx)
+summary(resis_0203mod_pcx) 
+
+resis_0203mod_pcx_noG <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2)+ (1|Provenance), data=RR0203_clim %>% filter(!Provenance=="Gila NF"))
+plot(resis_0203mod_pcx_noG)
+qqmath(resis_0203mod_pcx_noG)
+summary(resis_0203mod_pcx_noG) #nothing significant 
+
+dredge(resis_0203mod_pcx) ##null model is the best
+
+resis_0203mod_pcy <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2) + (1|Provenance), data=RR0203_clim)
+plot(resis_0203mod_pcy)
+qqmath(resis_0203mod_pcy)
+summary(resis_0203mod_pcy) 
+
+resis_0203mod_pcy_noG <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2)+ (1|Provenance), data=RR0203_clim %>% filter(!Provenance=="Gila NF"))
+plot(resis_0203mod_pcy_noG)
+qqmath(resis_0203mod_pcy_noG)
+summary(resis_0203mod_pcy_noG) 
+
+dredge(resis_0203mod_pcy) ##null model is the best 
+
+#distance model
+resis_0203mod_dist <- lmer(log(resistance) ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR0203_clim)
+plot(resis_0203mod_dist)
+qqmath(resis_0203mod_dist)
+summary(resis_0203mod_dist) #climatic distance to the plantation is significant
+
+resis_0203mod_dist_noG <- lmer(log(resistance) ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR0203_clim %>% filter(!Provenance=="Gila NF"))
+plot(resis_0203mod_dist_noG)
+qqmath(resis_0203mod_dist_noG)
+summary(resis_0203mod_dist_noG) #nothing significant when gila removed
+
+dredge(resis_0203mod_dist) ##null model is best 
+```
+
+```{r}
+#####00-03
+RR0003_clim<- spline_calcs_0003 %>% 
+  left_join(prov_pcapts) %>% 
+  left_join(pca_dist_df) %>% 
+  left_join(geo.dist.df)
+
+ggplot(RR0003_clim, aes(x=PC2, y=resilience))+
+  geom_point()+
+  geom_smooth(method="lm")
+
+##PCA models
+resis_0003mod_pcx <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2) + (1|Provenance), data=RR0003_clim)
+plot(resis_0003mod_pcx)
+qqmath(resis_0003mod_pcx)
+summary(resis_0003mod_pcx) 
+
+resis_0003mod_pcx_noG <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2)+ (1|Provenance), data=RR0003_clim %>% filter(!Provenance=="Gila NF"))
+plot(resis_0003mod_pcx_noG)
+qqmath(resis_0003mod_pcx_noG)
+summary(resis_0003mod_pcx_noG) #nothing significant 
+
+dredge(resis_0003mod_pcx) ##null model is the best
+
+resis_0003mod_pcy <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2) + (1|Provenance), data=RR0003_clim)
+plot(resis_0003mod_pcy)
+qqmath(resis_0003mod_pcy)
+summary(resis_0003mod_pcy) 
+
+resis_0003mod_pcy_noG <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2)+ (1|Provenance), data=RR0003_clim %>% filter(!Provenance=="Gila NF"))
+plot(resis_0003mod_pcy_noG)
+qqmath(resis_0003mod_pcy_noG)
+summary(resis_0003mod_pcy_noG) 
+
+dredge(resis_0003mod_pcy) ##null model is the best 
+
+#distance model
+resis_0003mod_dist <- lmer(log(resistance) ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR0003_clim)
+plot(resis_0003mod_dist)
+qqmath(resis_0003mod_dist)
+summary(resis_0003mod_dist) #climatic distance to the plantation is significant
+
+resis_0003mod_dist_noG <- lmer(log(resistance) ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR0003_clim %>% filter(!Provenance=="Gila NF"))
+plot(resis_0003mod_dist_noG)
+qqmath(resis_0003mod_dist_noG)
+summary(resis_0003mod_dist_noG) #nothing significant when gila removed
+
+dredge(resis_0003mod_dist) ##null model is best 
+```
+
+```{r}
+#####00-05
+RR0005_clim<- spline_calcs_0005 %>% 
+  left_join(prov_pcapts) %>% 
+  left_join(pca_dist_df) %>% 
+  left_join(geo.dist.df)
+
+ggplot(RR0005_clim, aes(x=PC2, y=resilience))+
+  geom_point()+
+  geom_smooth(method="lm")
+
+##PCA models
+resis_0005mod_pcx <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2) + (1|Provenance), data=RR0005_clim)
+plot(resis_0005mod_pcx)
+qqmath(resis_0005mod_pcx)
+summary(resis_0005mod_pcx) 
+
+resis_0005mod_pcx_noG <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2)+ (1|Provenance), data=RR0005_clim %>% filter(!Provenance=="Gila NF"))
+plot(resis_0005mod_pcx_noG)
+qqmath(resis_0005mod_pcx_noG)
+summary(resis_0005mod_pcx_noG) #PC2 significant 
+
+dredge(resis_0005mod_pcx) ##null model is the best
+
+resis_0005mod_pcy <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2) + (1|Provenance), data=RR0005_clim)
+plot(resis_0005mod_pcy)
+qqmath(resis_0005mod_pcy)
+summary(resis_0005mod_pcy) 
+
+resis_0005mod_pcy_noG <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2)+ (1|Provenance), data=RR0005_clim %>% filter(!Provenance=="Gila NF"))
+plot(resis_0005mod_pcy_noG)
+qqmath(resis_0005mod_pcy_noG)
+summary(resis_0005mod_pcy_noG) 
+
+dredge(resis_0005mod_pcy) ##null model is the best 
+
+#distance model
+resis_0005mod_dist <- lmer(log(resistance) ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR0005_clim)
+plot(resis_0005mod_dist)
+qqmath(resis_0005mod_dist)
+summary(resis_0005mod_dist) #climatic distance to the plantation is significant
+
+resis_0005mod_dist_noG <- lmer(log(resistance) ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR0005_clim %>% filter(!Provenance=="Gila NF"))
+plot(resis_0005mod_dist_noG)
+qqmath(resis_0005mod_dist_noG)
+summary(resis_0005mod_dist_noG) #nothing significant when gila removed
+
+dredge(resis_0005mod_dist) ##null model is best 
+```
+
+```{r}
+#####99-04
+RR9904_clim<- spline_calcs_9904 %>% 
+  left_join(prov_pcapts) %>% 
+  left_join(pca_dist_df) %>% 
+  left_join(geo.dist.df)
+
+ggplot(RR9904_clim, aes(x=PC2, y=resilience))+
+  geom_point()+
+  geom_smooth(method="lm")
+
+##PCA models
+resis_9904mod_pcx <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2) + (1|Provenance), data=RR9904_clim)
+plot(resis_9904mod_pcx)
+qqmath(resis_9904mod_pcx)
+summary(resis_9904mod_pcx) 
+
+resis_9904mod_pcx_noG <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2)+ (1|Provenance), data=RR9904_clim %>% filter(!Provenance=="Gila NF"))
+plot(resis_9904mod_pcx_noG)
+qqmath(resis_9904mod_pcx_noG)
+summary(resis_9904mod_pcx_noG) #nothing significant 
+
+dredge(resis_9904mod_pcx) ##null model is the best
+
+resis_9904mod_pcy <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2) + (1|Provenance), data=RR9904_clim)
+plot(resis_9904mod_pcy)
+qqmath(resis_9904mod_pcy)
+summary(resis_9904mod_pcy) 
+
+resis_9904mod_pcy_noG <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2)+ (1|Provenance), data=RR9904_clim %>% filter(!Provenance=="Gila NF"))
+plot(resis_9904mod_pcy_noG)
+qqmath(resis_9904mod_pcy_noG)
+summary(resis_9904mod_pcy_noG) 
+
+dredge(resis_9904mod_pcy) ##null model is the best 
+
+#distance model
+resis_9904mod_dist <- lmer(log(resistance) ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR9904_clim)
+plot(resis_9904mod_dist)
+qqmath(resis_9904mod_dist)
+summary(resis_9904mod_dist) #climatic distance to the plantation is significant
+
+resis_9904mod_dist_noG <- lmer(log(resistance) ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR9904_clim %>% filter(!Provenance=="Gila NF"))
+plot(resis_9904mod_dist_noG)
+qqmath(resis_9904mod_dist_noG)
+summary(resis_9904mod_dist_noG) #nothing significant when gila removed
+
+dredge(resis_9904mod_dist) ##null model is best 
+```
+
+
+```{r}
+#####99-04
+RR1_clim<- spline_calcs_list[[1]] %>% 
+  left_join(prov_pcapts) %>% 
+  left_join(pca_dist_df) %>% 
+  left_join(geo.dist.df)
+
+ggplot(RR1_clim, aes(x=PC2, y=resilience))+
+  geom_point()+
+  geom_smooth(method="lm")
+
+##PCA models
+resis_1mod_pcx <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2) + (1|Provenance), data=RR1_clim)
+plot(resis_1mod_pcx)
+qqmath(resis_1mod_pcx)
+summary(resis_1mod_pcx) 
+
+resis_1mod_pcx_noG <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2)+ (1|Provenance), data=RR1_clim %>% filter(!Provenance=="Gila NF"))
+plot(resis_1mod_pcx_noG)
+qqmath(resis_1mod_pcx_noG)
+summary(resis_1mod_pcx_noG) #nothing significant 
+
+dredge(resis_1mod_pcx) ##null model is the best
+
+resis_1mod_pcy <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2) + (1|Provenance), data=RR1_clim)
+plot(resis_1mod_pcy)
+qqmath(resis_1mod_pcy)
+summary(resis_1mod_pcy) 
+
+resis_1mod_pcy_noG <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2)+ (1|Provenance), data=RR1_clim %>% filter(!Provenance=="Gila NF"))
+plot(resis_1mod_pcy_noG)
+qqmath(resis_1mod_pcy_noG)
+summary(resis_1mod_pcy_noG) 
+
+dredge(resis_1mod_pcy) ##null model is the best 
+
+#distance model
+resis_1mod_dist <- lmer(log(resistance) ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR1_clim)
+plot(resis_1mod_dist)
+qqmath(resis_1mod_dist)
+summary(resis_1mod_dist) 
+
+resis_1mod_dist_noG <- lmer(log(resistance) ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR1_clim %>% filter(!Provenance=="Gila NF"))
+plot(resis_1mod_dist_noG)
+qqmath(resis_1mod_dist_noG)
+summary(resis_1mod_dist_noG) #nothing significant when gila removed
+
+dredge(resis_1mod_dist) ##null model is best 
+```
+
+```{r}
+#####3 year
+RR2_clim<- spline_calcs_list[[2]] %>% 
+  left_join(prov_pcapts) %>% 
+  left_join(pca_dist_df) %>% 
+  left_join(geo.dist.df)
+
+ggplot(RR2_clim, aes(x=PC2, y=resilience))+
+  geom_point()+
+  geom_smooth(method="lm")
+
+##PCA models
+resis_2mod_pcx <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2) + (1|Provenance), data=RR2_clim)
+plot(resis_2mod_pcx)
+qqmath(resis_2mod_pcx)
+summary(resis_2mod_pcx) 
+
+resis_2mod_pcx_noG <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2)+ (1|Provenance), data=RR2_clim %>% filter(!Provenance=="Gila NF"))
+plot(resis_2mod_pcx_noG)
+qqmath(resis_2mod_pcx_noG)
+summary(resis_2mod_pcx_noG) #nothing significant 
+
+dredge(resis_2mod_pcx) ##null model is the best
+
+resis_2mod_pcy <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2) + (1|Provenance), data=RR2_clim)
+plot(resis_2mod_pcy)
+qqmath(resis_2mod_pcy)
+summary(resis_2mod_pcy) 
+
+resis_2mod_pcy_noG <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2)+ (1|Provenance), data=RR2_clim %>% filter(!Provenance=="Gila NF"))
+plot(resis_2mod_pcy_noG)
+qqmath(resis_2mod_pcy_noG)
+summary(resis_2mod_pcy_noG) 
+
+dredge(resis_2mod_pcy) ##null model is the best 
+
+#distance model
+resis_2mod_dist <- lmer(log(resistance) ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR2_clim)
+plot(resis_2mod_dist)
+qqmath(resis_2mod_dist)
+summary(resis_2mod_dist) 
+
+resis_2mod_dist_noG <- lmer(log(resistance) ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR2_clim %>% filter(!Provenance=="Gila NF"))
+plot(resis_2mod_dist_noG)
+qqmath(resis_2mod_dist_noG)
+summary(resis_2mod_dist_noG) #nothing significant when gila removed
+
+dredge(resis_2mod_dist) ##null model is best 
+```
+
+```{r}
+#####5 year
+RR3_clim<- spline_calcs_list[[3]] %>% 
+  left_join(prov_pcapts) %>% 
+  left_join(pca_dist_df) %>% 
+  left_join(geo.dist.df)
+
+ggplot(RR3_clim, aes(x=PC2, y=resilience))+
+  geom_point()+
+  geom_smooth(method="lm")
+
+##PCA models
+resis_3mod_pcx <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2) + (1|Provenance), data=RR3_clim)
+plot(resis_3mod_pcx)
+qqmath(resis_3mod_pcx)
+summary(resis_3mod_pcx) 
+
+resis_3mod_pcx_noG <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2)+ (1|Provenance), data=RR3_clim %>% filter(!Provenance=="Gila NF"))
+plot(resis_3mod_pcx_noG)
+qqmath(resis_3mod_pcx_noG)
+summary(resis_3mod_pcx_noG) #nothing significant 
+
+dredge(resis_3mod_pcx) ##null model is the best
+
+resis_3mod_pcy <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2) + (1|Provenance), data=RR3_clim)
+plot(resis_3mod_pcy)
+qqmath(resis_3mod_pcy)
+summary(resis_3mod_pcy) 
+
+resis_3mod_pcy_noG <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2)+ (1|Provenance), data=RR3_clim %>% filter(!Provenance=="Gila NF"))
+plot(resis_3mod_pcy_noG)
+qqmath(resis_3mod_pcy_noG)
+summary(resis_3mod_pcy_noG) 
+
+dredge(resis_3mod_pcy) ##null model is the best 
+
+#distance model
+resis_3mod_dist <- lmer(log(resistance) ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR3_clim)
+plot(resis_3mod_dist)
+qqmath(resis_3mod_dist)
+summary(resis_3mod_dist) 
+
+resis_3mod_dist_noG <- lmer(log(resistance) ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR3_clim %>% filter(!Provenance=="Gila NF"))
+plot(resis_3mod_dist_noG)
+qqmath(resis_3mod_dist_noG)
+summary(resis_3mod_dist_noG) #nothing significant when gila removed
+
+dredge(resis_3mod_dist) ##null model is best 
+```
+
+```{r}
+#####7 year
+RR4_clim<- spline_calcs_list[[4]] %>% 
+  left_join(prov_pcapts) %>% 
+  left_join(pca_dist_df) %>% 
+  left_join(geo.dist.df)
+
+ggplot(RR4_clim, aes(x=PC2, y=resilience))+
+  geom_point()+
+  geom_smooth(method="lm")
+
+##PCA models
+resis_4mod_pcx <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2) + (1|Provenance), data=RR4_clim)
+plot(resis_4mod_pcx)
+qqmath(resis_4mod_pcx)
+summary(resis_4mod_pcx) 
+
+resis_4mod_pcx_noG <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2)+ (1|Provenance), data=RR4_clim %>% filter(!Provenance=="Gila NF"))
+plot(resis_4mod_pcx_noG)
+qqmath(resis_4mod_pcx_noG)
+summary(resis_4mod_pcx_noG) #nothing significant 
+
+dredge(resis_4mod_pcx) ##null model is the best
+
+resis_4mod_pcy <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2) + (1|Provenance), data=RR4_clim)
+plot(resis_4mod_pcy)
+qqmath(resis_4mod_pcy)
+summary(resis_4mod_pcy) 
+
+resis_4mod_pcy_noG <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2)+ (1|Provenance), data=RR4_clim %>% filter(!Provenance=="Gila NF"))
+plot(resis_4mod_pcy_noG)
+qqmath(resis_4mod_pcy_noG)
+summary(resis_4mod_pcy_noG) 
+
+dredge(resis_4mod_pcy) ##null model is the best 
+
+#distance model
+resis_4mod_dist <- lmer(log(resistance) ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR4_clim)
+plot(resis_4mod_dist)
+qqmath(resis_4mod_dist)
+summary(resis_4mod_dist) 
+
+resis_4mod_dist_noG <- lmer(log(resistance) ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR4_clim %>% filter(!Provenance=="Gila NF"))
+plot(resis_4mod_dist_noG)
+qqmath(resis_4mod_dist_noG)
+summary(resis_4mod_dist_noG) #nothing significant when gila removed
+
+dredge(resis_4mod_dist) ##null model is best 
 ```
 
 #####resilience
