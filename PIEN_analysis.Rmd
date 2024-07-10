@@ -112,7 +112,6 @@ prov_clim_adjusted_bi_long<- prov_clim_adjusted_bi %>%
   pivot_longer(MAT:monsoonality) %>% 
   mutate(type="adj bilinear") 
 
-
 #nffd x map
 ggplot()+
   geom_point(data=prov_clim_adjusted_bi, size=3, aes(x=nffd, y=map), col="aquamarine3")+
@@ -135,11 +134,18 @@ prov_vars<- prov_clim_adjusted_bi %>%
   left_join(prov_names) %>% 
   pivot_longer(MAT:smrpb, names_to = "var", values_to = "value")
 
-ggplot(prov_vars, aes(x=factor(Provenance), y=value))+
+order<- prov_clim_adjusted_bi %>% 
+  arrange(y) %>% 
+  pull(Provenance)
+
+png("figures/prov_clim_plot.png", width=12, height=8, units="in", res=500)
+ggplot(prov_vars, aes(x=factor(Provenance, levels=order), y=value, col=factor(Provenance, levels=order)))+
   geom_point(size=4)+
-  facet_wrap(~var, scales="free")+
-  scale_color_manual(values=heat.colors(21))+
-  theme(axis.text.x = element_text(angle=45,hjust=1), legend.position = 'none')
+  facet_wrap(~var, scales="free_y")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  theme(axis.text.x = element_text(angle=45,hjust=1, size=10), legend.position = 'none', strip.text=element_text(size=12), axis.title.x = element_blank())
+dev.off()
+
 ```
 
 ##PRISM
@@ -233,7 +239,6 @@ tmean_summed <- as.data.frame(tmean_comb_plantation) %>%
 
 ggplot(tmean_summed %>% filter(CN=="Plantation"), aes(x=year, y=tmean)) +
   geom_point()+
-  geom_line()+
   geom_hline(yintercept=mean(tmean_summed %>% filter(CN=="Plantation") %>% pull(tmean)), col="red")
 
 ##seasonal temps
@@ -525,6 +530,7 @@ plantation_clim_long_qs<- plantation_clim_long %>%
   group_by(name) %>% 
   summarise(q2.5 = quantile(value, 0.025), q97.5 = quantile(value, 0.975), out.hi = quantile(value, c(0.75))  + IQR(value)*1.5, out.low = quantile(value, c(0.75)) - IQR(value)*1.5))
 
+data.frame(climvar = unique(plantation_clim_long_qs$name)) %>% write.csv("plantation_clim_vars.csv")
 ##look at years where each climate variable exceeded the 97.5th (or 2.5th) percentile - these are years of potentially extreme climate 
 ggplot(plantation_clim_long_qs, aes(x=year, y=value, col=name))+
   geom_point()+
@@ -2036,41 +2042,42 @@ left_join(moniger_data_comb %>%
   dplyr::select(c(SORT, PC1, PC2, x, y, code))) %>% 
   filter(!(is.na(height)|is.na(DBH)|is.na(Cones)))
 
-cone_clim_mod_htx <- glmer(Cones ~ scale(height)*scale(PC1) + I(scale(PC1)^2) + scale(height)*scale(PC2) + I(scale(PC2)^2) + scale(height)*scale(x) + I(scale(x)^2)+ (1|code) + (1|year), data=moniger_subset, family="binomial")
+cone_clim_mod_htx <- glmer(Cones ~ scale(height)*PC1 + I(PC1^2) + scale(height)*PC2 + I(PC2^2) + scale(height)*scale(x) + I(scale(x)^2)+ (1|code) + (1|year), data=moniger_subset, family="binomial")
 summary(cone_clim_mod_htx)
 
-cone_clim_mod_hty <- glmer(Cones ~ scale(height)*scale(PC1) + I(scale(PC1)^2) + scale(height)*scale(PC2) + I(scale(PC2)^2) + scale(height)*scale(y) + I(scale(y)^2)+ (1|code) + (1|year), data=moniger_subset, family="binomial")
+cone_clim_mod_hty <- glmer(Cones ~ scale(height)*PC1 + I(PC1^2) + scale(height)*PC2 + I(PC2^2) + scale(height)*scale(y) + I(scale(y)^2)+ (1|code) + (1|year), data=moniger_subset, family="binomial")
 summary(cone_clim_mod_hty)
 
-cone_clim_mod_dbhx <- glmer(Cones ~ scale(DBH)*scale(PC1) + I(scale(PC1)^2) + scale(DBH)*scale(PC2) + I(scale(PC2)^2) + scale(DBH)*scale(x) + I(scale(x)^2)+ (1|code) + (1|year), data=moniger_subset, family="binomial")
+cone_clim_mod_dbhx <- glmer(Cones ~ scale(DBH)*PC1 + I(PC1^2) + scale(DBH)*PC2 + I(PC2^2) + scale(DBH)*scale(x) + I(scale(x)^2)+ (1|code) + (1|year), data=moniger_subset, family="binomial")
 summary(cone_clim_mod_dbhx)
 
-cone_clim_mod_dbhy <- glmer(Cones ~ scale(DBH)*scale(PC1) + I(scale(PC1)^2) + scale(DBH)*scale(PC2) + I(scale(PC2)^2) + scale(DBH)*scale(y) + I(scale(y)^2)+ (1|code) + (1|year), data=moniger_subset, family="binomial")
+cone_clim_mod_dbhy <- glmer(Cones ~ scale(DBH)*PC1 + I(PC1^2) + scale(DBH)*PC2 + I(PC2^2) + scale(DBH)*scale(y) + I(scale(y)^2)+ (1|code) + (1|year), data=moniger_subset, family="binomial")
 summary(cone_clim_mod_dbhy)
 
 AICc(cone_clim_mod_hty, cone_clim_mod_dbhx, cone_clim_mod_dbhy,cone_clim_mod_htx) #htx is lowest
 
-#dredge.cone.clim <- dredge(cone_clim_mod_htx)
-#saveRDS(dredge.cone.clim, "dredge.cone.clim.RDS")
+# dredge.cone.clim <- dredge(cone_clim_mod_htx)
+# saveRDS(dredge.cone.clim, "dredge.cone.clim.RDS")
 dredge.cone.clim <- readRDS("dredge.cone.clim.RDS")
 dredge.cone.clim
 
-best.mod.cone.clim <- glmer(Cones ~ scale(height)*scale(x) + scale(PC1) + I(scale(PC1)^2) + (1|code) + (1|year), data= moniger_subset, family = "binomial")
+moniger_subset_nog <- moniger_subset %>% filter(!code=="GiNF")
+
+cone_clim_mod_htx_nog <- glmer(Cones ~ scale(height)*PC1 + I(PC1^2) + scale(height)*PC2 + I(PC2^2) + scale(height)*scale(x) + I(scale(x)^2)+ (1|code) + (1|year), data=moniger_subset_nog, family="binomial")
+summary(cone_clim_mod_htx_nog)
+
+best.mod.cone.clim <- glmer(Cones ~ scale(height)*scale(x) + PC1 + I(PC1^2) + (1|code) + (1|year), data= moniger_subset, family = "binomial")
 summary(best.mod.cone.clim)
 
-cone_clim_mod_glm <- glm(Cones ~  scale(height)*scale(x) + scale(PC1) + I(scale(PC1)^2), data=moniger_subset, family="binomial")
-summary(cone_clim_mod_glm)
-
-cone_clim_mod_glm <- glm(Cones ~ scale(height)*scale(PC1) + I(scale(PC1)^2) + scale(height)*scale(PC2) + I(scale(PC2)^2) + scale(height)*scale(x) + I(scale(x)^2), data=moniger_subset, family="binomial")
-
+best.mod.cone.clim_nog <- glmer(Cones ~ scale(height)*scale(x) + PC1 + I(PC1^2) + (1|code) + (1|year), data= moniger_subset %>% filter(!code=="GiNF"), family = "binomial")
+summary(best.mod.cone.clim_nog)
 
 ##predictions
-CCnewdata1 <- with(moniger_subset, data.frame(height = seq(min(height),max(height),length.out=50), 
-                                              PC1=mean(PC1), 
-                                              PC2 = mean(PC2), 
-                                              x = rep(seq(-121, -105, 2),each=50)))
+CCnewdata1 <- with(moniger_subset, data.frame(height = seq(min(height),max(height),length.out=50), PC1=mean(PC1), PC2 = mean(PC2), x = rep(seq(-121, -105, 2),each=50)))
 
-CCnewdata2 <- cbind(CCnewdata1, predict(object=cone_clim_mod_glm, newdata = CCnewdata1, type = "link", se=TRUE, predict.all=TRUE))
+cone_clim_mod_glm <- glm(Cones ~ scale(height)*scale(x) + PC1 + I(PC1^2), data= moniger_subset, family = "binomial")
+
+CCnewdata2 <- cbind(CCnewdata1, predict(cone_clim_mod_glm, newdata = CCnewdata1, type = "link", se=TRUE))
 CCnewdata3 <- within(CCnewdata2, {
     PredictedProb <- plogis(fit)
     LL <- plogis(fit - (1.96 * se.fit))
@@ -2099,15 +2106,26 @@ cone_dist_data <- moniger_subset %>%
   left_join(geo.dist.df) %>% 
   filter(!is.na(Cones))
 
+cone_dist_data_nog <- cone_dist_data %>% filter(!Provenance == "Gila NF")
+
 cone_dist_mod <- glmer(Cones ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km)*scale(height) + (1|code) + (1|year), data=cone_dist_data, family="binomial")
 plot(cone_dist_mod)
 summary(cone_dist_mod)
 
-cone_dist_mod_nog <- glmer(Cones ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km)*scale(height) + (1|code) + (1|year), data=cone_dist_data %>% filter(!Provenance == "Gila NF"), family="binomial")
+cone_dist_mod_nog <- glmer(Cones ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km)*scale(height) + (1|code) + (1|year), data=cone_dist_data_nog, family="binomial")
 plot(cone_dist_mod_nog)
 summary(cone_dist_mod_nog)
 
-cone_dist_mod_glm <- glm(Cones ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km)*scale(height), data=cone_dist_data, family="binomial")
+dredge.cone.dist <- dredge(cone_dist_mod)
+dredge.cone.dist
+
+dredge.cone.dist.nog <- dredge(cone_dist_mod_nog)
+dredge.cone.dist.nog
+
+cone_dist_bestmod <- glmer(Cones ~ scale(geo.dist.to.plant.km)*scale(height) + (1|code) + (1|year), data=cone_dist_data, family="binomial")
+summary(cone_dist_bestmod)
+
+cone_dist_mod_glm <- glm(Cones ~ scale(geo.dist.to.plant.km)*scale(height), data=cone_dist_data, family="binomial")
 
 ##predictions
 CDnewdata1 <- with(cone_dist_data, data.frame(geo.dist.to.plant.km = rep(seq(80,1600, by=190), each=50), 
@@ -2127,7 +2145,10 @@ ggplot(CDnewdata3, aes(x = height, y = PredictedProb, col=factor(geo.dist.to.pla
   scale_fill_viridis(discrete = TRUE)
 
 #no g predictions
-cone_dist_mod_glm_nog <- glm(Cones ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km)*scale(height), data=cone_dist_data  %>% filter(!Provenance == "Gila NF"), family="binomial")
+cone_dist_bestmod_nog <- glmer(Cones ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km)*scale(height) + (1|code) + (1|year), data=cone_dist_data  %>% filter(!Provenance == "Gila NF"), family="binomial")
+summary(cone_dist_bestmod_nog)
+
+cone_dist_mod_glm_nog <- glm(Cones ~scale(dist.to.plant)*scale(geo.dist.to.plant.km)*scale(height) , data=cone_dist_data  %>% filter(!Provenance == "Gila NF"), family="binomial")
 
 CDNGnewdata1 <- expand.grid(dist.to.plant = seq(0,6, by=2), 
                                               geo.dist.to.plant.km=seq(80,1600,by=190), 
