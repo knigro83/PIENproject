@@ -3211,17 +3211,519 @@ all_resp_tmax
 all_resp_vpdmin
 all_resp_vpdmax
 
-all_seascorr <- seascorr(chrono = chron.growth.detrended.all,
-                         climate= list(ppt_comb_plantation_wide, tmean_comb_plantation_wide),
-                         var_names=c("ppt","tmean"))
+##just the common period
+
+common_resp_ppt<- dcc(chrono = chron.growth.detrended.common, 
+    climate = list(ppt_comb_plantation_wide),
+    var_names = c("ppt"))
+common_resp_tmin<- dcc(chrono = chron.growth.detrended.common, 
+    climate = list(tmin_comb_plantation_wide),
+    var_names = c("tmin"))
+common_resp_tmean<- dcc(chrono = chron.growth.detrended.common, 
+    climate = list(tmean_comb_plantation_wide),
+    var_names = c("tmean"))
+common_resp_tmax<- dcc(chrono = chron.growth.detrended.common, 
+    climate = list(tmax_comb_plantation_wide),
+    var_names = c("tmax"))
+common_resp_vpdmin<- dcc(chrono = chron.growth.detrended.common, 
+    climate = list(vpdmin_comb_plantation_wide),
+    var_names = c("vpdmin"))
+common_resp_vpdmax<- dcc(chrono = chron.growth.detrended.common, 
+    climate = list(vpdmax_comb_plantation_wide),
+    var_names = c("vpdmax"))
+common_resp_ppt
+common_resp_tmean
+common_resp_tmin
+common_resp_tmax
+common_resp_vpdmin ##current august vpdmin (negative relationship) is the only significant one
+common_resp_vpdmax
+
+###do all climate vars for each provenance separately
+
+##ppt
+chron.list=list()
+for(i in 1:length(provs_arranged_lat[-9])){
+  
+data<- growth.detrended.df %>% 
+  filter(Provenance==provs_arranged_lat[-9][i]) %>% 
+  dplyr::select(year,Series,rw_spline) %>% 
+  pivot_wider(names_from = Series, id_cols = year, values_from=rw_spline) %>% 
+  column_to_rownames(var="year") %>% 
+  chron()
+
+chron.list[[i]] = data }
+names(chron.list) = provs_arranged_lat[-9]
+
+ppt_treeclim_list<- list()
+for(i in 1:length(provs_arranged_lat[-9])){
+
+result <- dcc(chrono = chron.list[[i]], 
+    climate = list(ppt_comb_plantation_wide),
+    var_names = c("ppt")) 
+ppt_treeclim_list[[i]] = result$coef
+}
+names(ppt_treeclim_list) = provs_arranged_lat[-9]
+
+bind_rows(ppt_treeclim_list, .id="column_label") %>% 
+  filter(significant==TRUE)
+
+##tmean
+tmean_treeclim_list<- list()
+for(i in 1:length(provs_arranged_lat[-9])){
+
+result <- dcc(chrono = chron.list[[i]], 
+    climate = list(tmean_comb_plantation_wide),
+    var_names = c("tmean")) 
+tmean_treeclim_list[[i]] = result$coef
+}
+names(tmean_treeclim_list) = provs_arranged_lat[-9]
+
+bind_rows(tmean_treeclim_list, .id="column_label") %>% 
+  summary() #nothing significant
+
+##tmin
+tmin_treeclim_list<- list()
+for(i in 1:length(provs_arranged_lat[-9])){
+
+result <- dcc(chrono = chron.list[[i]], 
+    climate = list(tmin_comb_plantation_wide),
+    var_names = c("tmin")) 
+tmin_treeclim_list[[i]] = result$coef
+}
+names(tmin_treeclim_list) = provs_arranged_lat[-9]
+
+bind_rows(tmin_treeclim_list, .id="column_label") %>% 
+  filter(significant==TRUE)
+
+##tmax
+tmax_treeclim_list<- list()
+for(i in 1:length(provs_arranged_lat[-9])){
+
+result <- dcc(chrono = chron.list[[i]], 
+    climate = list(tmax_comb_plantation_wide),
+    var_names = c("tmax")) 
+tmax_treeclim_list[[i]] = result$coef
+}
+names(tmax_treeclim_list) = provs_arranged_lat[-9]
+
+bind_rows(tmax_treeclim_list, .id="column_label") %>% 
+  summary() #nothing significant
+
+#vpdmin
+vpdmin_treeclim_list<- list()
+for(i in 1:length(provs_arranged_lat[-9])){
+
+result <- dcc(chrono = chron.list[[i]], 
+    climate = list(vpdmin_comb_plantation_wide),
+    var_names = c("vpdmin")) 
+vpdmin_treeclim_list[[i]] = result$coef
+}
+names(vpdmin_treeclim_list) = provs_arranged_lat[-9]
+
+bind_rows(vpdmin_treeclim_list, .id="column_label") %>% 
+  filter(significant==TRUE)
+
+##vpdmax
+vpdmax_treeclim_list<- list()
+for(i in 1:length(provs_arranged_lat[-9])){
+
+result <- dcc(chrono = chron.list[[i]], 
+    climate = list(vpdmax_comb_plantation_wide),
+    var_names = c("vpdmax")) 
+vpdmax_treeclim_list[[i]] = result$coef
+}
+names(vpdmax_treeclim_list) = provs_arranged_lat[-9]
+
+bind_rows(vpdmax_treeclim_list, .id="column_label") %>% 
+  filter(significant==TRUE)
+
+```
+
+#####seasonal
+
+```{r}
+
+####seasonal with bioclimate vars
+cwd_date <- plantation_cwd %>% 
+  mutate(date=paste("1",month,year,sep="/")) %>% 
+  as.data.frame()
+  
+bioclim_date <- plantation_spei_sum %>%
+  mutate(date = paste(day(date),month(date),year(date),sep="/")) %>% 
+  dplyr::select(date, spei) %>% 
+  left_join(cwd_date, by="date")
+
+spei_date_wide <- bioclim_date %>% 
+  dplyr::select(year,month, spei) %>% 
+  pivot_wider(id_cols=c(year), names_from=c(month), values_from = spei) %>% 
+  as.data.frame()%>% 
+  filter(!year==2016)
+ colnames(spei_date_wide)=c("YEAR","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC")
+ 
+cwd_date_wide <- bioclim_date %>% 
+  dplyr::select(year,month, cwd) %>% 
+  pivot_wider(id_cols=c(year), names_from=c(month), values_from = cwd) %>% 
+  as.data.frame()%>% 
+  filter(!year==2016)
+ colnames(cwd_date_wide)=c("YEAR","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC")
+ 
+aet_date_wide <- bioclim_date %>% 
+  dplyr::select(year,month, aet) %>% 
+  pivot_wider(id_cols=c(year), names_from=c(month), values_from = aet) %>% 
+  as.data.frame() %>% 
+  filter(!year==2016)
+colnames(aet_date_wide)=c("YEAR","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC")
+ 
+
+spei_cwd_seascorr <- seascorr(chrono = chron.growth.detrended.all,
+                         climate= list(spei= spei_date_wide, cwd = cwd_date_wide),
+                         timespan = c(1971,2015),
+                         complete= 9,
+                         season_lengths=seq(4,12,1),
+                         primary=1,
+                         secondary=2,
+                         ci=0.05)
+plot(spei_cwd_seascorr)
 
 
-test2<- seascorr(chrono = chron.growth.detrended.all,
-                         climate= list(tmean_comb_plantation_wide, ppt_comb_plantation_wide),
-                         var_names=c("tmean","ppt"))
+spei_aet_seascorr <- seascorr(chrono = chron.growth.detrended.all,
+                         climate= list(spei= spei_date_wide, aet = aet_date_wide),
+                         timespan = c(1971,2015),
+                         complete= 9,
+                         season_lengths=seq(4,12,1),
+                         primary=1,
+                         secondary=2,
+                         ci=0.05)
+plot(spei_aet_seascorr)
 
-plot(all_seascorr)
-plot(test2)
+aet_cwd_seascorr <- seascorr(chrono = chron.growth.detrended.all,
+                         climate= list(aet= aet_date_wide, cwd = cwd_date_wide),
+                         timespan = c(1971,2015),
+                         complete= 9,
+                         season_lengths=seq(4,12,1),
+                         primary=1,
+                         secondary=2,
+                         ci=0.05)
+plot(aet_cwd_seascorr)
+
+aet_spei_seascorr <- seascorr(chrono = chron.growth.detrended.all,
+                         climate= list(aet= aet_date_wide, spei = spei_date_wide),
+                         timespan = c(1971,2015),
+                         complete= 9,
+                         season_lengths=seq(4,12,1),
+                         primary=1,
+                         secondary=2,
+                         ci=0.05)
+plot(aet_spei_seascorr)
+
+
+cwd_spei_seascorr <- seascorr(chrono = chron.growth.detrended.all,
+                         climate= list(cwd= cwd_date_wide, spei = spei_date_wide),
+                         timespan = c(1971,2015),
+                         complete= 9,
+                         season_lengths=seq(4,12,1),
+                         primary=1,
+                         secondary=2,
+                         ci=0.05)
+plot(cwd_spei_seascorr)
+
+cwd_aet_seascorr <- seascorr(chrono = chron.growth.detrended.all,
+                         climate= list(cwd= cwd_date_wide, aet = aet_date_wide),
+                         timespan = c(1971,2015),
+                         complete= 9,
+                         season_lengths=seq(4,12,1),
+                         primary=1,
+                         secondary=2,
+                         ci=0.05)
+plot(cwd_aet_seascorr)
+
+
+###do for all provenances separately
+
+spei_cwd_list <- list()
+for(i in 1:length(provs_arranged_lat[-9])){
+result <- seascorr(chrono = chron.list[[i]],
+                         climate= list(spei= spei_date_wide, cwd = cwd_date_wide),
+                         timespan = c(1985,2015),
+                         complete= 9,
+                         season_lengths=seq(4,12,1),
+                         primary=1,
+                         secondary=2,
+                         ci=0.05)
+spei_cwd_list[[i]]<- result
+}
+
+inner_result_spei_cwd<- list()
+outer_result_spei_cwd<- list()
+
+for(i in 1:length(provs_arranged_lat[-9])){
+for(j in 1:length(seq(4,12,1))){
+result<- bind_rows(spei_cwd_list[[i]]$coef[[j]]$primary %>% bind_cols(data.frame(month=c("Aug","Sep","Oct","Nov","Dec","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP"), var="primary", seasonl = seq(4,12,1)[j])) %>% 
+  filter(significant==TRUE),
+spei_cwd_list[[i]]$coef[[j]]$secondary %>% 
+bind_cols(data.frame(month=c("Aug","Sep","Oct","Nov","Dec","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP"), var = "secondary", seasonl = seq(4,12,1)[j])) %>% 
+  filter(significant==TRUE) 
+)
+ inner_result_spei_cwd[[j]]<- result}
+
+  inner_result_spei_cwd2 <- inner_result_spei_cwd[sapply(inner_result_spei_cwd, function(x) dim(x)[1])>0]
+  inner_result_spei_cwd3 <- bind_rows(inner_result_spei_cwd2)
+  outer_result_spei_cwd[[i]]<- inner_result_spei_cwd3}
+names(outer_result_spei_cwd)<- provs_arranged_lat[-9]
+
+spei_cwd_seas <- bind_rows(outer_result_spei_cwd, .id="Provenance") 
+
+spei_cwd_seas_allp <- spei_cwd_seas%>% 
+  bind_rows(data.frame(Provenance = data.frame(Provenance=provs_arranged_lat[-9]) %>% filter(!Provenance %in% spei_cwd_seas$Provenance),coef=0,significant=TRUE,month="AUG",var="primary",seasonl=4))
+
+ggplot(spei_cwd_seas_allp, aes(x=factor(month, levels=c("Aug","Sep","Oct","Nov","Dec","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP")), y=coef, fill=factor(Provenance, levels=provs_arranged_lat[-9])))+
+  geom_bar(stat="identity", position = position_dodge())+
+  facet_grid(rows=vars(factor(var, levels=c("primary","secondary"),labels=c("pri_spei","sec_cwd"))),cols=vars(seasonl), )+
+  scale_fill_manual(values=unname(stepped()), name="Provenance")+
+  theme_bw()+
+  ggtitle("spei, cwd")+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+```
+
+```{r}
+
+spei_aet_list <- list()
+for(i in 1:length(provs_arranged_lat[-9])){
+result <- seascorr(chrono = chron.list[[i]],
+                         climate= list(spei= spei_date_wide, aet = aet_date_wide),
+                         timespan = c(1985,2015),
+                         complete= 9,
+                         season_lengths=seq(4,12,1),
+                         primary=1,
+                         secondary=2,
+                         ci=0.05)
+spei_aet_list[[i]]<- result
+}
+
+inner_result_spei_aet<- list()
+outer_result_spei_aet<- list()
+
+for(i in 1:length(provs_arranged_lat[-9])){
+for(j in 1:length(seq(4,12,1))){
+result<- bind_rows(spei_aet_list[[i]]$coef[[j]]$primary %>% bind_cols(data.frame(month=c("Aug","Sep","Oct","Nov","Dec","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP"), var="primary", seasonl = seq(4,12,1)[j])) %>% 
+  filter(significant==TRUE),
+spei_aet_list[[i]]$coef[[j]]$secondary %>% 
+bind_cols(data.frame(month=c("Aug","Sep","Oct","Nov","Dec","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP"), var = "secondary", seasonl = seq(4,12,1)[j])) %>% 
+  filter(significant==TRUE) 
+)
+ inner_result_spei_aet[[j]]<- result}
+
+  inner_result_spei_aet2 <- inner_result_spei_aet[sapply(inner_result_spei_aet, function(x) dim(x)[1])>0]
+  inner_result_spei_aet3 <- bind_rows(inner_result_spei_aet2)
+  outer_result_spei_aet[[i]]<- inner_result_spei_aet3}
+names(outer_result_spei_aet)<- provs_arranged_lat[-9]
+
+spei_aet_seas <- bind_rows(outer_result_spei_aet, .id="Provenance") 
+
+spei_aet_seas_allp <- spei_aet_seas%>% 
+  bind_rows(data.frame(Provenance = data.frame(Provenance=provs_arranged_lat[-9]) %>% filter(!Provenance %in% spei_aet_seas$Provenance),coef=0,significant=TRUE,month="AUG",var="primary",seasonl=4))
+
+ggplot(spei_aet_seas_allp, aes(x=factor(month, levels=c("Aug","Sep","Oct","Nov","Dec","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP")), y=coef, fill=factor(Provenance, levels=provs_arranged_lat[-9])))+
+  geom_bar(stat="identity", position = position_dodge())+
+  facet_grid(rows=vars(factor(var, levels=c("primary","secondary"),labels=c("pri_spei","sec_aet"))),cols=vars(seasonl), )+
+  scale_fill_manual(values=unname(stepped()), name="Provenance")+
+  theme_bw()+
+  ggtitle("spei, aet")+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+```
+
+```{r}
+
+cwd_aet_list <- list()
+for(i in 1:length(provs_arranged_lat[-9])){
+result <- seascorr(chrono = chron.list[[i]],
+                         climate= list(cwd= cwd_date_wide, aet = aet_date_wide),
+                         timespan = c(1985,2015),
+                         complete= 9,
+                         season_lengths=seq(4,12,1),
+                         primary=1,
+                         secondary=2,
+                         ci=0.05)
+cwd_aet_list[[i]]<- result
+}
+
+inner_result_cwd_aet<- list()
+outer_result_cwd_aet<- list()
+
+for(i in 1:length(provs_arranged_lat[-9])){
+for(j in 1:length(seq(4,12,1))){
+result<- bind_rows(cwd_aet_list[[i]]$coef[[j]]$primary %>% bind_cols(data.frame(month=c("Aug","Sep","Oct","Nov","Dec","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP"), var="primary", seasonl = seq(4,12,1)[j])) %>% 
+  filter(significant==TRUE),
+cwd_aet_list[[i]]$coef[[j]]$secondary %>% 
+bind_cols(data.frame(month=c("Aug","Sep","Oct","Nov","Dec","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP"), var = "secondary", seasonl = seq(4,12,1)[j])) %>% 
+  filter(significant==TRUE) 
+)
+ inner_result_cwd_aet[[j]]<- result}
+
+  inner_result_cwd_aet2 <- inner_result_cwd_aet[sapply(inner_result_cwd_aet, function(x) dim(x)[1])>0]
+  inner_result_cwd_aet3 <- bind_rows(inner_result_cwd_aet2)
+  outer_result_cwd_aet[[i]]<- inner_result_cwd_aet3}
+names(outer_result_cwd_aet)<- provs_arranged_lat[-9]
+
+cwd_aet_seas <- bind_rows(outer_result_cwd_aet, .id="Provenance") 
+
+cwd_aet_seas_allp <- cwd_aet_seas%>% 
+  bind_rows(data.frame(Provenance = data.frame(Provenance=provs_arranged_lat[-9]) %>% filter(!Provenance %in% cwd_aet_seas$Provenance),coef=0,significant=TRUE,month="AUG",var="primary",seasonl=4))
+
+ggplot(cwd_aet_seas_allp, aes(x=factor(month, levels=c("Aug","Sep","Oct","Nov","Dec","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP")), y=coef, fill=factor(Provenance, levels=provs_arranged_lat[-9])))+
+  geom_bar(stat="identity", position = position_dodge())+
+  facet_grid(rows=vars(factor(var, levels=c("primary","secondary"),labels=c("pri_cwd","sec_aet"))),cols=vars(seasonl), )+
+  scale_fill_manual(values=unname(stepped()), name="Provenance")+
+  theme_bw()+
+  ggtitle("cwd, aet")+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+```
+
+```{r}
+
+cwd_spei_list <- list()
+for(i in 1:length(provs_arranged_lat[-9])){
+result <- seascorr(chrono = chron.list[[i]],
+                         climate= list(cwd= cwd_date_wide, spei = spei_date_wide),
+                         timespan = c(1985,2015),
+                         complete= 9,
+                         season_lengths=seq(4,12,1),
+                         primary=1,
+                         secondary=2,
+                         ci=0.05)
+cwd_spei_list[[i]]<- result
+}
+
+inner_result_cwd_spei<- list()
+outer_result_cwd_spei<- list()
+
+for(i in 1:length(provs_arranged_lat[-9])){
+for(j in 1:length(seq(4,12,1))){
+result<- bind_rows(cwd_spei_list[[i]]$coef[[j]]$primary %>% bind_cols(data.frame(month=c("Aug","Sep","Oct","Nov","Dec","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP"), var="primary", seasonl = seq(4,12,1)[j])) %>% 
+  filter(significant==TRUE),
+cwd_spei_list[[i]]$coef[[j]]$secondary %>% 
+bind_cols(data.frame(month=c("Aug","Sep","Oct","Nov","Dec","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP"), var = "secondary", seasonl = seq(4,12,1)[j])) %>% 
+  filter(significant==TRUE) 
+)
+ inner_result_cwd_spei[[j]]<- result}
+
+  inner_result_cwd_spei2 <- inner_result_cwd_spei[sapply(inner_result_cwd_spei, function(x) dim(x)[1])>0]
+  inner_result_cwd_spei3 <- bind_rows(inner_result_cwd_spei2)
+  outer_result_cwd_spei[[i]]<- inner_result_cwd_spei3}
+names(outer_result_cwd_spei)<- provs_arranged_lat[-9]
+
+cwd_spei_seas <- bind_rows(outer_result_cwd_spei, .id="Provenance") 
+
+cwd_spei_seas_allp <- cwd_spei_seas%>% 
+  bind_rows(data.frame(Provenance = data.frame(Provenance=provs_arranged_lat[-9]) %>% filter(!Provenance %in% cwd_spei_seas$Provenance),coef=0,significant=TRUE,month="AUG",var="primary",seasonl=4))
+
+ggplot(cwd_spei_seas_allp, aes(x=factor(month, levels=c("Aug","Sep","Oct","Nov","Dec","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP")), y=coef, fill=factor(Provenance, levels=provs_arranged_lat[-9])))+
+  geom_bar(stat="identity", position = position_dodge())+
+  facet_grid(rows=vars(factor(var, levels=c("primary","secondary"),labels=c("pri_cwd","sec_spei"))),cols=vars(seasonl), )+
+  scale_fill_manual(values=unname(stepped()), name="Provenance")+
+  theme_bw()+
+  ggtitle("cwd, spei")+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+```
+
+```{r}
+
+aet_cwd_list <- list()
+for(i in 1:length(provs_arranged_lat[-9])){
+result <- seascorr(chrono = chron.list[[i]],
+                         climate= list(aet= aet_date_wide, cwd = cwd_date_wide),
+                         timespan = c(1985,2015),
+                         complete= 9,
+                         season_lengths=seq(4,12,1),
+                         primary=1,
+                         secondary=2,
+                         ci=0.05)
+aet_cwd_list[[i]]<- result
+}
+
+inner_result_aet_cwd<- list()
+outer_result_aet_cwd<- list()
+
+for(i in 1:length(provs_arranged_lat[-9])){
+for(j in 1:length(seq(4,12,1))){
+result<- bind_rows(aet_cwd_list[[i]]$coef[[j]]$primary %>% bind_cols(data.frame(month=c("Aug","Sep","Oct","Nov","Dec","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP"), var="primary", seasonl = seq(4,12,1)[j])) %>% 
+  filter(significant==TRUE),
+aet_cwd_list[[i]]$coef[[j]]$secondary %>% 
+bind_cols(data.frame(month=c("Aug","Sep","Oct","Nov","Dec","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP"), var = "secondary", seasonl = seq(4,12,1)[j])) %>% 
+  filter(significant==TRUE) 
+)
+ inner_result_aet_cwd[[j]]<- result}
+
+  inner_result_aet_cwd2 <- inner_result_aet_cwd[sapply(inner_result_aet_cwd, function(x) dim(x)[1])>0]
+  inner_result_aet_cwd3 <- bind_rows(inner_result_aet_cwd2)
+  outer_result_aet_cwd[[i]]<- inner_result_aet_cwd3}
+names(outer_result_aet_cwd)<- provs_arranged_lat[-9]
+
+aet_cwd_seas <- bind_rows(outer_result_aet_cwd, .id="Provenance") 
+
+aet_cwd_seas_allp <- aet_cwd_seas%>% 
+  bind_rows(data.frame(Provenance = data.frame(Provenance=provs_arranged_lat[-9]) %>% filter(!Provenance %in% aet_cwd_seas$Provenance),coef=0,significant=TRUE,month="AUG",var="primary",seasonl=4))
+
+ggplot(aet_cwd_seas_allp, aes(x=factor(month, levels=c("Aug","Sep","Oct","Nov","Dec","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP")), y=coef, fill=factor(Provenance, levels=provs_arranged_lat[-9])))+
+  geom_bar(stat="identity", position = position_dodge())+
+  facet_grid(rows=vars(factor(var, levels=c("primary","secondary"),labels=c("pri_aet","sec_cwd"))),cols=vars(seasonl), )+
+  scale_fill_manual(values=unname(stepped()), name="Provenance")+
+  theme_bw()+
+  ggtitle("aet, cwd")+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+```
+
+```{r}
+
+aet_spei_list <- list()
+for(i in 1:length(provs_arranged_lat[-9])){
+result <- seascorr(chrono = chron.list[[i]],
+                         climate= list(aet= aet_date_wide, spei = spei_date_wide),
+                         timespan = c(1985,2015),
+                         complete= 9,
+                         season_lengths=seq(4,12,1),
+                         primary=1,
+                         secondary=2,
+                         ci=0.05)
+aet_spei_list[[i]]<- result
+}
+
+inner_result_aet_spei<- list()
+outer_result_aet_spei<- list()
+
+for(i in 1:length(provs_arranged_lat[-9])){
+for(j in 1:length(seq(4,12,1))){
+result<- bind_rows(aet_spei_list[[i]]$coef[[j]]$primary %>% bind_cols(data.frame(month=c("Aug","Sep","Oct","Nov","Dec","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP"), var="primary", seasonl = seq(4,12,1)[j])) %>% 
+  filter(significant==TRUE),
+aet_spei_list[[i]]$coef[[j]]$secondary %>% 
+bind_cols(data.frame(month=c("Aug","Sep","Oct","Nov","Dec","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP"), var = "secondary", seasonl = seq(4,12,1)[j])) %>% 
+  filter(significant==TRUE) 
+)
+ inner_result_aet_spei[[j]]<- result}
+
+  inner_result_aet_spei2 <- inner_result_aet_spei[sapply(inner_result_aet_spei, function(x) dim(x)[1])>0]
+  inner_result_aet_spei3 <- bind_rows(inner_result_aet_spei2)
+  outer_result_aet_spei[[i]]<- inner_result_aet_spei3}
+names(outer_result_aet_spei)<- provs_arranged_lat[-9]
+
+aet_spei_seas <- bind_rows(outer_result_aet_spei, .id="Provenance") 
+
+aet_spei_seas_allp <- aet_spei_seas%>% 
+  bind_rows(data.frame(Provenance = data.frame(Provenance=provs_arranged_lat[-9]) %>% filter(!Provenance %in% aet_spei_seas$Provenance),coef=0,significant=TRUE,month="AUG",var="primary",seasonl=4))
+
+ggplot(aet_spei_seas_allp, aes(x=factor(month, levels=c("Aug","Sep","Oct","Nov","Dec","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP")), y=coef, fill=factor(Provenance, levels=provs_arranged_lat[-9])))+
+  geom_bar(stat="identity", position = position_dodge())+
+  facet_grid(rows=vars(factor(var, levels=c("primary","secondary"),labels=c("pri_aet","sec_spei"))),cols=vars(seasonl), )+
+  scale_fill_manual(values=unname(stepped()), name="Provenance")+
+  theme_bw()+
+  ggtitle("aet, spei")+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
 ```
 
 ####climwin
@@ -3299,37 +3801,73 @@ head(output[[1]]$Dataset)
 plotdelta(output[[1]]$Dataset)
 medwin(output[[1]]$Dataset)
 
-dataset1 <- output[[1]]$Dataset
-ConfidenceSet <- dataset1[which(cumsum(dataset1$ModWeight) <= 0.95),]
-sum(ConfidenceSet$ModelBeta*ConfidenceSet$ModWeight)
+dataset_ppt <- output[[1]]$Dataset
+ConfidenceSet_ppt <- dataset_ppt[which(cumsum(dataset_ppt$ModWeight) <= 0.95),]
+sum(ConfidenceSet_ppt$ModelBeta*ConfidenceSet_ppt$ModWeight)
 
-summary(output[[1]]$BestModel)
-  
-# View output for func = "quad"
- 
-head(output[[2]]$Dataset)
-summary(output[[2]]$BestModel)
+dataset_tmean <- output[[2]]$Dataset
+ConfidenceSet_tmean <- dataset_tmean[which(cumsum(dataset_tmean$ModWeight) <= 0.95),]
+sum(ConfidenceSet_tmean$ModelBeta*ConfidenceSet_tmean$ModWeight)
+plotdelta(output[[2]]$Dataset)
+medwin(output[[2]]$Dataset)
 
-##Although these results point to the presence of a strong climate signal in F. coelebs laying date, we cannot be sure that this result has not occurred due to chance. To test this possibility, we next run the randomisation procedure using the function randwin, with repeats = 5.
+dataset_tmin <- output[[3]]$Dataset
+ConfidenceSet_tmin <- dataset_tmin[which(cumsum(dataset_tmin$ModWeight) <= 0.95),]
+sum(ConfidenceSet_tmin$ModelBeta*ConfidenceSet_tmin$ModWeight)
+plotdelta(output[[3]]$Dataset)
+medwin(output[[3]]$Dataset)
+summary(output[[3]]$BestModel)
+
+
+dataset_tmax <- output[[4]]$Dataset
+ConfidenceSet_tmax <- dataset_tmax[which(cumsum(dataset_tmax$ModWeight) <= 0.95),]
+sum(ConfidenceSet_tmax$ModelBeta*ConfidenceSet_tmax$ModWeight)
+plotdelta(output[[4]]$Dataset)
+summary(output[[4]]$BestModel)
+
+
+dataset_vpdmin <- output[[5]]$Dataset
+ConfidenceSet_vpdmin <- dataset_vpdmin[which(cumsum(dataset_vpdmin$ModWeight) <= 0.95),]
+sum(ConfidenceSet_vpdmin$ModelBeta*ConfidenceSet_vpdmin$ModWeight)
+plotdelta(output[[5]]$Dataset)
+medwin(output[[5]]$Dataset)
+
+dataset_vpdmax <- output[[6]]$Dataset
+ConfidenceSet_vpdmax <- dataset_vpdmax[which(cumsum(dataset_vpdmax$ModWeight) <= 0.95),]
+sum(ConfidenceSet_vpdmax$ModelBeta*ConfidenceSet_vpdmax$ModWeight)
+plotdelta(output[[6]]$Dataset)
+
+
+## To test if the climate signal could have occurred due to chance, we next run the randomisation procedure using the function randwin, with repeats = 5.
 
 output.rand <- randwin(repeats = 5, 
-                       baseline = lm(rw ~ 1, data=rwi_test),
-                       xvar = list(ppt = ppt_comb_plantation_update$ppt,
-                               tmean = tmean_comb_plantation_update$tmean),
-                       cdate = ppt_comb_plantation_update$newdate,
-                       bdate = rwi_test$date,
-                       range = c(24,0),
-                       type="absolute", refday = c(1,12),
-                       stat = "mean",
-                       func = c("lin","quad"),
-                       cmissing = FALSE,
-                       cinterval = "month")
+                       exclude = c(2,12),
+          xvar=list(ppt = ppt_comb_plantation_update$ppt,
+                               tmean = tmean_comb_plantation_update$tmean,
+                               tmin = tmin_comb_plantation_update$tmin,
+                               tmax = tmax_comb_plantation_update$tmax,
+                               vpdmin = vpdmin_comb_plantation_update$vpdmin,
+                               vpdmax = vpdmax_comb_plantation_update$vpdmax),
+           cdate = ppt_comb_plantation_update$newdate,
+           bdate = growth.detrended.common.df$date,
+           baseline = lm(value ~ Provenance, data=growth.detrended.common.df),
+           range = c(24,0),
+           type="absolute", refday = c(1,10),
+           stat = "mean",
+           func = c("lin"),
+           cmissing = FALSE,
+           cinterval = "month")
 
 
 #The output of the randwin function can then be used to run the function pvalue to return a value of PC.
 
-pvalue(dataset = output[[1]]$Dataset, datasetrand = output.rand[[1]], metric = "C", sample.size = 20)  ##high pvalue means that this climate signal is not very strong (high probability that it occurred by chance)
- 
+pvalue(dataset = output[[1]]$Dataset, datasetrand = output.rand[[1]], metric = "C", sample.size = 2720)  ##high pvalue means that this climate signal is not very strong (high probability that it occurred by chance)
+pvalue(dataset = output[[2]]$Dataset, datasetrand = output.rand[[2]], metric = "C", sample.size = 2720)
+pvalue(dataset = output[[3]]$Dataset, datasetrand = output.rand[[3]], metric = "C", sample.size = 2720)
+pvalue(dataset = output[[4]]$Dataset, datasetrand = output.rand[[4]], metric = "C", sample.size = 2720)
+pvalue(dataset = output[[5]]$Dataset, datasetrand = output.rand[[5]], metric = "C", sample.size = 2720)
+pvalue(dataset = output[[6]]$Dataset, datasetrand = output.rand[[6]], metric = "C", sample.size = 2720)
+
 ##using cross validation
 outputk <- slidingwin(xvar=list(ppt = ppt_comb_plantation_update$ppt,
                                tmean = tmean_comb_plantation_update$tmean),
@@ -3347,23 +3885,123 @@ outputk <- slidingwin(xvar=list(ppt = ppt_comb_plantation_update$ppt,
 outputk$combos
 
 output.randk <- randwin(repeats = 5, 
-                       baseline = lm(rw ~ 1, data=rwi_test),
-                       xvar = list(ppt = ppt_comb_plantation_update$ppt,
-                               tmean = tmean_comb_plantation_update$tmean),
-                       cdate = ppt_comb_plantation_update$newdate,
-                       bdate = rwi_test$date,
-                       range = c(24,0),
-                       type="absolute", refday = c(1,12),
-                       stat = "mean",
-                       func = c("lin","quad"),
-                       cmissing = FALSE,
-                       cinterval = "month",
+                       exclude = c(2,12),
+          xvar=list(ppt = ppt_comb_plantation_update$ppt,
+                               tmean = tmean_comb_plantation_update$tmean,
+                               tmin = tmin_comb_plantation_update$tmin,
+                               tmax = tmax_comb_plantation_update$tmax,
+                               vpdmin = vpdmin_comb_plantation_update$vpdmin,
+                               vpdmax = vpdmax_comb_plantation_update$vpdmax),
+           cdate = ppt_comb_plantation_update$newdate,
+           bdate = growth.detrended.common.df$date,
+           baseline = lm(value ~ Provenance, data=growth.detrended.common.df),
+           range = c(24,0),
+           type="absolute", refday = c(1,10),
+           stat = "mean",
+           func = c("lin"),
+           cmissing = FALSE,
+           cinterval = "month",
                        k=10)
 
 
-pvalue(dataset = output[[1]]$Dataset, datasetrand = output.randk[[1]], metric = "C", sample.size = 20)
+pvalue(dataset = output[[1]]$Dataset, datasetrand = output.randk[[1]], metric = "C", sample.size = 2720)
+pvalue(dataset = output[[1]]$Dataset, datasetrand = output.randk[[1]], metric = "C", sample.size = 2720)
 
 ```
+
+
+```{r}
+#trying climwin without provenance as an effect
+
+output_nop <- slidingwin(exclude = c(2,12),
+          xvar=list(ppt = ppt_comb_plantation_update$ppt,
+                               tmean = tmean_comb_plantation_update$tmean,
+                               tmin = tmin_comb_plantation_update$tmin,
+                               tmax = tmax_comb_plantation_update$tmax,
+                               vpdmin = vpdmin_comb_plantation_update$vpdmin,
+                               vpdmax = vpdmax_comb_plantation_update$vpdmax),
+           cdate = ppt_comb_plantation_update$newdate,
+           bdate = growth.detrended.common.df$date,
+           baseline = lm(value ~ 1 , data=growth.detrended.common.df),
+           range = c(24,0),
+           type="absolute", refday = c(1,10),
+           stat = "mean",
+           func = c("lin"),
+           cmissing = FALSE,
+           cinterval = "month"
+           )
+output_nop$combos
+
+```
+
+```{r}
+##try with bioclim vars
+
+output_bioclim <- slidingwin(xvar=list(aet = bioclim_date$aet,
+                               cwd = bioclim_date$cwd,
+                               spei = bioclim_date$spei),
+           cdate = bioclim_date$date,
+           bdate = growth.detrended.common.df$date,
+           baseline = lm(value ~ 1 , data=growth.detrended.common.df),
+           range = c(24,0),
+           type="absolute", refday = c(01,10),
+           stat = "sum",
+           func = c("lin","quad"),
+           cmissing = FALSE,
+           cinterval = "month"
+           )
+
+output_bioclim$combos
+
+plotdelta(output_bioclim[[1]]$Dataset)
+summary(output_bioclim[[1]]$BestModel) #positive effect of aet on RWI
+
+plotdelta(output_bioclim[[2]]$Dataset)
+summary(output_bioclim[[2]]$BestModel) #positive effect of cwd on RWI
+
+plotdelta(output_bioclim[[3]]$Dataset)
+summary(output_bioclim[[3]]$BestModel) #positive effect of spei on RWI
+
+plotdelta(output_bioclim[[4]]$Dataset)
+summary(output_bioclim[[4]]$BestModel) 
+
+plotdelta(output_bioclim[[5]]$Dataset)
+summary(output_bioclim[[5]]$BestModel)
+
+plotdelta(output_bioclim[[6]]$Dataset)
+summary(output_bioclim[[6]]$BestModel) 
+
+output_bioclim_rand <- randwin(repeats = 5, 
+                       xvar=list(aet = bioclim_date$aet,
+                               cwd = bioclim_date$cwd,
+                               spei = bioclim_date$spei),
+           cdate = bioclim_date$date,
+           bdate = growth.detrended.common.df$date,
+           baseline = lm(value ~ 1 , data=growth.detrended.common.df),
+           range = c(24,0),
+           type="absolute", refday = c(01,10),
+           stat = "sum",
+           func = c("lin","quad"),
+           cmissing = FALSE,
+           cinterval = "month")
+
+
+#The output of the randwin function can then be used to run the function pvalue to return a value of PC.
+
+pvalue(dataset = output_bioclim[[1]]$Dataset, datasetrand = output_bioclim_rand[[1]], metric = "C", sample.size = 2720) 
+
+pvalue(dataset = output_bioclim[[2]]$Dataset, datasetrand = output_bioclim_rand[[2]], metric = "C", sample.size = 2720) 
+
+pvalue(dataset = output_bioclim[[3]]$Dataset, datasetrand = output_bioclim_rand[[3]], metric = "C", sample.size = 2720) 
+
+pvalue(dataset = output_bioclim[[4]]$Dataset, datasetrand = output_bioclim_rand[[4]], metric = "C", sample.size = 2720) 
+
+pvalue(dataset = output_bioclim[[5]]$Dataset, datasetrand = output_bioclim_rand[[5]], metric = "C", sample.size = 2720) 
+
+pvalue(dataset = output_bioclim[[6]]$Dataset, datasetrand = output_bioclim_rand[[6]], metric = "C", sample.size = 2720) 
+
+```
+
 
 
 ###Resistance vs. Resilience
@@ -3438,6 +4076,7 @@ summary(rawmodlist_resilience[[4]])
 ####
 ```
 
+
 #####Detrended with spline
 
 ```{r}
@@ -3504,7 +4143,6 @@ spline_calcs_list[[3]] %>% dplyr::select(c(resistance,resilience)) %>% as.data.f
   summarise(sd.resist=sd(resistance), sd.resil = sd(resilience))
 spline_calcs_list[[4]] %>% dplyr::select(c(resistance,resilience)) %>% as.data.frame() %>% 
   summarise(sd.resist=sd(resistance), sd.resil = sd(resilience,na.rm=T))
-
 
 ```
 
