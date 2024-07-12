@@ -2776,6 +2776,10 @@ dev.off()
 
 ```{r}
 prov_all <- read.rwl("C:/Users/KatherineNigro/Box/Engelmann Spruce Provenance/Ring_widths_raw/prov_all.rwl")
+
+rwi.stats(prov_all)
+
+
 ```
 
 ####exploration
@@ -2933,6 +2937,7 @@ rownames(growth.detrended.all) = rownames(prov_good)
 rwi.stats(growth.detrended.all, period="max")
 chron(growth.detrended.all)
 plot(chron(growth.detrended.all), add.spline=TRUE, nyrs=35)
+sss(growth.detrended.all)
 
 growth.detrended.df.all <- growth.detrended.all %>% 
   as.data.frame() %>% 
@@ -2958,6 +2963,9 @@ rownames(growth.detrended.short) = rownames(prov_good)[16:nrow(prov_good)]
 
 rwi.stats(growth.detrended.short, period="max")
 plot(chron(growth.detrended.short), add.spline=TRUE, nyrs=35)
+sss(growth.detrended.short)
+sens1(growth.detrended.short[,1])
+
 ##########
 
 growth.detrended.df <- growth.detrended.short %>% 
@@ -3011,6 +3019,352 @@ ggplot(growth.detrended.all.byprov, aes(x=year, y=meanrwi))+
   geom_hline(yintercept=1, linetype=2)
 
 ```
+
+####Gini coefficient
+
+```{r}
+library(DescTools)
+
+trees<- unique(growth.detrended.df$tree)
+
+Gini(growth.detrended.df %>% filter(tree==trees[1]) %>% pull(rw_spline), weights=NULL, unbiased = TRUE, conf.level=TRUE, R=10000, type="perc", na.rm=TRUE)
+
+###get time period with all trees included in all years (common period)
+gini_df = data.frame()
+for(i in 1:length(trees)){
+gini = growth.detrended.df %>% filter(year > 1990 & year < 2011) %>% filter(tree==trees[i]) %>% pull(rw_spline) %>% 
+  Gini(weights=NULL, unbiased = TRUE, conf.level=TRUE, R=10000, type="perc", na.rm=TRUE)
+gini_df = bind_rows(gini_df, data.frame(gini=gini[1], lwr = gini[2], upr=gini[3], tree=trees[i]))
+}
+
+gini_byprov<- gini_df %>% 
+  left_join(dbh_age_summary, by="tree")
+
+ggplot(gini_byprov, aes(x=Provenance, y=gini))+
+  geom_boxplot()+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+
+gini_df_raw = data.frame()
+for(i in 1:length(trees)){
+gini = dbh_age_good %>% filter(year > 1990 & year < 2011) %>% filter(tree==trees[i]) %>% pull(rw) %>% 
+  Gini(weights=NULL, unbiased = TRUE, conf.level=TRUE, R=10000, type="perc", na.rm=TRUE)
+gini_df_raw = bind_rows(gini_df_raw, data.frame(gini=gini[1], lwr = gini[2], upr=gini[3], tree=trees[i]))
+}
+
+gini_df_raw
+
+
+gini_raw_byprov<- gini_df_raw %>% 
+  left_join(dbh_age_summary, by="tree")
+
+ggplot(gini_raw_byprov, aes(x=Provenance, y=gini))+
+  geom_boxplot()+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+```
+
+####treeclim
+
+```{r}
+library(treeclim)
+
+ppt_comb_plantation_wide<-ppt_comb_plantation %>%
+  dplyr::select(ppt,year,month) %>% 
+  mutate(month = case_when(month == 1 ~ "JAN",
+                          month == 2 ~ "FEB",
+                          month == 3 ~ "MAR",
+                          month == 4 ~ "APR",
+                          month == 5 ~ "MAY",
+                          month == 6 ~ "JUN",
+                          month == 7 ~ "JUL",
+                          month == 8 ~ "AUG",
+                          month == 9 ~ "SEP",
+                          month == 10 ~ "OCT",
+                          month == 11 ~ "NOV",
+                          month == 12 ~ "DEC")) %>% 
+  rename(YEAR = year) %>% 
+  pivot_wider(id_cols = YEAR, names_from=month, values_from=ppt) %>% 
+  as.data.frame()
+
+tmax_comb_plantation_wide<- tmax_comb_plantation %>%
+  dplyr::select(tmax,year,month) %>% 
+  mutate(month = case_when(month == 1 ~ "JAN",
+                          month == 2 ~ "FEB",
+                          month == 3 ~ "MAR",
+                          month == 4 ~ "APR",
+                          month == 5 ~ "MAY",
+                          month == 6 ~ "JUN",
+                          month == 7 ~ "JUL",
+                          month == 8 ~ "AUG",
+                          month == 9 ~ "SEP",
+                          month == 10 ~ "OCT",
+                          month == 11 ~ "NOV",
+                          month == 12 ~ "DEC")) %>% 
+  rename(YEAR = year) %>% 
+  pivot_wider(id_cols = YEAR, names_from=month, values_from=tmax) %>% 
+  as.data.frame()
+
+tmin_comb_plantation_wide<-tmin_comb_plantation %>%
+  dplyr::select(tmin,year,month) %>% 
+  mutate(month = case_when(month == 1 ~ "JAN",
+                          month == 2 ~ "FEB",
+                          month == 3 ~ "MAR",
+                          month == 4 ~ "APR",
+                          month == 5 ~ "MAY",
+                          month == 6 ~ "JUN",
+                          month == 7 ~ "JUL",
+                          month == 8 ~ "AUG",
+                          month == 9 ~ "SEP",
+                          month == 10 ~ "OCT",
+                          month == 11 ~ "NOV",
+                          month == 12 ~ "DEC")) %>% 
+  rename(YEAR = year) %>% 
+  pivot_wider(id_cols = YEAR, names_from=month, values_from=tmin) %>% 
+  as.data.frame()
+
+tmean_comb_plantation_wide<-tmean_comb_plantation %>%
+  dplyr::select(tmean,year,month) %>% 
+  mutate(month = case_when(month == 1 ~ "JAN",
+                          month == 2 ~ "FEB",
+                          month == 3 ~ "MAR",
+                          month == 4 ~ "APR",
+                          month == 5 ~ "MAY",
+                          month == 6 ~ "JUN",
+                          month == 7 ~ "JUL",
+                          month == 8 ~ "AUG",
+                          month == 9 ~ "SEP",
+                          month == 10 ~ "OCT",
+                          month == 11 ~ "NOV",
+                          month == 12 ~ "DEC")) %>% 
+  rename(YEAR = year) %>% 
+  pivot_wider(id_cols = YEAR, names_from=month, values_from=tmean) %>% 
+  as.data.frame()
+
+vpdmax_comb_plantation_wide<- vpdmax_comb_plantation %>%
+  dplyr::select(vpdmax,year,month) %>% 
+  mutate(month = case_when(month == 1 ~ "JAN",
+                          month == 2 ~ "FEB",
+                          month == 3 ~ "MAR",
+                          month == 4 ~ "APR",
+                          month == 5 ~ "MAY",
+                          month == 6 ~ "JUN",
+                          month == 7 ~ "JUL",
+                          month == 8 ~ "AUG",
+                          month == 9 ~ "SEP",
+                          month == 10 ~ "OCT",
+                          month == 11 ~ "NOV",
+                          month == 12 ~ "DEC")) %>% 
+  rename(YEAR = year) %>% 
+  pivot_wider(id_cols = YEAR, names_from=month, values_from=vpdmax) %>% 
+  as.data.frame()
+
+vpdmin_comb_plantation_wide<- vpdmin_comb_plantation %>%
+  dplyr::select(vpdmin,year,month) %>% 
+  mutate(month = case_when(month == 1 ~ "JAN",
+                          month == 2 ~ "FEB",
+                          month == 3 ~ "MAR",
+                          month == 4 ~ "APR",
+                          month == 5 ~ "MAY",
+                          month == 6 ~ "JUN",
+                          month == 7 ~ "JUL",
+                          month == 8 ~ "AUG",
+                          month == 9 ~ "SEP",
+                          month == 10 ~ "OCT",
+                          month == 11 ~ "NOV",
+                          month == 12 ~ "DEC")) %>% 
+  rename(YEAR = year) %>% 
+  pivot_wider(id_cols = YEAR, names_from=month, values_from=vpdmin) %>% 
+  as.data.frame()
+
+growth.detrended.common <- growth.detrended.short %>% 
+  as.data.frame() %>% 
+  filter(row.names(growth.detrended.short) > 1990 & row.names(growth.detrended.short) < 2011) %>% 
+  as.data.frame()
+
+chron.growth.detrended.common<- chron(growth.detrended.common)
+chron.growth.detrended.all <- chron(growth.detrended.all)
+
+all_resp_ppt<- dcc(chrono = chron.growth.detrended.all, 
+    climate = list(ppt_comb_plantation_wide),
+    var_names = c("ppt"))
+all_resp_tmin<- dcc(chrono = chron.growth.detrended.all, 
+    climate = list(tmin_comb_plantation_wide),
+    var_names = c("tmin"))
+all_resp_tmean<- dcc(chrono = chron.growth.detrended.all, 
+    climate = list(tmean_comb_plantation_wide),
+    var_names = c("tmean"))
+all_resp_tmax<- dcc(chrono = chron.growth.detrended.all, 
+    climate = list(tmax_comb_plantation_wide),
+    var_names = c("tmax"))
+all_resp_vpdmin<- dcc(chrono = chron.growth.detrended.all, 
+    climate = list(vpdmin_comb_plantation_wide),
+    var_names = c("vpdmin"))
+all_resp_vpdmax<- dcc(chrono = chron.growth.detrended.all, 
+    climate = list(vpdmax_comb_plantation_wide),
+    var_names = c("vpdmax"))
+
+all_resp_ppt
+all_resp_tmean
+all_resp_tmin
+all_resp_tmax
+all_resp_vpdmin
+all_resp_vpdmax
+
+all_seascorr <- seascorr(chrono = chron.growth.detrended.all,
+                         climate= list(ppt_comb_plantation_wide, tmean_comb_plantation_wide),
+                         var_names=c("ppt","tmean"))
+
+
+test2<- seascorr(chrono = chron.growth.detrended.all,
+                         climate= list(tmean_comb_plantation_wide, ppt_comb_plantation_wide),
+                         var_names=c("tmean","ppt"))
+
+plot(all_seascorr)
+plot(test2)
+```
+
+####climwin
+
+```{r}
+rwi.stats(growth.detrended.all)
+library(climwin)
+library(lubridate)
+
+ppt_comb_plantation_update <- ppt_comb_plantation %>% 
+  mutate(year = year(date), month=month(date), day=day(date)) %>% 
+  mutate(newdate = paste(day,month,year,sep="/"))
+
+tmean_comb_plantation_update<- tmean_comb_plantation %>% 
+  mutate(year = year(date), month=month(date), day=day(date)) %>% 
+  mutate(newdate = paste(day,month,year,sep="/"))
+
+tmin_comb_plantation_update<- tmin_comb_plantation %>% 
+  mutate(year = year(date), month=month(date), day=day(date)) %>% 
+  mutate(newdate = paste(day,month,year,sep="/"))
+
+tmax_comb_plantation_update<- tmax_comb_plantation %>% 
+  mutate(year = year(date), month=month(date), day=day(date)) %>% 
+  mutate(newdate = paste(day,month,year,sep="/"))
+
+vpdmax_comb_plantation_update<- vpdmax_comb_plantation %>% 
+  mutate(year = year(date), month=month(date), day=day(date)) %>% 
+  mutate(newdate = paste(day,month,year,sep="/"))
+  
+vpdmin_comb_plantation_update<- vpdmin_comb_plantation %>% 
+  mutate(year = year(date), month=month(date), day=day(date)) %>% 
+  mutate(newdate = paste(day,month,year,sep="/"))
+
+rwi_test<- growth.detrended.common %>% 
+  as.data.frame() %>% 
+  mutate(year=(row.names(growth.detrended.common))) %>% 
+  dplyr::select(year, `47C2`) %>% 
+  rename(rw = `47C2`) %>% 
+  mutate(date = paste("01/01/",year,sep=""))
+
+growth.detrended.common.df <- growth.detrended.common %>% 
+  mutate(year=row.names(growth.detrended.common)) %>% 
+  pivot_longer(!year) %>% 
+  left_join(dbh_age_summary %>% 
+  dplyr::select(Provenance,tree) %>% 
+  mutate(tree=substr(tree,2,length(tree))), by=c("name"="tree")) %>% 
+  mutate(date = paste("01/01/",year,sep=""))
+  
+
+output <- slidingwin(exclude = c(2,12),
+          xvar=list(ppt = ppt_comb_plantation_update$ppt,
+                               tmean = tmean_comb_plantation_update$tmean,
+                               tmin = tmin_comb_plantation_update$tmin,
+                               tmax = tmax_comb_plantation_update$tmax,
+                               vpdmin = vpdmin_comb_plantation_update$vpdmin,
+                               vpdmax = vpdmax_comb_plantation_update$vpdmax),
+           cdate = ppt_comb_plantation_update$newdate,
+           bdate = growth.detrended.common.df$date,
+           baseline = lm(value ~ Provenance, data=growth.detrended.common.df),
+           range = c(24,0),
+           type="absolute", refday = c(1,10),
+           stat = "mean",
+           func = c("lin"),
+           cmissing = FALSE,
+           cinterval = "month"
+           )
+
+# Examine tested combinations
+ 
+output$combos
+     
+# View output for func = "lin"
+ 
+head(output[[1]]$Dataset) 
+plotdelta(output[[1]]$Dataset)
+medwin(output[[1]]$Dataset)
+
+dataset1 <- output[[1]]$Dataset
+ConfidenceSet <- dataset1[which(cumsum(dataset1$ModWeight) <= 0.95),]
+sum(ConfidenceSet$ModelBeta*ConfidenceSet$ModWeight)
+
+summary(output[[1]]$BestModel)
+  
+# View output for func = "quad"
+ 
+head(output[[2]]$Dataset)
+summary(output[[2]]$BestModel)
+
+##Although these results point to the presence of a strong climate signal in F. coelebs laying date, we cannot be sure that this result has not occurred due to chance. To test this possibility, we next run the randomisation procedure using the function randwin, with repeats = 5.
+
+output.rand <- randwin(repeats = 5, 
+                       baseline = lm(rw ~ 1, data=rwi_test),
+                       xvar = list(ppt = ppt_comb_plantation_update$ppt,
+                               tmean = tmean_comb_plantation_update$tmean),
+                       cdate = ppt_comb_plantation_update$newdate,
+                       bdate = rwi_test$date,
+                       range = c(24,0),
+                       type="absolute", refday = c(1,12),
+                       stat = "mean",
+                       func = c("lin","quad"),
+                       cmissing = FALSE,
+                       cinterval = "month")
+
+
+#The output of the randwin function can then be used to run the function pvalue to return a value of PC.
+
+pvalue(dataset = output[[1]]$Dataset, datasetrand = output.rand[[1]], metric = "C", sample.size = 20)  ##high pvalue means that this climate signal is not very strong (high probability that it occurred by chance)
+ 
+##using cross validation
+outputk <- slidingwin(xvar=list(ppt = ppt_comb_plantation_update$ppt,
+                               tmean = tmean_comb_plantation_update$tmean),
+           cdate = ppt_comb_plantation_update$newdate,
+           bdate = rwi_test$date,
+           baseline = lm(rw ~ 1, data=rwi_test),
+           range = c(24,0),
+           type="absolute", refday = c(1,12),
+           stat = "mean",
+           func = c("lin","quad"),
+           cmissing = FALSE,
+           cinterval = "month",
+           k=10)
+
+outputk$combos
+
+output.randk <- randwin(repeats = 5, 
+                       baseline = lm(rw ~ 1, data=rwi_test),
+                       xvar = list(ppt = ppt_comb_plantation_update$ppt,
+                               tmean = tmean_comb_plantation_update$tmean),
+                       cdate = ppt_comb_plantation_update$newdate,
+                       bdate = rwi_test$date,
+                       range = c(24,0),
+                       type="absolute", refday = c(1,12),
+                       stat = "mean",
+                       func = c("lin","quad"),
+                       cmissing = FALSE,
+                       cinterval = "month",
+                       k=10)
+
+
+pvalue(dataset = output[[1]]$Dataset, datasetrand = output.randk[[1]], metric = "C", sample.size = 20)
+
+```
+
 
 ###Resistance vs. Resilience
 
