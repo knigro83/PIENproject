@@ -47,6 +47,8 @@ library(pals)
 library(aod)
 library(interactions)
 library(gridExtra)
+library(climwin)
+library(lubridate)
 ```
 
 ##Plot locations
@@ -847,11 +849,16 @@ pien_ppt_sum <- readRDS("pien_ppt_sum.RDS")
 
 engelmann_clim <- readRDS("engelmann_clim.RDS")
 
+plantation_clim <- prov_pcapts %>% filter(Provenance == "Plantation")
+
 ggplot(engelmann_clim, aes(x=MAT, y=map))+
   geom_hex(alpha=0.7)+
-  scale_fill_gradientn(colors=c("aquamarine","gold","white"))+
-  geom_point(data=prov_pcapts, aes(x=MAT, y=map, col=factor(cluster)), size=4)+
-  ggrepel::geom_text_repel(data=prov_pcapts, aes(label=code))+
+  scale_fill_gradientn(colors=c("gray","black"))+
+  geom_point(data=prov_pcapts %>% filter(!Provenance=="Plantation"), aes(x=MAT, y=map, col=Provenance), size=4)+
+  ggrepel::geom_text_repel(data=prov_pcapts %>% filter(!Provenance=="Plantation"), aes(label=code))+
+  geom_point(data=plantation_clim, aes(x=MAT, y=map), size=4, col="gold", shape=18)+
+  ggrepel::geom_text_repel(data=plantation_clim, aes(label=code))+
+  scale_color_manual(values=unname(stepped()))+
   theme_bw()+
   theme(text = element_text(size=16, color="black"))
 ```
@@ -3040,27 +3047,142 @@ gini_df = bind_rows(gini_df, data.frame(gini=gini[1], lwr = gini[2], upr=gini[3]
 gini_byprov<- gini_df %>% 
   left_join(dbh_age_summary, by="tree")
 
-ggplot(gini_byprov, aes(x=Provenance, y=gini))+
+ggplot(gini_byprov, aes(x=factor(Provenance, levels = provs_bylat$Provenance), y=gini, fill=factor(Provenance, levels = provs_bylat$Provenance)))+
   geom_boxplot()+
-  theme(axis.text.x = element_text(angle=45, hjust=1))
+  scale_fill_manual(values=unname(stepped()), name="Provenance")+
+  ylab("Gini coefficient")+
+  xlab("Provenance")+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle=45, hjust=1), legend.position = "none",
+        axis.title = element_text(size=12, color="black"), axis.text = element_text(size = 12, color="black"))
 
+##ANOVA
 
-gini_df_raw = data.frame()
-for(i in 1:length(trees)){
-gini = dbh_age_good %>% filter(year > 1990 & year < 2011) %>% filter(tree==trees[i]) %>% pull(rw) %>% 
-  Gini(weights=NULL, unbiased = TRUE, conf.level=TRUE, R=10000, type="perc", na.rm=TRUE)
-gini_df_raw = bind_rows(gini_df_raw, data.frame(gini=gini[1], lwr = gini[2], upr=gini[3], tree=trees[i]))
-}
+gini_provmod <- aov(log(gini) ~ Provenance, data=gini_byprov)
+par(mfrow=c(2,2))
+plot(gini_provmod)
+summary(gini_provmod)
+TukeyHSD(gini_provmod)$Provenance %>% as.data.frame() %>% filter(`p adj` < 0.05)
 
-gini_df_raw
+gini_byprov %>% 
+  summary()
 
+mean(gini_byprov$gini)
+sd(gini_byprov$gini)
 
-gini_raw_byprov<- gini_df_raw %>% 
-  left_join(dbh_age_summary, by="tree")
+##Model with climate as a predictor
+unique(prov_pcapts$Provenance)
+unique(gini_byprov$Provenance)
 
-ggplot(gini_raw_byprov, aes(x=Provenance, y=gini))+
-  geom_boxplot()+
-  theme(axis.text.x = element_text(angle=45, hjust=1))
+gini_clim_df <- gini_byprov %>% 
+  left_join(prov_pcapts) 
+
+#MAT
+gini_byMAT <- lmer(log(gini) ~ MAT + (1|Provenance), data=gini_clim_df)
+plot(gini_byMAT)
+qqmath(gini_byMAT)
+summary(gini_byMAT)
+
+#map
+gini_bymap <- lmer(log(gini) ~ map + (1|Provenance), data=gini_clim_df)
+plot(gini_bymap)
+qqmath(gini_bymap)
+summary(gini_bymap)
+
+#TD
+gini_byTD <- lmer(log(gini) ~ TD + (1|Provenance), data=gini_clim_df)
+plot(gini_byTD)
+qqmath(gini_byTD)
+summary(gini_byTD)
+
+#MCMT
+gini_byMCMT <- lmer(log(gini) ~ MCMT + (1|Provenance), data=gini_clim_df)
+plot(gini_byMCMT)
+qqmath(gini_byMCMT)
+summary(gini_byMCMT)
+
+#msp
+gini_bymsp <- lmer(log(gini) ~ msp + (1|Provenance), data=gini_clim_df)
+plot(gini_bymsp)
+qqmath(gini_bymsp)
+summary(gini_bymsp)
+
+#SHM
+gini_bySHM <- lmer(log(gini) ~ SHM + (1|Provenance), data=gini_clim_df)
+plot(gini_bySHM)
+qqmath(gini_bySHM)
+summary(gini_bySHM)
+
+#nffd
+gini_bynffd <- lmer(log(gini) ~ nffd + (1|Provenance), data=gini_clim_df)
+plot(gini_bynffd)
+qqmath(gini_bynffd)
+summary(gini_bynffd)
+
+#bFFP
+gini_bybFFP <- lmer(log(gini) ~ bFFP + (1|Provenance), data=gini_clim_df)
+plot(gini_bybFFP)
+qqmath(gini_bybFFP)
+summary(gini_bybFFP)
+
+#eFFP
+gini_byeFFP <- lmer(log(gini) ~ eFFP + (1|Provenance), data=gini_clim_df)
+plot(gini_byeFFP)
+qqmath(gini_byeFFP)
+summary(gini_byeFFP)
+
+#MWMT
+gini_byMWMT <- lmer(log(gini) ~ MWMT + (1|Provenance), data=gini_clim_df)
+plot(gini_byMWMT)
+qqmath(gini_byMWMT)
+summary(gini_byMWMT)
+
+#dd_0
+gini_bydd_0 <- lmer(log(gini) ~ dd_0 + (1|Provenance), data=gini_clim_df)
+plot(gini_bydd_0)
+qqmath(gini_bydd_0)
+summary(gini_bydd_0)
+
+#dd5
+gini_bydd5 <- lmer(log(gini) ~ dd5 + (1|Provenance), data=gini_clim_df)
+plot(gini_bydd5)
+qqmath(gini_bydd5)
+summary(gini_bydd5)
+
+#EMT
+gini_byEMT <- lmer(log(gini) ~ EMT + (1|Provenance), data=gini_clim_df)
+plot(gini_byEMT)
+qqmath(gini_byEMT)
+summary(gini_byEMT)
+
+#cmd
+gini_bycmd <- lmer(log(gini) ~ cmd + (1|Provenance), data=gini_clim_df)
+plot(gini_bycmd)
+qqmath(gini_bycmd)
+summary(gini_bycmd)
+
+#pas
+gini_bypas <- lmer(log(gini) ~ pas + (1|Provenance), data=gini_clim_df)
+plot(gini_bypas)
+qqmath(gini_bypas)
+summary(gini_bypas)
+
+#smrpb
+gini_bysmrpb <- lmer(log(gini) ~ smrpb + (1|Provenance), data=gini_clim_df %>% filter(!Provenance=="Gila NF"))
+plot(gini_bysmrpb)
+qqmath(gini_bysmrpb)
+summary(gini_bysmrpb) ##only significant with Gila included
+
+#PC1
+gini_byPC1 <- lmer(log(gini) ~ PC1 + (1|Provenance), data=gini_clim_df)
+plot(gini_byPC1)
+qqmath(gini_byPC1)
+summary(gini_byPC1)
+#PC2
+gini_byPC2 <- lmer(log(gini) ~ PC2 + (1|Provenance), data=gini_clim_df %>% filter(!Provenance == "Gila NF"))
+plot(gini_byPC2)
+qqmath(gini_byPC2)
+summary(gini_byPC2) #only significant with Gila included
 
 ```
 
@@ -3358,23 +3480,25 @@ spei_date_wide <- bioclim_date %>%
   pivot_wider(id_cols=c(year), names_from=c(month), values_from = spei) %>% 
   as.data.frame()%>% 
   filter(!year==2016)
- colnames(spei_date_wide)=c("YEAR","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC")
+
+colnames(spei_date_wide)=c("YEAR","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC")
  
 cwd_date_wide <- bioclim_date %>% 
   dplyr::select(year,month, cwd) %>% 
   pivot_wider(id_cols=c(year), names_from=c(month), values_from = cwd) %>% 
   as.data.frame()%>% 
   filter(!year==2016)
- colnames(cwd_date_wide)=c("YEAR","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC")
+
+colnames(cwd_date_wide)=c("YEAR","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC")
  
 aet_date_wide <- bioclim_date %>% 
   dplyr::select(year,month, aet) %>% 
   pivot_wider(id_cols=c(year), names_from=c(month), values_from = aet) %>% 
   as.data.frame() %>% 
   filter(!year==2016)
+
 colnames(aet_date_wide)=c("YEAR","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC")
  
-
 spei_cwd_seascorr <- seascorr(chrono = chron.growth.detrended.all,
                          climate= list(spei= spei_date_wide, cwd = cwd_date_wide),
                          timespan = c(1971,2015),
@@ -3730,8 +3854,6 @@ ggplot(aet_spei_seas_allp, aes(x=factor(month, levels=c("Aug","Sep","Oct","Nov",
 
 ```{r}
 rwi.stats(growth.detrended.all)
-library(climwin)
-library(lubridate)
 
 ppt_comb_plantation_update <- ppt_comb_plantation %>% 
   mutate(year = year(date), month=month(date), day=day(date)) %>% 
