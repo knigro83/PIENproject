@@ -49,6 +49,7 @@ library(interactions)
 library(gridExtra)
 library(climwin)
 library(lubridate)
+library(dichromat)
 ```
 
 ##Plot locations
@@ -304,6 +305,15 @@ vpdmax_seasonal <- as.data.frame(vpdmax_comb_plantation) %>%
   group_by(CN, year) %>% 
  dplyr::summarise(vpdmax_sp = mean(vpdmax)))
 
+
+##look at correlation in annual variables
+left_join(tmean_summed,tmax_summed) %>% 
+  left_join(tmin_summed) %>% 
+  left_join(vpdmax_summed) %>% 
+  left_join(ppt_summed) %>% 
+  ungroup() %>% 
+  dplyr::select(tmean:ppt) %>% 
+  cor()
 
 ```
 ##FDSI calculation
@@ -849,15 +859,15 @@ pien_ppt_sum <- readRDS("pien_ppt_sum.RDS")
 
 engelmann_clim <- readRDS("engelmann_clim.RDS")
 
-plantation_clim <- prov_pcapts %>% filter(Provenance == "Plantation")
+plantation_only <- prov_pcapts %>% filter(Provenance == "Plantation")
 
 ggplot(engelmann_clim, aes(x=MAT, y=map))+
   geom_hex(alpha=0.7)+
   scale_fill_gradientn(colors=c("gray","black"))+
   geom_point(data=prov_pcapts %>% filter(!Provenance=="Plantation"), aes(x=MAT, y=map, col=Provenance), size=4)+
   ggrepel::geom_text_repel(data=prov_pcapts %>% filter(!Provenance=="Plantation"), aes(label=code))+
-  geom_point(data=plantation_clim, aes(x=MAT, y=map), size=4, col="gold", shape=18)+
-  ggrepel::geom_text_repel(data=plantation_clim, aes(label=code))+
+  geom_point(data=plantation_only, aes(x=MAT, y=map), size=4, col="gold", shape=18)+
+  ggrepel::geom_text_repel(data=plantation_only, aes(label=code))+
   scale_color_manual(values=unname(stepped()))+
   theme_bw()+
   theme(text = element_text(size=16, color="black"))
@@ -3305,7 +3315,7 @@ growth.detrended.common <- growth.detrended.short %>%
   as.data.frame()
 
 chron.growth.detrended.common<- chron(growth.detrended.common)
-chron.growth.detrended.all <- chron(growth.detrended.all)
+chron.growth.detrended.all <- chron(growth.detrended.all, prewhiten = TRUE)
 
 all_resp_ppt<- dcc(chrono = chron.growth.detrended.all, 
     climate = list(ppt_comb_plantation_wide),
@@ -3325,6 +3335,9 @@ all_resp_vpdmin<- dcc(chrono = chron.growth.detrended.all,
 all_resp_vpdmax<- dcc(chrono = chron.growth.detrended.all, 
     climate = list(vpdmax_comb_plantation_wide),
     var_names = c("vpdmax"))
+
+dcc(chrono = chron.growth.detrended.all, 
+    climate = list(ppt=ppt_comb_plantation_wide,tmin=tmin_comb_plantation_wide))
 
 all_resp_ppt
 all_resp_tmean
@@ -3498,262 +3511,10 @@ aet_date_wide <- bioclim_date %>%
   filter(!year==2016)
 
 colnames(aet_date_wide)=c("YEAR","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC")
- 
-spei_cwd_seascorr <- seascorr(chrono = chron.growth.detrended.all,
-                         climate= list(spei= spei_date_wide, cwd = cwd_date_wide),
-                         timespan = c(1971,2015),
-                         complete= 9,
-                         season_lengths=seq(4,12,1),
-                         primary=1,
-                         secondary=2,
-                         ci=0.05)
-plot(spei_cwd_seascorr)
-
-
-spei_aet_seascorr <- seascorr(chrono = chron.growth.detrended.all,
-                         climate= list(spei= spei_date_wide, aet = aet_date_wide),
-                         timespan = c(1971,2015),
-                         complete= 9,
-                         season_lengths=seq(4,12,1),
-                         primary=1,
-                         secondary=2,
-                         ci=0.05)
-plot(spei_aet_seascorr)
-
-aet_cwd_seascorr <- seascorr(chrono = chron.growth.detrended.all,
-                         climate= list(aet= aet_date_wide, cwd = cwd_date_wide),
-                         timespan = c(1971,2015),
-                         complete= 9,
-                         season_lengths=seq(4,12,1),
-                         primary=1,
-                         secondary=2,
-                         ci=0.05)
-plot(aet_cwd_seascorr)
-
-aet_spei_seascorr <- seascorr(chrono = chron.growth.detrended.all,
-                         climate= list(aet= aet_date_wide, spei = spei_date_wide),
-                         timespan = c(1971,2015),
-                         complete= 9,
-                         season_lengths=seq(4,12,1),
-                         primary=1,
-                         secondary=2,
-                         ci=0.05)
-plot(aet_spei_seascorr)
-
-
-cwd_spei_seascorr <- seascorr(chrono = chron.growth.detrended.all,
-                         climate= list(cwd= cwd_date_wide, spei = spei_date_wide),
-                         timespan = c(1971,2015),
-                         complete= 9,
-                         season_lengths=seq(4,12,1),
-                         primary=1,
-                         secondary=2,
-                         ci=0.05)
-plot(cwd_spei_seascorr)
-
-cwd_aet_seascorr <- seascorr(chrono = chron.growth.detrended.all,
-                         climate= list(cwd= cwd_date_wide, aet = aet_date_wide),
-                         timespan = c(1971,2015),
-                         complete= 9,
-                         season_lengths=seq(4,12,1),
-                         primary=1,
-                         secondary=2,
-                         ci=0.05)
-plot(cwd_aet_seascorr)
-
-
-###do for all provenances separately
-
-spei_cwd_list <- list()
-for(i in 1:length(provs_arranged_lat[-9])){
-result <- seascorr(chrono = chron.list[[i]],
-                         climate= list(spei= spei_date_wide, cwd = cwd_date_wide),
-                         timespan = c(1985,2015),
-                         complete= 9,
-                         season_lengths=seq(4,12,1),
-                         primary=1,
-                         secondary=2,
-                         ci=0.05)
-spei_cwd_list[[i]]<- result
-}
-
-inner_result_spei_cwd<- list()
-outer_result_spei_cwd<- list()
-
-for(i in 1:length(provs_arranged_lat[-9])){
-for(j in 1:length(seq(4,12,1))){
-result<- bind_rows(spei_cwd_list[[i]]$coef[[j]]$primary %>% bind_cols(data.frame(month=c("Aug","Sep","Oct","Nov","Dec","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP"), var="primary", seasonl = seq(4,12,1)[j])) %>% 
-  filter(significant==TRUE),
-spei_cwd_list[[i]]$coef[[j]]$secondary %>% 
-bind_cols(data.frame(month=c("Aug","Sep","Oct","Nov","Dec","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP"), var = "secondary", seasonl = seq(4,12,1)[j])) %>% 
-  filter(significant==TRUE) 
-)
- inner_result_spei_cwd[[j]]<- result}
-
-  inner_result_spei_cwd2 <- inner_result_spei_cwd[sapply(inner_result_spei_cwd, function(x) dim(x)[1])>0]
-  inner_result_spei_cwd3 <- bind_rows(inner_result_spei_cwd2)
-  outer_result_spei_cwd[[i]]<- inner_result_spei_cwd3}
-names(outer_result_spei_cwd)<- provs_arranged_lat[-9]
-
-spei_cwd_seas <- bind_rows(outer_result_spei_cwd, .id="Provenance") 
-
-spei_cwd_seas_allp <- spei_cwd_seas%>% 
-  bind_rows(data.frame(Provenance = data.frame(Provenance=provs_arranged_lat[-9]) %>% filter(!Provenance %in% spei_cwd_seas$Provenance),coef=0,significant=TRUE,month="AUG",var="primary",seasonl=4))
-
-ggplot(spei_cwd_seas_allp, aes(x=factor(month, levels=c("Aug","Sep","Oct","Nov","Dec","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP")), y=coef, fill=factor(Provenance, levels=provs_arranged_lat[-9])))+
-  geom_bar(stat="identity", position = position_dodge())+
-  facet_grid(rows=vars(factor(var, levels=c("primary","secondary"),labels=c("pri_spei","sec_cwd"))),cols=vars(seasonl), )+
-  scale_fill_manual(values=unname(stepped()), name="Provenance")+
-  theme_bw()+
-  ggtitle("spei, cwd")+
-  theme(axis.text.x = element_text(angle=45, hjust=1))
 
 ```
 
-```{r}
-
-spei_aet_list <- list()
-for(i in 1:length(provs_arranged_lat[-9])){
-result <- seascorr(chrono = chron.list[[i]],
-                         climate= list(spei= spei_date_wide, aet = aet_date_wide),
-                         timespan = c(1985,2015),
-                         complete= 9,
-                         season_lengths=seq(4,12,1),
-                         primary=1,
-                         secondary=2,
-                         ci=0.05)
-spei_aet_list[[i]]<- result
-}
-
-inner_result_spei_aet<- list()
-outer_result_spei_aet<- list()
-
-for(i in 1:length(provs_arranged_lat[-9])){
-for(j in 1:length(seq(4,12,1))){
-result<- bind_rows(spei_aet_list[[i]]$coef[[j]]$primary %>% bind_cols(data.frame(month=c("Aug","Sep","Oct","Nov","Dec","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP"), var="primary", seasonl = seq(4,12,1)[j])) %>% 
-  filter(significant==TRUE),
-spei_aet_list[[i]]$coef[[j]]$secondary %>% 
-bind_cols(data.frame(month=c("Aug","Sep","Oct","Nov","Dec","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP"), var = "secondary", seasonl = seq(4,12,1)[j])) %>% 
-  filter(significant==TRUE) 
-)
- inner_result_spei_aet[[j]]<- result}
-
-  inner_result_spei_aet2 <- inner_result_spei_aet[sapply(inner_result_spei_aet, function(x) dim(x)[1])>0]
-  inner_result_spei_aet3 <- bind_rows(inner_result_spei_aet2)
-  outer_result_spei_aet[[i]]<- inner_result_spei_aet3}
-names(outer_result_spei_aet)<- provs_arranged_lat[-9]
-
-spei_aet_seas <- bind_rows(outer_result_spei_aet, .id="Provenance") 
-
-spei_aet_seas_allp <- spei_aet_seas%>% 
-  bind_rows(data.frame(Provenance = data.frame(Provenance=provs_arranged_lat[-9]) %>% filter(!Provenance %in% spei_aet_seas$Provenance),coef=0,significant=TRUE,month="AUG",var="primary",seasonl=4))
-
-ggplot(spei_aet_seas_allp, aes(x=factor(month, levels=c("Aug","Sep","Oct","Nov","Dec","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP")), y=coef, fill=factor(Provenance, levels=provs_arranged_lat[-9])))+
-  geom_bar(stat="identity", position = position_dodge())+
-  facet_grid(rows=vars(factor(var, levels=c("primary","secondary"),labels=c("pri_spei","sec_aet"))),cols=vars(seasonl), )+
-  scale_fill_manual(values=unname(stepped()), name="Provenance")+
-  theme_bw()+
-  ggtitle("spei, aet")+
-  theme(axis.text.x = element_text(angle=45, hjust=1))
-
-```
-
-```{r}
-
-cwd_aet_list <- list()
-for(i in 1:length(provs_arranged_lat[-9])){
-result <- seascorr(chrono = chron.list[[i]],
-                         climate= list(cwd= cwd_date_wide, aet = aet_date_wide),
-                         timespan = c(1985,2015),
-                         complete= 9,
-                         season_lengths=seq(4,12,1),
-                         primary=1,
-                         secondary=2,
-                         ci=0.05)
-cwd_aet_list[[i]]<- result
-}
-
-inner_result_cwd_aet<- list()
-outer_result_cwd_aet<- list()
-
-for(i in 1:length(provs_arranged_lat[-9])){
-for(j in 1:length(seq(4,12,1))){
-result<- bind_rows(cwd_aet_list[[i]]$coef[[j]]$primary %>% bind_cols(data.frame(month=c("Aug","Sep","Oct","Nov","Dec","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP"), var="primary", seasonl = seq(4,12,1)[j])) %>% 
-  filter(significant==TRUE),
-cwd_aet_list[[i]]$coef[[j]]$secondary %>% 
-bind_cols(data.frame(month=c("Aug","Sep","Oct","Nov","Dec","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP"), var = "secondary", seasonl = seq(4,12,1)[j])) %>% 
-  filter(significant==TRUE) 
-)
- inner_result_cwd_aet[[j]]<- result}
-
-  inner_result_cwd_aet2 <- inner_result_cwd_aet[sapply(inner_result_cwd_aet, function(x) dim(x)[1])>0]
-  inner_result_cwd_aet3 <- bind_rows(inner_result_cwd_aet2)
-  outer_result_cwd_aet[[i]]<- inner_result_cwd_aet3}
-names(outer_result_cwd_aet)<- provs_arranged_lat[-9]
-
-cwd_aet_seas <- bind_rows(outer_result_cwd_aet, .id="Provenance") 
-
-cwd_aet_seas_allp <- cwd_aet_seas%>% 
-  bind_rows(data.frame(Provenance = data.frame(Provenance=provs_arranged_lat[-9]) %>% filter(!Provenance %in% cwd_aet_seas$Provenance),coef=0,significant=TRUE,month="AUG",var="primary",seasonl=4))
-
-ggplot(cwd_aet_seas_allp, aes(x=factor(month, levels=c("Aug","Sep","Oct","Nov","Dec","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP")), y=coef, fill=factor(Provenance, levels=provs_arranged_lat[-9])))+
-  geom_bar(stat="identity", position = position_dodge())+
-  facet_grid(rows=vars(factor(var, levels=c("primary","secondary"),labels=c("pri_cwd","sec_aet"))),cols=vars(seasonl), )+
-  scale_fill_manual(values=unname(stepped()), name="Provenance")+
-  theme_bw()+
-  ggtitle("cwd, aet")+
-  theme(axis.text.x = element_text(angle=45, hjust=1))
-
-```
-
-```{r}
-
-cwd_spei_list <- list()
-for(i in 1:length(provs_arranged_lat[-9])){
-result <- seascorr(chrono = chron.list[[i]],
-                         climate= list(cwd= cwd_date_wide, spei = spei_date_wide),
-                         timespan = c(1985,2015),
-                         complete= 9,
-                         season_lengths=seq(4,12,1),
-                         primary=1,
-                         secondary=2,
-                         ci=0.05)
-cwd_spei_list[[i]]<- result
-}
-
-inner_result_cwd_spei<- list()
-outer_result_cwd_spei<- list()
-
-for(i in 1:length(provs_arranged_lat[-9])){
-for(j in 1:length(seq(4,12,1))){
-result<- bind_rows(cwd_spei_list[[i]]$coef[[j]]$primary %>% bind_cols(data.frame(month=c("Aug","Sep","Oct","Nov","Dec","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP"), var="primary", seasonl = seq(4,12,1)[j])) %>% 
-  filter(significant==TRUE),
-cwd_spei_list[[i]]$coef[[j]]$secondary %>% 
-bind_cols(data.frame(month=c("Aug","Sep","Oct","Nov","Dec","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP"), var = "secondary", seasonl = seq(4,12,1)[j])) %>% 
-  filter(significant==TRUE) 
-)
- inner_result_cwd_spei[[j]]<- result}
-
-  inner_result_cwd_spei2 <- inner_result_cwd_spei[sapply(inner_result_cwd_spei, function(x) dim(x)[1])>0]
-  inner_result_cwd_spei3 <- bind_rows(inner_result_cwd_spei2)
-  outer_result_cwd_spei[[i]]<- inner_result_cwd_spei3}
-names(outer_result_cwd_spei)<- provs_arranged_lat[-9]
-
-cwd_spei_seas <- bind_rows(outer_result_cwd_spei, .id="Provenance") 
-
-cwd_spei_seas_allp <- cwd_spei_seas%>% 
-  bind_rows(data.frame(Provenance = data.frame(Provenance=provs_arranged_lat[-9]) %>% filter(!Provenance %in% cwd_spei_seas$Provenance),coef=0,significant=TRUE,month="AUG",var="primary",seasonl=4))
-
-ggplot(cwd_spei_seas_allp, aes(x=factor(month, levels=c("Aug","Sep","Oct","Nov","Dec","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP")), y=coef, fill=factor(Provenance, levels=provs_arranged_lat[-9])))+
-  geom_bar(stat="identity", position = position_dodge())+
-  facet_grid(rows=vars(factor(var, levels=c("primary","secondary"),labels=c("pri_cwd","sec_spei"))),cols=vars(seasonl), )+
-  scale_fill_manual(values=unname(stepped()), name="Provenance")+
-  theme_bw()+
-  ggtitle("cwd, spei")+
-  theme(axis.text.x = element_text(angle=45, hjust=1))
-
-```
-
+######aet - cwd
 ```{r}
 
 aet_cwd_list <- list()
@@ -3793,14 +3554,81 @@ aet_cwd_seas_allp <- aet_cwd_seas%>%
   bind_rows(data.frame(Provenance = data.frame(Provenance=provs_arranged_lat[-9]) %>% filter(!Provenance %in% aet_cwd_seas$Provenance),coef=0,significant=TRUE,month="AUG",var="primary",seasonl=4))
 
 ggplot(aet_cwd_seas_allp, aes(x=factor(month, levels=c("Aug","Sep","Oct","Nov","Dec","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP")), y=coef, fill=factor(Provenance, levels=provs_arranged_lat[-9])))+
-  geom_bar(stat="identity", position = position_dodge())+
+  geom_bar(stat="identity")+
   facet_grid(rows=vars(factor(var, levels=c("primary","secondary"),labels=c("pri_aet","sec_cwd"))),cols=vars(seasonl), )+
   scale_fill_manual(values=unname(stepped()), name="Provenance")+
   theme_bw()+
   ggtitle("aet, cwd")+
   theme(axis.text.x = element_text(angle=45, hjust=1))
 
+timeline_aet_cwd <- aet_cwd_seas_allp %>% 
+  mutate(year = ifelse(month %in% c("Aug","Sep","Oct","Nov","Dec"), 1754, 1755),
+         month.num = case_when(month %in% c("Aug","AUG") ~ 08,
+                               month %in% c("Sep","SEP") ~ 09,
+                               month %in% c("Oct","OCT") ~ 10,
+                               month %in% c("Nov","NOV") ~ 11,
+                               month == "Dec" ~12,
+                               month == "JAN" ~ 01,
+                               month == "FEB" ~ 02,
+                               month == "MAR"~ 03,
+                               month == "APR" ~ 04,
+                               month == "MAY" ~ 05,
+                               month == "JUN" ~06,
+                               month == "JUL" ~ 07)) %>% 
+  mutate(date = my(paste(month.num,year, sep="-"))) %>% 
+  mutate(startdate = date %m-% months(seasonl-1)) %>% 
+  mutate(var = ifelse(var == "primary", "AET", "CWD"))
+
+ggplot(timeline_aet_cwd, aes(y=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_segment(aes(x=startdate, xend = date, y = factor(Provenance, levels=provs_bylat$Provenance), yend=factor(Provenance, levels=provs_bylat$Provenance), col=factor(Provenance, levels=provs_bylat$Provenance)), linewidth=5, alpha=0.3)+
+  scale_color_manual(values=unname(stepped()))+
+  geom_vline(xintercept = c(my("09-1755"), my("05-1755")))+
+  facet_wrap(~var)+
+  geom_text(data=data.frame(date = my("11-1754"), Provenance = "Cache NF", label= "+", var="CWD"), aes(x=date, y=Provenance, label=label), size=4)+
+  theme_bw()+
+  ylab("")+
+  theme(legend.position = "none")
+  
+ggplot(timeline_aet_cwd, aes(y=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_segment(aes(x=startdate, xend = date, y = factor(Provenance, levels=provs_bylat$Provenance), yend=factor(Provenance, levels=provs_bylat$Provenance), col=coef), linewidth=5, alpha=0.3)+
+  scale_color_gradientn(colors=c("red","white","blue"))+
+  geom_vline(xintercept = c(my("09-1755"), my("06-1755"),my("03-1755"),my("12-1754"),my("09-1754"),my("06-1754"),my("03-1754"),my("12-1753"),my("09-1753")))+
+  facet_wrap(~var)+
+  theme_bw()+
+  ylab("")
+
+cor_analysis_plot_pc1_aet_cwd<- ggplot(timeline_aet_cwd, aes(y=factor(Provenance, levels=prov_pcapts %>% arrange(PC1) %>% pull(Provenance))))+
+  geom_rect(aes(xmin=my("09-1753"), xmax = my("09-1754"),ymax=Inf, ymin=-Inf), fill="gray90")+
+      geom_rect(aes(xmin=my("06-1755"), xmax = my("09-1755"),ymax=Inf, ymin=-Inf), fill="lightyellow")+
+  geom_segment(aes(x=startdate, xend = date, y = factor(Provenance, levels=prov_pcapts %>% arrange(PC1) %>% pull(Provenance)), yend=factor(Provenance, levels=prov_pcapts %>% arrange(PC1) %>% pull(Provenance)), col=coef), linewidth=5, alpha=0.3)+
+  scale_color_gradientn(colors=c("red","white","blue"))+
+  geom_vline(xintercept = c(my("09-1755"), my("06-1755"),my("03-1755"),my("12-1754"),my("09-1754"),my("06-1754"),my("03-1754"),my("12-1753"),my("09-1753")))+
+  facet_wrap(~factor(var, levels=c("AET","CWD")))+
+  geom_text(data=season.labels, aes(x=date, y=0.7, label=season))+
+  theme_bw()+
+  ylab("")+
+  xlab("")+
+  ggtitle("Primary = AET")+
+  theme(axis.text.x = element_blank(), panel.grid = element_blank(), axis.text.y = element_text(color="black", size=12), axis.ticks.x = element_blank(),strip.text = element_text(size=10, color="black"))
+
+
+
+
+####practicing things
+nor_seascorr <- seascorr(chrono = norw015,
+                         climate=list(norway_temp, norway_prec),
+                         var_names=c("temp","prec"))
+
+skills(object = nor_seascorr,
+       target = .mean("temp",6:8))
+
+
+skills(object = aet_cwd_list[[20]],
+       target = .mean("cwd", -12:3))
+
 ```
+
+######aet - spei
 
 ```{r}
 
@@ -3841,14 +3669,283 @@ aet_spei_seas_allp <- aet_spei_seas%>%
   bind_rows(data.frame(Provenance = data.frame(Provenance=provs_arranged_lat[-9]) %>% filter(!Provenance %in% aet_spei_seas$Provenance),coef=0,significant=TRUE,month="AUG",var="primary",seasonl=4))
 
 ggplot(aet_spei_seas_allp, aes(x=factor(month, levels=c("Aug","Sep","Oct","Nov","Dec","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP")), y=coef, fill=factor(Provenance, levels=provs_arranged_lat[-9])))+
-  geom_bar(stat="identity", position = position_dodge())+
+  geom_bar(stat="identity")+
   facet_grid(rows=vars(factor(var, levels=c("primary","secondary"),labels=c("pri_aet","sec_spei"))),cols=vars(seasonl), )+
   scale_fill_manual(values=unname(stepped()), name="Provenance")+
   theme_bw()+
   ggtitle("aet, spei")+
   theme(axis.text.x = element_text(angle=45, hjust=1))
 
+timeline_aet_spei <- aet_spei_seas_allp %>% 
+  mutate(year = ifelse(month %in% c("Aug","Sep","Oct","Nov","Dec"), 1754, 1755),
+         month.num = case_when(month %in% c("Aug","AUG") ~ 08,
+                               month %in% c("Sep","SEP") ~ 09,
+                               month %in% c("Oct","OCT") ~ 10,
+                               month %in% c("Nov","NOV") ~ 11,
+                               month == "Dec" ~12,
+                               month == "JAN" ~ 01,
+                               month == "FEB" ~ 02,
+                               month == "MAR"~ 03,
+                               month == "APR" ~ 04,
+                               month == "MAY" ~ 05,
+                               month == "JUN" ~06,
+                               month == "JUL" ~ 07)) %>% 
+  mutate(date = my(paste(month.num,year, sep="-"))) %>% 
+  mutate(startdate = date %m-% months(seasonl-1)) %>% 
+  mutate(var = ifelse(var == "primary", "AET", "SPEI"))
+
+ggplot(timeline_aet_spei, aes(y=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_segment(aes(x=startdate, xend = date, y = factor(Provenance, levels=provs_bylat$Provenance), yend=factor(Provenance, levels=provs_bylat$Provenance), col=factor(Provenance, levels=provs_bylat$Provenance)), linewidth=5, alpha=0.3)+
+  scale_color_manual(values=unname(stepped()))+
+  geom_vline(xintercept = c(my("09-1755"), my("05-1755")))+
+  facet_wrap(~var)+
+  theme_bw()+
+  ylab("")+
+  theme(legend.position = "none")
+  
+cor_analysis_plot_pc1_aet_spei<- ggplot(timeline_aet_spei, aes(y=factor(Provenance, levels=prov_pcapts %>% arrange(PC1) %>% pull(Provenance))))+
+  geom_rect(aes(xmin=my("09-1753"), xmax = my("09-1754"),ymax=Inf, ymin=-Inf), fill="gray90")+
+      geom_rect(aes(xmin=my("06-1755"), xmax = my("09-1755"),ymax=Inf, ymin=-Inf), fill="lightyellow")+
+  geom_segment(aes(x=startdate, xend = date, y = factor(Provenance, levels=prov_pcapts %>% arrange(PC1) %>% pull(Provenance)), yend=factor(Provenance, levels=prov_pcapts %>% arrange(PC1) %>% pull(Provenance)), col=coef), linewidth=5, alpha=0.3)+
+  scale_color_gradientn(colors=c("red","white","blue"))+
+  geom_vline(xintercept = c(my("09-1755"), my("06-1755"),my("03-1755"),my("12-1754"),my("09-1754"),my("06-1754"),my("03-1754"),my("12-1753"),my("09-1753")))+
+  facet_wrap(~factor(var, levels=c("AET","SPEI")))+
+  geom_text(data=season.labels, aes(x=date, y=0.7, label=season))+
+  theme_bw()+
+  ylab("")+
+  xlab("")+
+  ggtitle("Primary = AET")+
+  theme(axis.text.x = element_blank(), panel.grid = element_blank(), axis.text.y = element_text(color="black", size=12), axis.ticks.x = element_blank(),strip.text = element_text(size=10, color="black"))
+
+png("figures/cor_analysis_timeline_aet.png", width=9,height=10, units="in", res=500)
+ggarrange(cor_analysis_plot_pc1_aet_spei,
+          cor_analysis_plot_pc1_aet_cwd, nrow=2, common.legend = TRUE, labels = c("A)","B)"))
+dev.off()
+
 ```
+
+#####precip & temp seasons
+
+```{r}
+
+temp_precip_list <- list()
+for(i in 1:length(provs_arranged_lat[-9])){
+result <- seascorr(chrono = chron.list[[i]],
+                         climate= list(temp= tmean_comb_plantation_wide, precip = ppt_comb_plantation_wide),
+                         timespan = c(1985,2015),
+                         complete= 9,
+                         season_lengths=seq(4,12,1),
+                         primary=1,
+                         secondary=2,
+                         ci=0.05)
+temp_precip_list[[i]]<- result
+}
+
+inner_result_temp_precip<- list()
+outer_result_temp_precip<- list()
+
+for(i in 1:length(provs_arranged_lat[-9])){
+for(j in 1:length(seq(4,12,1))){
+result<- bind_rows(temp_precip_list[[i]]$coef[[j]]$primary %>% bind_cols(data.frame(month=c("Aug","Sep","Oct","Nov","Dec","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP"), var="primary", seasonl = seq(4,12,1)[j])) %>% 
+  filter(significant==TRUE),
+temp_precip_list[[i]]$coef[[j]]$secondary %>% 
+bind_cols(data.frame(month=c("Aug","Sep","Oct","Nov","Dec","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP"), var = "secondary", seasonl = seq(4,12,1)[j])) %>% 
+  filter(significant==TRUE) 
+)
+ inner_result_temp_precip[[j]]<- result}
+
+  inner_result_temp_precip2 <- inner_result_temp_precip[sapply(inner_result_temp_precip, function(x) dim(x)[1])>0]
+  inner_result_temp_precip3 <- bind_rows(inner_result_temp_precip2)
+  outer_result_temp_precip[[i]]<- inner_result_temp_precip3}
+names(outer_result_temp_precip)<- provs_arranged_lat[-9]
+
+temp_precip_seas <- bind_rows(outer_result_temp_precip, .id="Provenance") 
+
+temp_precip_seas_allp <- temp_precip_seas%>% 
+  bind_rows(data.frame(Provenance = data.frame(Provenance=provs_arranged_lat[-9]) %>% filter(!Provenance %in% temp_precip_seas$Provenance),coef=0,significant=TRUE,month="AUG",var="primary",seasonl=4))
+
+ggplot(temp_precip_seas_allp, aes(x=factor(month, levels=c("Aug","Sep","Oct","Nov","Dec","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP")), y=coef, fill=factor(Provenance, levels=provs_arranged_lat[-9])))+
+  geom_bar(stat="identity")+
+  facet_grid(rows=vars(factor(var, levels=c("primary","secondary"),labels=c("pri_temp","sec_precip"))),cols=vars(seasonl), )+
+  scale_fill_manual(values=unname(stepped()), name="Provenance")+
+  theme_bw()+
+  ggtitle("temp, precip")+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+timeline_temp_precip <- temp_precip_seas_allp %>% 
+  mutate(year = ifelse(month %in% c("Aug","Sep","Oct","Nov","Dec"), 1754, 1755),
+         month.num = case_when(month %in% c("Aug","AUG") ~ 08,
+                               month %in% c("Sep","SEP") ~ 09,
+                               month %in% c("Oct","OCT") ~ 10,
+                               month %in% c("Nov","NOV") ~ 11,
+                               month == "Dec" ~12,
+                               month == "JAN" ~ 01,
+                               month == "FEB" ~ 02,
+                               month == "MAR"~ 03,
+                               month == "APR" ~ 04,
+                               month == "MAY" ~ 05,
+                               month == "JUN" ~06,
+                               month == "JUL" ~ 07)) %>% 
+  mutate(date = my(paste(month.num,year, sep="-"))) %>% 
+  mutate(startdate = date %m-% months(seasonl-1)) %>% 
+  mutate(var = ifelse(var == "primary", "temp", "precip"))
+
+ggplot(timeline_temp_precip, aes(y=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_segment(aes(x=startdate, xend = date, y = factor(Provenance, levels=provs_bylat$Provenance), yend=factor(Provenance, levels=provs_bylat$Provenance), col=factor(Provenance, levels=provs_bylat$Provenance)), linewidth=5, alpha=0.3)+
+  scale_color_manual(values=unname(stepped()))+
+  geom_vline(xintercept = c(my("09-1755"), my("05-1755")))+
+  facet_wrap(~var)+
+  theme_bw()+
+  ylab("")+
+  theme(legend.position = "none")
+
+prov_pcapts %>% arrange(PC1) %>% pull(Provenance)
+
+ggplot(timeline_temp_precip, aes(y=factor(Provenance, levels=prov_pcapts %>% arrange(PC1) %>% pull(Provenance))))+
+  geom_segment(aes(x=startdate, xend = date, y = factor(Provenance, levels=prov_pcapts %>% arrange(PC1) %>% pull(Provenance)), yend=factor(Provenance, levels=prov_pcapts %>% arrange(PC1) %>% pull(Provenance)), col=factor(Provenance, levels=prov_pcapts %>% arrange(PC1) %>% pull(Provenance))), linewidth=5, alpha=0.3)+
+  scale_color_manual(values=unname(stepped()))+
+  geom_vline(xintercept = c(my("09-1755"), my("05-1755")))+
+  facet_wrap(~var)+
+  theme_bw()+
+  ylab("")+
+  theme(legend.position = "none")
+
+season.labels = data.frame(date = c(my("06-1755"),my("03-1755"),my("12-1754"),my("09-1754"),my("06-1754"),my("03-1754"),my("12-1753"),my("09-1753")) %m+% months(1) + days(15),
+                           season = rep(c("Sm","Sp","Wt","Fa"),2))
+  
+cor_analysis_plot_pc1_temp<- ggplot(timeline_temp_precip, aes(y=factor(Provenance, levels=prov_pcapts %>% arrange(PC1) %>% pull(Provenance))))+
+  geom_rect(aes(xmin=my("09-1753"), xmax = my("09-1754"),ymax=Inf, ymin=-Inf), fill="gray90")+
+      geom_rect(aes(xmin=my("06-1755"), xmax = my("09-1755"),ymax=Inf, ymin=-Inf), fill="lightyellow")+
+  geom_segment(aes(x=startdate, xend = date, y = factor(Provenance, levels=prov_pcapts %>% arrange(PC1) %>% pull(Provenance)), yend=factor(Provenance, levels=prov_pcapts %>% arrange(PC1) %>% pull(Provenance)), col=coef), linewidth=5, alpha=0.3)+
+  scale_color_gradientn(colors=c("red","white","blue"))+
+  geom_vline(xintercept = c(my("09-1755"), my("06-1755"),my("03-1755"),my("12-1754"),my("09-1754"),my("06-1754"),my("03-1754"),my("12-1753"),my("09-1753")))+
+  facet_wrap(~factor(var, levels=c("temp","precip")))+
+  geom_text(data=season.labels, aes(x=date, y=0.7, label=season))+
+  theme_bw()+
+  ylab("")+
+  xlab("")+
+  ggtitle("Primary = Temp")+
+  theme(axis.text.x = element_blank(), panel.grid = element_blank(), axis.text.y = element_text(color="black", size=12), axis.ticks.x = element_blank(),strip.text = element_text(size=10, color="black"))
+
+ggplot(timeline_temp_precip, aes(y=factor(Provenance, levels=prov_pcapts %>% arrange(PC2) %>% pull(Provenance))))+
+  geom_rect(aes(xmin=my("09-1753"), xmax = my("09-1754"),ymax=Inf, ymin=-Inf), fill="gray90")+
+      geom_rect(aes(xmin=my("06-1755"), xmax = my("09-1755"),ymax=Inf, ymin=-Inf), fill="lightyellow")+
+  geom_segment(aes(x=startdate, xend = date, y = factor(Provenance, levels=prov_pcapts %>% arrange(PC2) %>% pull(Provenance)), yend=factor(Provenance, levels=prov_pcapts %>% arrange(PC2) %>% pull(Provenance)), col=coef), linewidth=5, alpha=0.3)+
+  scale_color_gradientn(colors=c("red","white","blue"))+
+  geom_vline(xintercept = c(my("09-1755"), my("06-1755"),my("03-1755"),my("12-1754"),my("09-1754"),my("06-1754"),my("03-1754"),my("12-1753"),my("09-1753")))+
+  facet_wrap(~factor(var, levels=c("temp","precip")))+
+  geom_text(data=season.labels, aes(x=date, y=0.7, label=season))+
+  theme_bw()+
+  ylab("")+
+  xlab("")+
+  ggtitle("Primary = Temp")+
+  theme(axis.text.x = element_blank(), panel.grid = element_blank(), axis.text.y = element_text(color="black", size=12), axis.ticks.x = element_blank())
+
+```
+
+
+```{r}
+
+precip_temp_list <- list()
+for(i in 1:length(provs_arranged_lat[-9])){
+result <- seascorr(chrono = chron.list[[i]],
+                         climate= list(precip = ppt_comb_plantation_wide,temp= tmean_comb_plantation_wide),
+                         timespan = c(1985,2015),
+                         complete= 9,
+                         season_lengths=seq(4,12,1),
+                         primary=1,
+                         secondary=2,
+                         ci=0.05)
+precip_temp_list[[i]]<- result
+}
+
+inner_result_precip_temp<- list()
+outer_result_precip_temp<- list()
+
+for(i in 1:length(provs_arranged_lat[-9])){
+for(j in 1:length(seq(4,12,1))){
+result<- bind_rows(precip_temp_list[[i]]$coef[[j]]$primary %>% bind_cols(data.frame(month=c("Aug","Sep","Oct","Nov","Dec","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP"), var="primary", seasonl = seq(4,12,1)[j])) %>% 
+  filter(significant==TRUE),
+precip_temp_list[[i]]$coef[[j]]$secondary %>% 
+bind_cols(data.frame(month=c("Aug","Sep","Oct","Nov","Dec","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP"), var = "secondary", seasonl = seq(4,12,1)[j])) %>% 
+  filter(significant==TRUE) 
+)
+ inner_result_precip_temp[[j]]<- result}
+
+  inner_result_precip_temp2 <- inner_result_precip_temp[sapply(inner_result_precip_temp, function(x) dim(x)[1])>0]
+  inner_result_precip_temp3 <- bind_rows(inner_result_precip_temp2)
+  outer_result_precip_temp[[i]]<- inner_result_precip_temp3}
+names(outer_result_precip_temp)<- provs_arranged_lat[-9]
+
+precip_temp_seas <- bind_rows(outer_result_precip_temp, .id="Provenance") 
+
+precip_temp_seas_allp <- precip_temp_seas%>% 
+  bind_rows(data.frame(Provenance = data.frame(Provenance=provs_arranged_lat[-9]) %>% filter(!Provenance %in% precip_temp_seas$Provenance),coef=0,significant=TRUE,month="AUG",var="primary",seasonl=4))
+
+ggplot(precip_temp_seas_allp, aes(x=factor(month, levels=c("Aug","Sep","Oct","Nov","Dec","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP")), y=coef, fill=factor(Provenance, levels=provs_arranged_lat[-9])))+
+  geom_bar(stat="identity")+
+  facet_grid(rows=vars(factor(var, levels=c("primary","secondary"),labels=c("pri_temp","sec_precip"))),cols=vars(seasonl), )+
+  scale_fill_manual(values=unname(stepped()), name="Provenance")+
+  theme_bw()+
+  ggtitle("temp, precip")+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+timeline_precip_temp <- precip_temp_seas_allp %>% 
+  mutate(year = ifelse(month %in% c("Aug","Sep","Oct","Nov","Dec"), 1754, 1755),
+         month.num = case_when(month %in% c("Aug","AUG") ~ 08,
+                               month %in% c("Sep","SEP") ~ 09,
+                               month %in% c("Oct","OCT") ~ 10,
+                               month %in% c("Nov","NOV") ~ 11,
+                               month == "Dec" ~12,
+                               month == "JAN" ~ 01,
+                               month == "FEB" ~ 02,
+                               month == "MAR"~ 03,
+                               month == "APR" ~ 04,
+                               month == "MAY" ~ 05,
+                               month == "JUN" ~06,
+                               month == "JUL" ~ 07)) %>% 
+  mutate(date = my(paste(month.num,year, sep="-"))) %>% 
+  mutate(startdate = date %m-% months(seasonl-1)) %>% 
+  mutate(var = ifelse(var == "primary", "temp", "precip"))
+
+ggplot(timeline_precip_temp, aes(y=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_segment(aes(x=startdate, xend = date, y = factor(Provenance, levels=provs_bylat$Provenance), yend=factor(Provenance, levels=provs_bylat$Provenance), col=factor(Provenance, levels=provs_bylat$Provenance)), linewidth=5, alpha=0.3)+
+  scale_color_manual(values=unname(stepped()))+
+  geom_vline(xintercept = c(my("09-1755"), my("05-1755")))+
+  facet_wrap(~var)+
+  theme_bw()+
+  ylab("")+
+  theme(legend.position = "none")
+
+ggplot(timeline_precip_temp, aes(y=factor(Provenance, levels=prov_pcapts %>% arrange(PC1) %>% pull(Provenance))))+
+  geom_segment(aes(x=startdate, xend = date, y = factor(Provenance, levels=prov_pcapts %>% arrange(PC1) %>% pull(Provenance)), yend=factor(Provenance, levels=prov_pcapts %>% arrange(PC1) %>% pull(Provenance)), col=factor(Provenance, levels=prov_pcapts %>% arrange(PC1) %>% pull(Provenance))), linewidth=5, alpha=0.3)+
+  scale_color_manual(values=unname(stepped()))+
+  geom_vline(xintercept = c(my("09-1755"), my("05-1755")))+
+  facet_wrap(~var)+
+  theme_bw()+
+  ylab("")+
+  theme(legend.position = "none")
+  
+cor_analysis_plot_pc1_precip<- ggplot(timeline_precip_temp, aes(y=factor(Provenance, levels=prov_pcapts %>% arrange(PC1) %>% pull(Provenance))))+
+  geom_rect(aes(xmin=my("09-1753"), xmax = my("09-1754"),ymax=Inf, ymin=-Inf), fill="gray90")+
+    geom_rect(aes(xmin=my("06-1755"), xmax = my("09-1755"),ymax=Inf, ymin=-Inf), fill="lightyellow")+
+  geom_segment(aes(x=startdate, xend = date, y = factor(Provenance, levels=prov_pcapts %>% arrange(PC1) %>% pull(Provenance)), yend=factor(Provenance, levels=prov_pcapts %>% arrange(PC1) %>% pull(Provenance)), col=coef), linewidth=5, alpha=0.3)+
+  scale_color_gradientn(colors=c("red","white","blue"))+
+  geom_vline(xintercept = c(my("09-1755"), my("06-1755"),my("03-1755"),my("12-1754"),my("09-1754"),my("06-1754"),my("03-1754"),my("12-1753"),my("09-1753")))+
+    geom_text(data=season.labels, aes(x=date, y=0.7, label=season))+
+  facet_wrap(~var)+
+  theme_bw()+
+  ylab("")+
+  xlab("")+
+  ggtitle("Primary = Precip")+
+  theme(axis.text.x = element_blank(), panel.grid = element_blank(), axis.text.y = element_text(color="black", size=12), axis.ticks.x = element_blank(), strip.text = element_text(size=10, color="black"))
+
+png("figures/cor_analysis_timeline.png", width=9,height=10, units="in", res=500)
+ggarrange(cor_analysis_plot_pc1_temp,
+          cor_analysis_plot_pc1_precip, nrow=2, common.legend = TRUE, labels = c("A)","B)"))
+dev.off()
+```
+
 
 ####climwin
 
@@ -5594,6 +5691,8 @@ growth_climate_df <- growth.detrended.df %>%
   filter(year>1970) %>% 
   filter(!is.na(rw_spline))
 
+
+
 climvars <- colnames(growth_climate_df %>% dplyr::select(-c(CN:year)))
 tree_ids <- unique(growth_climate_df$tree)
 
@@ -5758,9 +5857,9 @@ correlation_plot<- ggplot(data=sig.cors.byprov %>% bind_rows(nonsig_data) %>% le
         strip.text = element_text(color="black", size=10),
         panel.grid = element_blank())
 
-png("figures/correlation_plot.png", width=6.5, height=5, res = 300, units = "in")
-correlation_plot
-dev.off()
+# png("figures/correlation_plot.png", width=6.5, height=5, res = 300, units = "in")
+# correlation_plot
+# dev.off()
 ```
 
 ###linear models G x C
