@@ -151,6 +151,50 @@ dev.off()
 
 ```
 
+###future climate
+
+```{r}
+##get future projections from ClimateNA
+gcms <- c("8GCMs_ensemble_ssp126_2011-2040", "8GCMs_ensemble_ssp126_2041-2070", "8GCMs_ensemble_ssp126_2071-2100", "8GCMs_ensemble_ssp245_2011-2040", "8GCMs_ensemble_ssp245_2041-2070", "8GCMs_ensemble_ssp245_2071-2100", "8GCMs_ensemble_ssp370_2011-2040", "8GCMs_ensemble_ssp370_2041-2070", "8GCMs_ensemble_ssp370_2071-2100", "8GCMs_ensemble_ssp585_2011-2040", "8GCMs_ensemble_ssp585_2041-2070", "8GCMs_ensemble_ssp585_2071-2100")
+# 
+# for(i in 1:length(gcms)){
+# rasterDownload(region='NA',res='4000m',period=gcms[i],varList=c("cmd","pas"),sDir='C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/climateNA')
+# }
+
+futures<- matrix(nrow = 12, ncol=15)
+for(i in 1:length(mastervarList[-c(16,17)])){
+futures[,i] <- paste(gcms,"/",mastervarList[-c(16,17)][i],".tif",sep="")
+}
+
+futures_list <- c(futures)
+
+future_clim_rasters <- c()
+for(i in 1:length(futures_list)){
+  future_clim_rasters[i]<- paste("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/climateNA/NA/4000m/",futures_list[i],sep="")
+}
+
+future_clim_raster_stack <- rast(future_clim_rasters)
+
+names(future_clim_raster_stack)<- paste(names(future_clim_raster_stack),substr(futures_list, 16,26),sep="_") %>% 
+  str_replace(pattern="dd_0", replacement="dd0")
+
+prov_futures<- terra::extract(future_clim_raster_stack, adjusted_provs, weights=T)
+
+prov_futures_long<- prov_futures %>%
+  left_join(data.frame(ID=seq(1,21,1), Provenance =adjusted_provs$Provenance)) %>% 
+  dplyr::select(ID,Provenance,everything()) %>% 
+  pivot_longer(cols=mat_ssp126_2011:pas_ssp585_2071) %>% 
+  rowwise() %>% 
+  mutate(climvar = str_extract(name, "[^_]+"), carbon = str_split(name, fixed("_"))[[1]][2], period = str_split(name, fixed("_"))[[1]][3]) %>% 
+  mutate(period=ifelse(is.na(period), "1970's", 
+                       ifelse(period=="2011","2020's",
+                              ifelse(period=="2041","2050's",
+                                     ifelse(period=="2071", "2080's",period)))), carbon=ifelse(is.na(carbon),"historic",carbon))
+
+prov_futures_long
+
+```
+
 ##PRISM
 
 ```{r}
@@ -871,6 +915,24 @@ ggplot(engelmann_clim, aes(x=MAT, y=map))+
   scale_color_manual(values=unname(stepped()))+
   theme_bw()+
   theme(text = element_text(size=16, color="black"))
+
+plantation_future <- prov_futures_long %>% filter(Provenance=="Plantation") %>% 
+  pivot_wider(names_from=climvar, values_from=value, id_cols = c(ID,Provenance,carbon,period))
+
+carbon.colors<- c("black",brewer.pal(6,"RdBu")[c(6,5,2,1)])
+
+ggplot(engelmann_clim, aes(x=MAT, y=map))+
+  geom_hex(alpha=0.7)+
+  scale_fill_gradientn(colors=c("gray","black"))+
+  geom_point(data=plantation_only, aes(x=MAT, y=map), size=4, col="gold", shape=18)+
+  geom_point(data=plantation_future, aes(x=mat/10, y=map, col=carbon, shape=period), size=4)+
+  scale_color_manual(values=carbon.colors[-1])+
+  geom_point(data=prov_pcapts %>% filter(!Provenance=="Plantation"), aes(x=MAT, y=map), size=2)+
+  ggrepel::geom_text_repel(data=prov_pcapts %>% filter(!Provenance=="Plantation"), aes(label=code))+
+  theme_bw()+
+  theme(text = element_text(size=16, color="black"))
+
+
 ```
 
 #Response variables
