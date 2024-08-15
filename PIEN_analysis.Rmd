@@ -76,6 +76,10 @@ ggplot()+
   geom_spatvector(data=canada)+
   geom_spatvector(data=adjusted_provs, color="maroon")
 
+adjusted_provs %>% 
+  as.data.frame() %>% 
+  bind_cols(crds(adjusted_provs))
+
 #make key for provenance names
 prov_names<-adjusted_coords %>% dplyr::select(Provenance, no) %>% 
  separate_wider_delim(Provenance, delim=" ", names=c("first","second","third"), too_few = "align_start", cols_remove=FALSE) %>% 
@@ -212,6 +216,34 @@ tmin_comb_all<- read.csv("tmin_comb_all.csv")
 tmean_comb_all<- read.csv("tmean_comb_all.csv")
 vpdmax_comb_all<- read.csv("vpdmax_comb_all.csv")
 vpdmin_comb_all<- read.csv("vpdmin_comb_all.csv")
+
+##looking for anomolous frosts
+tmin_1981_may 
+
+dates <- c("01","02","03","04","05","06","07","08","09",seq(10,31,1))
+
+tmindata<- data.frame()
+for(k in 1:length(years)){
+  for(j in 1:length(months)){
+    for(i in 1:length(dates)){
+raster<- rast(paste("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/PRISM/PRISM_tmin_stable_4kmD2_19810501_19810531_bil","/PRISM_tmin_stable_4kmD2_",years[k],months[j],dates[i],"_bil.bil",sep=""))
+tmin <- terra::extract(raster, adjusted_provs %>% filter(Provenance=="Plantation"), method="simple")
+tmindata <- bind_rows(tmindata,data.frame(year=years[k], month=months[j], day = dates[i], tmin = tmin[,2]))}}}
+
+tmindata
+
+prov_clim_adjusted_bi %>% 
+  filter(Provenance=="Plantation") %>% 
+  pull(bFFP)
+
+prov_clim_adjusted_bi %>% 
+  filter(Provenance=="Plantation") %>% 
+  pull(eFFP)
+
+library(prism)
+
+get_prism_dailys(type="tmin", minDate = "1981-04-01", maxDate = "1981-10-31", keepZip=FALSE)
+
 ```
 
 ```{r}
@@ -611,6 +643,24 @@ View(plantation_clim_xtremes)
 plantation_clim_xtremes %>% 
   group_by(year) %>% 
   summarise(n=n()) ##2002 has the highest # of climate vars outside the extreme.
+
+###########
+## identify cold years
+#############
+plantation_clim_long_qs %>% 
+  pull(name)%>% 
+  unique()
+
+plantation_clim_coldxtremes<- plantation_clim_long_qs %>% 
+  mutate(extreme = ifelse(name %in% c("value_sm_tmax","value_sm_tmean","value_sm_tmin","value_fa_tmax","value_fa_tmean","value_fa_tmin","value_wt_tmax","value_wt_tmean","value_wt_tmin","value_sp_tmax","value_sp_tmean","value_sp_tmin","vpdmax_sm","vpdmax_fa","vpdmax_wt","vpdmax_sp","cwd_sum","cwd_wy") & value < out.low, "yes", "no" 
+  )) %>% 
+  filter(extreme=="yes")
+
+plantation_clim_coldxtremes %>% 
+  group_by(year) %>% 
+  summarise(n=n()) %>% 
+  print(n=50)
+
 ```
 
 
@@ -2448,9 +2498,12 @@ trees.died<- tree.num %>%
   left_join(tree.num %>% filter(year==1974) %>% ungroup() %>% dplyr::select(Provenance, n) %>% rename(n_74=n)) %>% 
   mutate(prop = n/n_74)
 
-ggplot(tree.num, aes(x=year, y=n, col=Provenance))+
-  geom_point()+
-  geom_line()
+ggplot()+
+  geom_point(data=tree.num, aes(x=year, y=n, col=Provenance))+
+  geom_line(data=tree.num, aes(x=year, y=n, col=Provenance))+
+  geom_bar(data=plantation_clim, aes(x=year, y=scale(value_sm_tmean)*10), stat = "identity")
+
+plantation_clim
 
 ggplot(trees.died %>% filter(name=="HT14"), aes(x=factor(Provenance, levels=prov_clim_adjusted_bi %>% arrange(y) %>% pull(Provenance)), y=prop))+
   geom_point()+
@@ -2465,12 +2518,41 @@ ggplot(trees.died %>% filter(name=="HT14"), aes(x=factor(Provenance, levels=prov
 moniger_survival <- moniger_data_comb %>% 
   mutate(Stat14 = ifelse(Stat14==9,0,Stat14))
 
+moniger_survival_byyr <- moniger_data_comb %>% 
+  mutate(Stat79 = ifelse(Stat74 == 9, NA, Stat79)) %>% 
+  mutate(Stat85 = ifelse(Stat79 %in% c(NA,9), NA, Stat85)) %>% 
+  mutate(Stat91 = ifelse(Stat85 %in% c(NA,9), NA, Stat91)) %>% 
+  mutate(Stat96 = ifelse(Stat91 %in% c(NA,9), NA, Stat96)) %>% 
+  mutate(Stat06 = ifelse(Stat96 %in% c(NA,9), NA, Stat06)) %>% 
+  mutate(Stat14 = ifelse(Stat06 %in% c(NA,9), NA, Stat14)) %>% 
+  dplyr::select(c(SORT,Provenance,Stat74:Stat14)) %>% 
+  pivot_longer(Stat74:Stat14) %>% 
+  mutate(year=case_when(name == "Stat74" ~ 1974,
+                        name == "Stat79" ~ 1979,
+                        name == "Stat85" ~ 1985,
+                        name == "Stat91" ~ 1991,
+                        name == "Stat96" ~ 1996,
+                        name == "Stat06" ~ 2006,
+                        name == "Stat14" ~ 2014)) %>% 
+  mutate(value = ifelse(value==9,0,value)) %>% 
+  filter(!is.na(value))
+
 survmod<- glm(Stat14 ~ Provenance, data=moniger_survival, family="binomial")
 plot(survmod)
 summary(survmod)
 confint(survmod)
 wald.test(b = coef(survmod), Sigma = vcov(survmod), Terms=2:20) ##Provenance is significant
 coef(survmod)
+
+survmod_byyear<- glm(value ~ year*Provenance, data=moniger_survival_byyr, family="binomial")
+plot(survmod_byyear)
+summary(survmod_byyear)
+confint(survmod_byyear)
+wald.test(b = coef(survmod_byyear), Sigma = vcov(survmod_byyear), Terms=2) ##year is significant
+wald.test(b = coef(survmod_byyear), Sigma = vcov(survmod_byyear), Terms=3:21) ##Provenance is significant
+wald.test(b = coef(survmod_byyear), Sigma = vcov(survmod_byyear), Terms=22:40) ##interaction is significant
+coef(survmod_byyear)
+
 
 ##predictions
 newdata1 <- with(moniger_survival, data.frame(Provenance = rep(unique(moniger_survival$Provenance))))
@@ -2490,6 +2572,42 @@ surv_byprov <- ggplot(newdata3, aes(x = factor(Provenance, levels=provs_bylat$Pr
   ylab("Predicted Probability of Survival")+
   theme_bw()+
   theme(legend.position = "none", axis.text.x = element_text(color="black",angle=45, hjust=1), axis.title.x = element_blank())
+
+
+##predictions by year
+newdata1 <- with(moniger_survival_byyr, data.frame(year = seq(min(year),max(year),1), Provenance = rep(unique(moniger_survival_byyr$Provenance), each=41)))
+
+newdata2 <- cbind(newdata1, predict(survmod_byyear, newdata = newdata1, type = "link", se=TRUE))
+newdata3 <- within(newdata2, {
+    PredictedProb <- plogis(fit)
+    LL <- plogis(fit - (1.96 * se.fit))
+    UL <- plogis(fit + (1.96 * se.fit))
+})
+
+ggplot(newdata3, aes(x = year, y = PredictedProb)) + geom_ribbon(aes(ymin = LL,
+    ymax = UL, fill = factor(Provenance, levels=provs_bylat$Provenance)), alpha = 0.2) + geom_line(aes(colour = factor(Provenance, levels=provs_bylat$Provenance)),
+    linewidth = 1)+
+  scale_color_manual(values=unname(stepped()),name="Provenance")+
+  scale_fill_manual(values=unname(stepped()),name="Provenance")+
+  ylab("Predicted Probability")+
+  theme_bw()+
+  theme(axis.text = element_text(color="black", size=10),
+        axis.title = element_text(color="black", size=10),
+        legend.text = element_text(color="black", size=8),
+        legend.title = element_text(color="black", size=10))
+
+moniger_survival_byyr_sum <- moniger_survival_byyr %>% 
+  group_by(Provenance,year) %>% 
+  summarise(alive = sum(value), total=n()) %>% 
+  mutate(surv = alive/total)
+
+ggplot()+
+  geom_bar(data=plantation_clim, aes(x=year, y=scale(value_sm_tmean)), stat="identity", col="darkgray")+
+  geom_point(data = moniger_survival_byyr_sum, aes(x=year, y=surv, col=Provenance))+
+  geom_line(data = moniger_survival_byyr_sum, aes(x=year, y=surv, col=Provenance))+
+  theme_bw()
+
+
 ```
 
 ####PCA
@@ -2984,11 +3102,14 @@ ave_rw_all <- dbh_age_good %>%
   group_by(year) %>% 
   summarise(ave_rw=mean(rw), se=sd(rw)/sqrt(n()))
 
+plantation_clim <- plantation_clim %>% 
+  mutate(aet_scale=scale(aet_sum))
+
 ggplot(ave_rw_all, aes(x=year, y=ave_rw))+
+  geom_bar(data=plantation_clim, aes(x=year, y=aet_scale), stat="identity")+
   geom_point()+
-  geom_errorbar(aes(x=year, ymin=ave_rw-se, ymax=ave_rw+se), col="red")+
-  geom_line()+
-  geom_bar(data=plantation_clim, aes(x=year, y=FDSI), stat="identity")
+  geom_errorbar(aes(x=year, ymin=(ave_rw-se), ymax=(ave_rw+se)), col="red")+
+  geom_line()
 ### it seems like the major deviation in the data is in response to the wet period right before the drought, rather than the 2002 drought. 
 
 #ring width series statistics
@@ -3091,7 +3212,7 @@ growth.detrended.all.byprov <- growth.detrended.df.all %>%
   summarise(meanrwi = mean(rw_spline, na.rm=T), se=sd(rw_spline,na.rm=T)/sqrt(n()))
 
 ggplot(growth.detrended.all.byprov, aes(x=year, y=meanrwi))+
-    geom_bar(data=plantation_clim, aes(x=year, y=FDSI), stat="identity")+
+    geom_bar(data=plantation_clim, aes(x=year, y=aet_scale), stat="identity")+
   geom_point(aes( col=Provenance))+
   geom_errorbar(width=0.2,aes(x=year, ymin=meanrwi-se, ymax=meanrwi+se, col=Provenance))+
   geom_line(aes( col=Provenance))+
