@@ -50,6 +50,7 @@ library(gridExtra)
 library(climwin)
 library(lubridate)
 library(dichromat)
+library(prism)
 ```
 
 ##Plot locations
@@ -135,6 +136,41 @@ ggplot()+
 ```
 
 ```{r}
+#monthly normals
+
+months = c("01","02","03","04","05","06","07","08","09","10","11","12")
+
+monthly_ppt<- data.frame(ID=seq(1,21,1))
+for(i in 1:length(months)){
+raster <- rast(paste("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/climateNA/monthly/ppt/PPT",months[i],".tif",sep=""))
+ppt <- terra::extract(raster, adjusted_provs)
+monthly_ppt <- left_join(monthly_ppt, ppt)}
+
+
+monthly_tave<- data.frame(ID=seq(1,21,1))
+for(i in 1:length(months)){
+raster <- rast(paste("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/climateNA/monthly/tave/Tave",months[i],".tif",sep=""))
+tave <- terra::extract(raster, adjusted_provs)
+monthly_tave <- left_join(monthly_tave, tave)}
+
+monthly_clim <- monthly_ppt %>%
+  bind_cols(as.data.frame(adjusted_provs)) %>% 
+  pivot_longer(PPT01:PPT12) %>% 
+  bind_rows(monthly_tave %>%
+  bind_cols(as.data.frame(adjusted_provs)) %>% 
+  pivot_longer(Tave01:Tave12)) %>% 
+  mutate(month=substr(name,nchar(name)-1,nchar(name)),
+         var = substr(name,0,nchar(name)-2))
+
+ggplot(monthly_clim, aes(x=month, y=value, col=var))+
+  geom_point()+
+  geom_line()+
+  facet_wrap(~factor(Provenance))
+provbylat
+```
+
+
+```{r}
 #compare climates of provenances
 prov_vars<- prov_clim_adjusted_bi %>% 
   dplyr::select(c(Provenance,MAT:pas,smrpb)) %>% 
@@ -203,7 +239,7 @@ prov_futures_long
 
 ```{r}
 #read in files
-ppt_comb_plantation<- read.csv("ppt_comb_plantation.csv")
+ppt_comb_plantation<- read.csv("ppt_comb_plantation.csv") %>% dplyr::select(-X) %>% rename(X = X.1)
 tmax_comb_plantation<- read.csv("tmax_comb_plantation.csv")
 tmin_comb_plantation<- read.csv("tmin_comb_plantation.csv")
 tmean_comb_plantation<- read.csv("tmean_comb_plantation.csv")
@@ -218,19 +254,6 @@ vpdmax_comb_all<- read.csv("vpdmax_comb_all.csv")
 vpdmin_comb_all<- read.csv("vpdmin_comb_all.csv")
 
 ##looking for anomolous frosts
-tmin_1981_may 
-
-dates <- c("01","02","03","04","05","06","07","08","09",seq(10,31,1))
-
-tmindata<- data.frame()
-for(k in 1:length(years)){
-  for(j in 1:length(months)){
-    for(i in 1:length(dates)){
-raster<- rast(paste("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/PRISM/PRISM_tmin_stable_4kmD2_19810501_19810531_bil","/PRISM_tmin_stable_4kmD2_",years[k],months[j],dates[i],"_bil.bil",sep=""))
-tmin <- terra::extract(raster, adjusted_provs %>% filter(Provenance=="Plantation"), method="simple")
-tmindata <- bind_rows(tmindata,data.frame(year=years[k], month=months[j], day = dates[i], tmin = tmin[,2]))}}}
-
-tmindata
 
 prov_clim_adjusted_bi %>% 
   filter(Provenance=="Plantation") %>% 
@@ -240,9 +263,70 @@ prov_clim_adjusted_bi %>%
   filter(Provenance=="Plantation") %>% 
   pull(eFFP)
 
-library(prism)
+prov_clim_adjusted_bi %>% 
+  filter(Provenance=="Gila NF") %>% 
+  pull(eFFP)
 
-get_prism_dailys(type="tmin", minDate = "1981-04-01", maxDate = "1981-10-31", keepZip=FALSE)
+#prism_set_dl_dir("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/PIENproject/prismtmp")
+
+# get_prism_dailys(type="tmin", minDate = "1981-04-01", maxDate = "1981-10-31", keepZip=FALSE)
+# get_prism_dailys(type="tmin", minDate = "1982-04-01", maxDate = "1982-10-31", keepZip=FALSE)
+# get_prism_dailys(type="tmin", minDate = "1983-07-01", maxDate = "1983-08-31", keepZip=FALSE)
+# get_prism_dailys(type="tmin", minDate = "1984-07-01", maxDate = "1984-08-31", keepZip=FALSE)
+# get_prism_dailys(type="tmin", minDate = "1985-07-01", maxDate = "1985-08-31", keepZip=FALSE)
+# get_prism_dailys(type="tmin", minDate = "1986-07-01", maxDate = "1986-08-31", keepZip=FALSE)
+# get_prism_dailys(type="tmin", minDate = "1987-07-01", maxDate = "1987-08-31", keepZip=FALSE)
+# get_prism_dailys(type="tmin", minDate = "1988-07-01", maxDate = "1988-08-31", keepZip=FALSE)
+# get_prism_dailys(type="tmin", minDate = "1989-07-01", maxDate = "1989-08-31", keepZip=FALSE)
+# get_prism_dailys(type="tmin", minDate = "1990-07-01", maxDate = "1990-08-31", keepZip=FALSE)
+# get_prism_dailys(type="tmin", minDate = "1991-07-01", maxDate = "1991-08-31", keepZip=FALSE)
+# get_prism_dailys(type="tmin", minDate = "1992-07-01", maxDate = "1992-08-31", keepZip=FALSE)
+# get_prism_dailys(type="tmin", minDate = "1993-07-01", maxDate = "1993-08-31", keepZip=FALSE)
+# get_prism_dailys(type="tmin", minDate = "1994-07-01", maxDate = "1994-08-31", keepZip=FALSE)
+# get_prism_dailys(type="tmin", minDate = "1995-07-01", maxDate = "1995-08-31", keepZip=FALSE)
+# get_prism_dailys(type="tmin", minDate = "1996-07-01", maxDate = "1996-08-31", keepZip=FALSE)
+# get_prism_dailys(type="tmin", minDate = "1997-07-01", maxDate = "1997-08-31", keepZip=FALSE)
+# get_prism_dailys(type="tmin", minDate = "1998-07-01", maxDate = "1998-08-31", keepZip=FALSE)
+# get_prism_dailys(type="tmin", minDate = "2000-07-01", maxDate = "2000-08-31", keepZip=FALSE)
+# get_prism_dailys(type="tmin", minDate = "2001-07-01", maxDate = "2001-08-31", keepZip=FALSE)
+# get_prism_dailys(type="tmin", minDate = "2002-07-01", maxDate = "2002-08-31", keepZip=FALSE)
+# get_prism_dailys(type="tmin", minDate = "2003-07-01", maxDate = "2003-08-31", keepZip=FALSE)
+# get_prism_dailys(type="tmin", minDate = "2004-07-01", maxDate = "2004-08-31", keepZip=FALSE)
+# get_prism_dailys(type="tmin", minDate = "2005-07-01", maxDate = "2005-08-31", keepZip=FALSE)
+# get_prism_dailys(type="tmin", minDate = "2006-07-01", maxDate = "2006-08-31", keepZip=FALSE)
+# get_prism_dailys(type="tmin", minDate = "2007-07-01", maxDate = "2007-08-31", keepZip=FALSE)
+# get_prism_dailys(type="tmin", minDate = "2008-07-01", maxDate = "2008-08-31", keepZip=FALSE)
+# get_prism_dailys(type="tmin", minDate = "2009-07-01", maxDate = "2009-08-31", keepZip=FALSE)
+# get_prism_dailys(type="tmin", minDate = "2010-07-01", maxDate = "2010-08-31", keepZip=FALSE)
+# get_prism_dailys(type="tmin", minDate = "2011-07-01", maxDate = "2011-08-31", keepZip=FALSE)
+# get_prism_dailys(type="tmin", minDate = "2012-07-01", maxDate = "2012-08-31", keepZip=FALSE)
+# get_prism_dailys(type="tmin", minDate = "2013-07-01", maxDate = "2013-08-31", keepZip=FALSE)
+# get_prism_dailys(type="tmin", minDate = "2014-07-01", maxDate = "2014-08-31", keepZip=FALSE)
+
+prism_set_dl_dir("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/PIENproject/prismtmp")
+
+years <- seq(1981,2014,1)
+
+for(k in 1:length(years)){
+      get_prism_dailys(type="tmin", minDate = paste(years[k],"-05-15",sep=""), maxDate = paste(years[k],"-10-13",sep=""), keepZip=FALSE)
+    }
+  
+dates <- c("01","02","03","04","05","06","07","08","09",seq(10,31,1))
+months <- c("07","08")
+
+tmindata<- data.frame()
+for(k in 1:length(years)){
+  for(j in 1:length(months)){
+    for(i in 1:length(dates)){
+raster<- rast(paste("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/PIENproject/prismtmp/PRISM_tmin_stable_4kmD2_",years[k],months[j],dates[i],"_bil","/PRISM_tmin_stable_4kmD2_",years[k],months[j],dates[i],"_bil.bil",sep=""))
+tmin <- terra::extract(raster, adjusted_provs %>% filter(Provenance=="Plantation"), method="simple")
+tmindata <- bind_rows(tmindata,data.frame(year=years[k], month=months[j], day = dates[i], tmin = tmin[,2]))}}}
+
+tmindata %>% 
+  as.data.frame() %>% 
+  mutate(date=as_date(paste(year,month,day,sep="-"))) %>% 
+  filter(tmin < 0)
+
 
 ```
 
@@ -455,8 +539,8 @@ ggplot(FDSI_raw, aes(x=year, y=FDSI))+
 ##CWD calculation
 
 ```{r}
-source("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/grad school/cwd_function_v3.r")
-
+# source("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/grad school/cwd_function_v3.r")
+# 
 # #get dem
 # dem_plantation <- rast("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/PIENproject/USGS_13_n40w107_20220216.tif")
 # 
@@ -464,7 +548,7 @@ source("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/grad school/cw
 # 
 # slpasp_plantation <- terra::extract(slpasp, adjusted_provs %>% filter(Provenance=="Plantation"), method="simple")
 # 
-# plantation_cwd_data <- all_climate %>% left_join(as.data.frame(adjusted_provs) %>% bind_cols(crds(adjusted_provs)) %>% filter(Provenance=="Plantation"), by=c("CN"="Provenance")) %>% 
+# plantation_cwd_data <- all_climate %>% left_join(as.data.frame(adjusted_provs) %>% bind_cols(crds(adjusted_provs)) %>% filter(Provenance=="Plantation"), by=c("CN"="Provenance")) %>%
 #   mutate(soilawc=116.5, foldedaspect = abs(180-abs(slpasp_plantation$aspect - 225)), slope=slpasp_plantation$slope)
 # 
 # write.csv(plantation_cwd_data, "plantation_cwd_data.csv")
@@ -566,7 +650,7 @@ ggplot(plantation_cwd_annual_long %>% filter(name%in%c("cwd_sum","FDSI")), aes(x
 ##SPEI
 
 ```{r}
-##calculate SPEI - Standardized Precipitation Evapotranspiration Index
+##calculate SPEI - Standardized Precipitation Evapotranspiration Index (higher is wetter, lower is drier)
 plantation_climatebalance <- plantation_cwd %>% 
   mutate(ppt_pet = ppt - petm)
 
@@ -576,7 +660,7 @@ summary(plantation_spei)
 
 plantation_spei_sum <- data.frame(year=plantation_climatebalance$year, month=plantation_climatebalance$month, spei = plantation_spei$fitted, date = as.Date(paste(plantation_climatebalance$month,"01",plantation_climatebalance$year, sep="/"), "%m/%d/%Y"))
 
-ggplot(plantation_spei_sum %>% filter(year > 1987 & year <2012), aes(x=date, y=spei, fill=spei>0))+
+ggplot(plantation_spei_sum %>% filter(year > 1987 & year <2024), aes(x=date, y=spei, fill=spei>0))+
   geom_bar(stat = "identity")+
   theme(axis.text.x = element_text(angle=45, hjust=1))
 
@@ -584,7 +668,7 @@ plantation_spei_annual<- plantation_spei_sum %>%
   group_by(year) %>% 
   summarise(spei_mean = mean(spei), spei_sum=sum(spei))
 
-ggplot(plantation_spei_annual %>% filter(year > 1987 & year <2012), aes(x=year, y=spei_sum, fill=spei_sum>0))+
+ggplot(plantation_spei_annual %>% filter(year > 1987 & year <2024), aes(x=year, y=spei_sum, fill=spei_sum>0))+
   geom_bar(stat = "identity")+
   theme(axis.text.x = element_text(angle=45, hjust=1))
 ```
@@ -607,6 +691,11 @@ colnames(plantation_clim)
 plantation_clim_long <- plantation_clim %>% 
 dplyr::select(c(CN:vpdmax_sp, FDSI, aet_sum, cwd_sum, cwd_wy, spei_sum)) %>% 
   pivot_longer(ppt_sm:spei_sum)
+
+ggplot(plantation_clim_long, aes(x=year, y=value))+
+  geom_point()+
+  geom_line()+
+  facet_wrap(~name, scales="free")
 ```
 
 ##Climate extremes
@@ -642,7 +731,9 @@ View(plantation_clim_xtremes)
 
 plantation_clim_xtremes %>% 
   group_by(year) %>% 
-  summarise(n=n()) ##2002 has the highest # of climate vars outside the extreme.
+  summarise(n=n()) %>% 
+  arrange(n) %>% 
+  print(n=50)##2002 has the highest # of climate vars outside the extreme.
 
 ###########
 ## identify cold years
@@ -659,6 +750,7 @@ plantation_clim_coldxtremes<- plantation_clim_long_qs %>%
 plantation_clim_coldxtremes %>% 
   group_by(year) %>% 
   summarise(n=n()) %>% 
+  arrange(n) %>% 
   print(n=50)
 
 ```
@@ -2544,7 +2636,7 @@ confint(survmod)
 wald.test(b = coef(survmod), Sigma = vcov(survmod), Terms=2:20) ##Provenance is significant
 coef(survmod)
 
-survmod_byyear<- glm(value ~ year*Provenance, data=moniger_survival_byyr, family="binomial")
+survmod_byyear<- glm(value ~ factor(year)*Provenance, data=moniger_survival_byyr, family="binomial")
 plot(survmod_byyear)
 summary(survmod_byyear)
 confint(survmod_byyear)
@@ -2606,6 +2698,41 @@ ggplot()+
   geom_point(data = moniger_survival_byyr_sum, aes(x=year, y=surv, col=Provenance))+
   geom_line(data = moniger_survival_byyr_sum, aes(x=year, y=surv, col=Provenance))+
   theme_bw()
+
+ggplot()+
+  geom_bar(data=plantation_clim, aes(x=year, y=scale(cwd_sum)), stat="identity", col="darkgray")+
+  geom_point(data = moniger_survival_byyr_sum, aes(x=year, y=surv, col=Provenance))+
+  geom_line(data = moniger_survival_byyr_sum, aes(x=year, y=surv, col=Provenance))+
+  theme_bw()
+
+####ANOVAs for each year separately
+
+survmod74 <- aov(value ~ Provenance, data=moniger_survival_byyr %>% filter(year==1974))
+summary(survmod74)
+TukeyHSD(survmod74)$Provenance %>% as.data.frame() %>% 
+  filter(`p adj` < 0.05)
+
+survmod79 <- aov(value ~ Provenance, data=moniger_survival_byyr %>% filter(year==1979))
+summary(survmod79)
+TukeyHSD(survmod79)$Provenance %>% as.data.frame() %>% 
+  filter(`p adj` < 0.05)
+
+survmod85 <- aov(value ~ Provenance, data=moniger_survival_byyr %>% filter(year==1985))
+summary(survmod85)
+
+survmod91 <- aov(value ~ Provenance, data=moniger_survival_byyr %>% filter(year==1991))
+summary(survmod91)
+TukeyHSD(survmod91)$Provenance %>% as.data.frame() %>% 
+  filter(`p adj` < 0.05)
+
+survmod96 <- aov(value ~ Provenance, data=moniger_survival_byyr %>% filter(year==1996))
+summary(survmod96)
+
+survmod06 <- aov(value ~ Provenance, data=moniger_survival_byyr %>% filter(year==2006))
+summary(survmod06)
+
+survmod14 <- aov(value ~ Provenance, data=moniger_survival_byyr %>% filter(year==2014))
+summary(survmod14)
 
 
 ```

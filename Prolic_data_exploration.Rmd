@@ -203,24 +203,24 @@ pam8$silinfo$avg.width
 ```
 
 ```{r}
-##monthly variables
-years_old<- as.character(seq(1970,1980,1))
-years_new <- as.character(seq(1981,2016,1))
-months<- c("01","02","03","04","05","06","07","08","09","10","11","12")
-
-# set location of climate data
-climdir <- "C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/PRISM"
-
-
+# ##monthly variables
+# years_old<- as.character(seq(1970,1980,1))
+# years_new <- as.character(seq(1981,2023,1))
+# months<- c("01","02","03","04","05","06","07","08","09","10","11","12")
+# 
+# # set location of climate data
+# climdir <- "C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/PRISM"
+# 
+# 
 # #pull climate for 1970 - 2016 from PRISM
 # ppt_data_old<-vector()
 # for(i in 1:length(years_old)){
 # for(j in 1:length(months)){
 #   raster<-paste(climdir,'/annual/PRISM_ppt_stable_4kmM3_198101_202305_bil/PRISM_ppt_stable_4kmM2_',years_old[i],months[j],'_bil.bil',sep="")
 #   rast <- rast(raster)
-#   ext.poly <- terra::extract(rast, provenances, fun = mean, na.rm=TRUE, df=TRUE)
+#   ext.poly <- terra::extract(rast, adjusted_provs, fun = mean, na.rm=TRUE, df=TRUE)
 #   ppt<-ext.poly[,2]
-#   CN<-provenances$ident
+#   CN<-adjusted_provs$Provenance
 #   year <- rep(years_old[i],length(ext.poly[,2]))
 #   month <- rep(months[j],length(ext.poly[,2]))
 #   ppt_CN<-cbind(CN,ppt,year,month)
@@ -232,9 +232,9 @@ climdir <- "C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/
 # for(j in 1:length(months)){
 #   raster<-paste(climdir,'/annual/PRISM_ppt_stable_4kmM3_198101_202305_bil/PRISM_ppt_stable_4kmM3_',years_new[i],months[j],'_bil.bil',sep="")
 #   rast <- rast(raster)
-#   ext.poly <- terra::extract(rast, provenances, fun = mean, na.rm=TRUE, df=TRUE)
+#   ext.poly <- terra::extract(rast, adjusted_provs, fun = mean, na.rm=TRUE, df=TRUE)
 #   ppt<-ext.poly[,2]
-#   CN<-provenances$ident
+#   CN<-adjusted_provs$Provenance
 #   year <- rep(years_new[i],length(ext.poly[,2]))
 #   month <- rep(months[j],length(ext.poly[,2]))
 #   ppt_CN<-cbind(CN,ppt,year,month)
@@ -256,9 +256,9 @@ climdir <- "C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/
 # for(j in 1:length(months)){
 #   raster<-paste(climdir,'/annual/PRISM_tmin_stable_4kmM3_198101_202305_bil/PRISM_tmin_stable_4kmM3_',years_old[i],months[j],'_bil.bil',sep="")
 #   rast <- rast(raster)
-#   ext.poly <- terra::extract(rast, provenances, fun = mean, na.rm=TRUE, df=TRUE)
+#   ext.poly <- terra::extract(rast, adjusted_provs, fun = mean, na.rm=TRUE, df=TRUE)
 #   tmin<-ext.poly[,2]
-#   CN<-provenances$ident
+#   CN<-adjusted_provs$Provenance
 #   year <- rep(years_old[i],length(ext.poly[,2]))
 #   month <- rep(months[j],length(ext.poly[,2]))
 #   tmin_CN<-cbind(CN,tmin,year,month)
@@ -270,9 +270,9 @@ climdir <- "C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/
 # for(j in 1:length(months)){
 #   raster<-paste(climdir,'/annual/PRISM_tmin_stable_4kmM3_198101_202305_bil/PRISM_tmin_stable_4kmM3_',years_new[i],months[j],'_bil.bil',sep="")
 #   rast <- rast(raster)
-#   ext.poly <- terra::extract(rast, provenances, fun = mean, na.rm=TRUE, df=TRUE)
+#   ext.poly <- terra::extract(rast, adjusted_provs, fun = mean, na.rm=TRUE, df=TRUE)
 #   tmin<-ext.poly[,2]
-#   CN<-provenances$ident
+#   CN<-adjusted_provs$Provenance
 #   year <- rep(years_new[i],length(ext.poly[,2]))
 #   month <- rep(months[j],length(ext.poly[,2]))
 #   tmin_CN<-cbind(CN,tmin,year,month)
@@ -294,9 +294,9 @@ climdir <- "C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/
 # for(j in 1:length(months)){
 #   raster<-paste(climdir,'/annual/PRISM_tmax_stable_4kmM3_198101_202305_bil/PRISM_tmax_stable_4kmM3_',years_old[i],months[j],'_bil.bil',sep="")
 #   rast <- rast(raster)
-#   ext.poly <- terra::extract(rast, provenances, fun = mean, na.rm=TRUE, df=TRUE)
+#   ext.poly <- terra::extract(rast, adjusted_provs, fun = mean, na.rm=TRUE, df=TRUE)
 #   tmax<-ext.poly[,2]
-#   CN<-provenances$ident
+#   CN<-adjusted_provs$Provenance
 #   year <- rep(years_old[i],length(ext.poly[,2]))
 #   month <- rep(months[j],length(ext.poly[,2]))
 #   tmax_CN<-cbind(CN,tmax,year,month)
@@ -308,9 +308,9 @@ climdir <- "C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/
 # for(j in 1:length(months)){
 #   raster<-paste(climdir,'/annual/PRISM_tmax_stable_4kmM3_198101_202305_bil/PRISM_tmax_stable_4kmM3_',years_new[i],months[j],'_bil.bil',sep="")
 #   rast <- rast(raster)
-#   ext.poly <- terra::extract(rast, provenances, fun = mean, na.rm=TRUE, df=TRUE)
+#   ext.poly <- terra::extract(rast, adjusted_provs, fun = mean, na.rm=TRUE, df=TRUE)
 #   tmax<-ext.poly[,2]
-#   CN<-provenances$ident
+#   CN<-adjusted_provs$Provenance
 #   year <- rep(years_new[i],length(ext.poly[,2]))
 #   month <- rep(months[j],length(ext.poly[,2]))
 #   tmax_CN<-cbind(CN,tmax,year,month)
@@ -331,9 +331,9 @@ climdir <- "C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/
 # for(j in 1:length(months)){
 #   raster<-paste(climdir,'/annual/PRISM_tmean_stable_4kmM3_198101_202305_bil/PRISM_tmean_stable_4kmM3_',years_old[i],months[j],'_bil.bil',sep="")
 #   rast <- rast(raster)
-#   ext.poly <- terra::extract(rast, provenances, fun = mean, na.rm=TRUE, df=TRUE)
+#   ext.poly <- terra::extract(rast, adjusted_provs, fun = mean, na.rm=TRUE, df=TRUE)
 #   tmean<-ext.poly[,2]
-#   CN<-provenances$ident
+#   CN<-adjusted_provs$Provenance
 #   year <- rep(years_old[i],length(ext.poly[,2]))
 #   month <- rep(months[j],length(ext.poly[,2]))
 #   tmean_CN<-cbind(CN,tmean,year,month)
@@ -345,9 +345,9 @@ climdir <- "C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/
 # for(j in 1:length(months)){
 #   raster<-paste(climdir,'/annual/PRISM_tmean_stable_4kmM3_198101_202305_bil/PRISM_tmean_stable_4kmM3_',years_new[i],months[j],'_bil.bil',sep="")
 #   rast <- rast(raster)
-#   ext.poly <- terra::extract(rast, provenances, fun = mean, na.rm=TRUE, df=TRUE)
+#   ext.poly <- terra::extract(rast, adjusted_provs, fun = mean, na.rm=TRUE, df=TRUE)
 #   tmean<-ext.poly[,2]
-#   CN<-provenances$ident
+#   CN<-adjusted_provs$Provenance
 #   year <- rep(years_new[i],length(ext.poly[,2]))
 #   month <- rep(months[j],length(ext.poly[,2]))
 #   tmean_CN<-cbind(CN,tmean,year,month)
@@ -369,9 +369,9 @@ climdir <- "C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/
 # for(j in 1:length(months)){
 #   raster<-paste(climdir,'/annual/PRISM_vpdmax_stable_4kmM3_198101_202305_bil/PRISM_vpdmax_stable_4kmM3_',years_old[i],months[j],'_bil.bil',sep="")
 #   rast <- rast(raster)
-#   ext.poly <- terra::extract(rast, provenances, fun = mean, na.rm=TRUE, df=TRUE)
+#   ext.poly <- terra::extract(rast, adjusted_provs, fun = mean, na.rm=TRUE, df=TRUE)
 #   vpdmax<-ext.poly[,2]
-#   CN<-provenances$ident
+#   CN<-adjusted_provs$Provenance
 #   year <- rep(years_old[i],length(ext.poly[,2]))
 #   month <- rep(months[j],length(ext.poly[,2]))
 #   vpdmax_CN<-cbind(CN,vpdmax,year,month)
@@ -383,9 +383,9 @@ climdir <- "C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/
 # for(j in 1:length(months)){
 #   raster<-paste(climdir,'/annual/PRISM_vpdmax_stable_4kmM3_198101_202305_bil/PRISM_vpdmax_stable_4kmM3_',years_new[i],months[j],'_bil.bil',sep="")
 #   rast <- rast(raster)
-#   ext.poly <- terra::extract(rast, provenances, fun = mean, na.rm=TRUE, df=TRUE)
+#   ext.poly <- terra::extract(rast, adjusted_provs, fun = mean, na.rm=TRUE, df=TRUE)
 #   vpdmax<-ext.poly[,2]
-#   CN<-provenances$ident
+#   CN<-adjusted_provs$Provenance
 #   year <- rep(years_new[i],length(ext.poly[,2]))
 #   month <- rep(months[j],length(ext.poly[,2]))
 #   vpdmax_CN<-cbind(CN,vpdmax,year,month)
@@ -407,9 +407,9 @@ climdir <- "C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/
 # for(j in 1:length(months)){
 #   raster<-paste(climdir,'/annual/PRISM_vpdmin_stable_4kmM3_198101_202305_bil/PRISM_vpdmin_stable_4kmM3_',years_old[i],months[j],'_bil.bil',sep="")
 #   rast <- rast(raster)
-#   ext.poly <- terra::extract(rast, provenances, fun = mean, na.rm=TRUE, df=TRUE)
+#   ext.poly <- terra::extract(rast, adjusted_provs, fun = mean, na.rm=TRUE, df=TRUE)
 #   vpdmin<-ext.poly[,2]
-#   CN<-provenances$ident
+#   CN<-adjusted_provs$Provenance
 #   year <- rep(years_old[i],length(ext.poly[,2]))
 #   month <- rep(months[j],length(ext.poly[,2]))
 #   vpdmin_CN<-cbind(CN,vpdmin,year,month)
@@ -421,9 +421,9 @@ climdir <- "C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/
 # for(j in 1:length(months)){
 #   raster<-paste(climdir,'/annual/PRISM_vpdmin_stable_4kmM3_198101_202305_bil/PRISM_vpdmin_stable_4kmM3_',years_new[i],months[j],'_bil.bil',sep="")
 #   rast <- rast(raster)
-#   ext.poly <- terra::extract(rast, provenances, fun = mean, na.rm=TRUE, df=TRUE)
+#   ext.poly <- terra::extract(rast, adjusted_provs, fun = mean, na.rm=TRUE, df=TRUE)
 #   vpdmin<-ext.poly[,2]
-#   CN<-provenances$ident
+#   CN<-adjusted_provs$Provenance
 #   year <- rep(years_new[i],length(ext.poly[,2]))
 #   month <- rep(months[j],length(ext.poly[,2]))
 #   vpdmin_CN<-cbind(CN,vpdmin,year,month)
@@ -437,8 +437,8 @@ climdir <- "C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/
 #   mutate(date=as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y"), vpdmin=as.numeric(vpdmin))
 # 
 # write.csv(vpdmin_comb_all, "vpdmin_comb_all.csv")
-
-# ##save extracted climate data files
+# 
+# # ##save extracted climate data files
 # write.csv(ppt_comb_plantation, "ppt_comb_plantation.csv")
 # write.csv(tmax_comb_plantation, "tmax_comb_plantation.csv")
 # write.csv(tmin_comb_plantation, "tmin_comb_plantation.csv")
@@ -465,7 +465,7 @@ climdir <- "C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/
 #   ppt_CN<-cbind(CN,ppt,year,month)
 #   ppt_data_old<-rbind(ppt_data_old,ppt_CN)}
 # }
-# 
+#
 # ppt_data_new<-vector()
 # for(i in 1:length(years_new)){
 # for(j in 1:length(months)){
@@ -479,13 +479,13 @@ climdir <- "C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/
 #   ppt_CN<-cbind(CN,ppt,year,month)
 #   ppt_data_new<-rbind(ppt_data_new,ppt_CN)}
 # }
-# 
+#
 # ppt_comb_all_adj <- bind_rows(as.data.frame(ppt_data_old), as.data.frame(ppt_data_new)) %>%
 #   mutate(date=as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y"), ppt=as.numeric(ppt))
-# 
+#
 # write.csv(ppt_comb_all_adj, "ppt_comb_all_adj.csv")
-# 
-# 
+#
+#
 # ##tmin
 # tmin_data_old<-vector()
 # for(i in 1:length(years_old)){
@@ -500,7 +500,7 @@ climdir <- "C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/
 #   tmin_CN<-cbind(CN,tmin,year,month)
 #   tmin_data_old<-rbind(tmin_data_old,tmin_CN)}
 # }
-# 
+#
 # tmin_data_new<-vector()
 # for(i in 1:length(years_new)){
 # for(j in 1:length(months)){
@@ -514,13 +514,13 @@ climdir <- "C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/
 #   tmin_CN<-cbind(CN,tmin,year,month)
 #   tmin_data_new<-rbind(tmin_data_new,tmin_CN)}
 # }
-# 
+#
 # tmin_comb_all_adj <- bind_rows(as.data.frame(tmin_data_old), as.data.frame(tmin_data_new)) %>%
 #   mutate(date=as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y"), tmin=as.numeric(tmin))
-# 
+#
 # write.csv(tmin_comb_all_adj, "tmin_comb_all_adj.csv")
-# 
-# 
+#
+#
 # ##tmax
 # tmax_data_old<-vector()
 # for(i in 1:length(years_old)){
@@ -535,7 +535,7 @@ climdir <- "C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/
 #   tmax_CN<-cbind(CN,tmax,year,month)
 #   tmax_data_old<-rbind(tmax_data_old,tmax_CN)}
 # }
-# 
+#
 # tmax_data_new<-vector()
 # for(i in 1:length(years_new)){
 # for(j in 1:length(months)){
@@ -549,12 +549,12 @@ climdir <- "C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/
 #   tmax_CN<-cbind(CN,tmax,year,month)
 #   tmax_data_new<-rbind(tmax_data_new,tmax_CN)}
 # }
-# 
+#
 # tmax_comb_all_adj <- bind_rows(as.data.frame(tmax_data_old), as.data.frame(tmax_data_new)) %>%
 #   mutate(date=as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y"), tmax=as.numeric(tmax))
-# 
+#
 # write.csv(tmax_comb_all_adj, "tmax_comb_all_adj.csv")
-# 
+#
 # ##tmean
 # tmean_data_old<-vector()
 # for(i in 1:length(years_old)){
@@ -569,7 +569,7 @@ climdir <- "C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/
 #   tmean_CN<-cbind(CN,tmean,year,month)
 #   tmean_data_old<-rbind(tmean_data_old,tmean_CN)}
 # }
-# 
+#
 # tmean_data_new<-vector()
 # for(i in 1:length(years_new)){
 # for(j in 1:length(months)){
@@ -583,13 +583,13 @@ climdir <- "C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/
 #   tmean_CN<-cbind(CN,tmean,year,month)
 #   tmean_data_new<-rbind(tmean_data_new,tmean_CN)}
 # }
-# 
+#
 # tmean_comb_all_adj <- bind_rows(as.data.frame(tmean_data_old), as.data.frame(tmean_data_new)) %>%
 #   mutate(date=as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y"), tmean=as.numeric(tmean))
-# 
+#
 # write.csv(tmean_comb_all_adj, "tmean_comb_all_adj.csv")
-# 
-# 
+#
+#
 # ##vpdmax
 # vpdmax_data_old<-vector()
 # for(i in 1:length(years_old)){
@@ -604,7 +604,7 @@ climdir <- "C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/
 #   vpdmax_CN<-cbind(CN,vpdmax,year,month)
 #   vpdmax_data_old<-rbind(vpdmax_data_old,vpdmax_CN)}
 # }
-# 
+#
 # vpdmax_data_new<-vector()
 # for(i in 1:length(years_new)){
 # for(j in 1:length(months)){
@@ -618,13 +618,13 @@ climdir <- "C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/
 #   vpdmax_CN<-cbind(CN,vpdmax,year,month)
 #   vpdmax_data_new<-rbind(vpdmax_data_new,vpdmax_CN)}
 # }
-# 
+#
 # vpdmax_comb_all_adj <- bind_rows(as.data.frame(vpdmax_data_old), as.data.frame(vpdmax_data_new)) %>%
 #   mutate(date=as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y"), vpdmax=as.numeric(vpdmax))
-# 
+#
 # write.csv(vpdmax_comb_all_adj, "vpdmax_comb_all_adj.csv")
-# 
-# 
+#
+#
 # ##vpdmin
 # vpdmin_data_old<-vector()
 # for(i in 1:length(years_old)){
@@ -639,7 +639,7 @@ climdir <- "C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/
 #   vpdmin_CN<-cbind(CN,vpdmin,year,month)
 #   vpdmin_data_old<-rbind(vpdmin_data_old,vpdmin_CN)}
 # }
-# 
+#
 # vpdmin_data_new<-vector()
 # for(i in 1:length(years_new)){
 # for(j in 1:length(months)){
@@ -653,10 +653,10 @@ climdir <- "C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/
 #   vpdmin_CN<-cbind(CN,vpdmin,year,month)
 #   vpdmin_data_new<-rbind(vpdmin_data_new,vpdmin_CN)}
 # }
-# 
+#
 # vpdmin_comb_all_adj <- bind_rows(as.data.frame(vpdmin_data_old), as.data.frame(vpdmin_data_new)) %>%
 #   mutate(date=as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y"), vpdmin=as.numeric(vpdmin))
-# 
+#
 # write.csv(vpdmin_comb_all_adj, "vpdmin_comb_all_adj.csv")
 
 ```
