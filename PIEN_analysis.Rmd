@@ -23,7 +23,7 @@ library(ggspatial)
 library(tidyterra)
 library(dplyr)
 library(stringr)
-#library(ClimateNAr)
+library(ClimateNAr)
 library(ggfortify)
 library(RColorBrewer)
 library(tidyr)
@@ -101,8 +101,8 @@ prov_names<-adjusted_coords %>% dplyr::select(Provenance, no) %>%
 
 #first download climate normals from ClimateNA then read in to R
 mastervarList <- c('mat', 'map','td','mcmt','msp','shm','nffd','bFFP','eFFP','mwmt','dd_0','dd5','emt','cmd','pas','PPT_sp','PPT_sm') #these are all the climate variables I want
-
-# rasterDownload (region='NA',res='4000m',period='Normal_1961_1990',varList="PPT_sm",sDir='C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/PIENproject/PIENproject/ClimateNA')
+library()
+rasterDownload (region='NA',res='1000m',period='Normal_1961_1990',varList="NFFD",sDir='C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/PIENproject/PIENproject/ClimateNA')
 
 normal_clim_rasters <- c()
 for(i in 1:length(mastervarList)){
@@ -166,7 +166,18 @@ ggplot(monthly_clim, aes(x=month, y=value, col=var))+
   geom_point()+
   geom_line()+
   facet_wrap(~factor(Provenance))
-provbylat
+
+ggplot(monthly_clim %>% filter(var=="Tave") %>% filter(!Provenance=="Plantation"), aes(x=month, y=value))+
+  geom_point(size=2)+
+  geom_point(data=monthly_clim %>% filter(var=="Tave") %>% filter(Provenance=="Plantation") %>% rename(test=Provenance), aes(x=month, y=value), col="red",size=2)+
+    facet_wrap(~factor(Provenance))
+
+ggplot(monthly_clim %>% filter(var=="PPT") %>% filter(!Provenance=="Plantation"), aes(x=month, y=value))+
+  geom_point(size=2)+
+  geom_point(data=monthly_clim %>% filter(var=="PPT") %>% filter(Provenance=="Plantation") %>% rename(test=Provenance), aes(x=month, y=value), col="green",size=3)+
+    facet_wrap(~factor(Provenance))
+
+
 ```
 
 
@@ -181,13 +192,13 @@ order<- prov_clim_adjusted_bi %>%
   arrange(y) %>% 
   pull(Provenance)
 
-png("figures/prov_clim_plot.png", width=12, height=8, units="in", res=500)
-ggplot(prov_vars, aes(x=factor(Provenance, levels=order), y=value, col=factor(Provenance, levels=order)))+
-  geom_point(size=4)+
-  facet_wrap(~var, scales="free_y")+
-  scale_color_manual(values=unname(stepped()), name="Provenance")+
-  theme(axis.text.x = element_text(angle=45,hjust=1, size=10), legend.position = 'none', strip.text=element_text(size=12), axis.title.x = element_blank())
-dev.off()
+# png("figures/prov_clim_plot.png", width=12, height=8, units="in", res=500)
+# ggplot(prov_vars, aes(x=factor(Provenance, levels=order), y=value, col=factor(Provenance, levels=order)))+
+#   geom_point(size=4)+
+#   facet_wrap(~var, scales="free_y")+
+#   scale_color_manual(values=unname(stepped()), name="Provenance")+
+#   theme(axis.text.x = element_text(angle=45,hjust=1, size=10), legend.position = 'none', strip.text=element_text(size=12), axis.title.x = element_blank())
+# dev.off()
 
 ```
 
@@ -303,30 +314,57 @@ prov_clim_adjusted_bi %>%
 # get_prism_dailys(type="tmin", minDate = "2013-07-01", maxDate = "2013-08-31", keepZip=FALSE)
 # get_prism_dailys(type="tmin", minDate = "2014-07-01", maxDate = "2014-08-31", keepZip=FALSE)
 
-prism_set_dl_dir("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/PIENproject/prismtmp")
-
-years <- seq(1981,2014,1)
-
-for(k in 1:length(years)){
-      get_prism_dailys(type="tmin", minDate = paste(years[k],"-05-15",sep=""), maxDate = paste(years[k],"-10-13",sep=""), keepZip=FALSE)
-    }
+# prism_set_dl_dir("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/PIENproject/prismtmp")
+# 
+# years <- seq(1981,2014,1)
+# 
+# for(k in 1:length(years)){
+#       get_prism_dailys(type="tmin", minDate = paste(years[k],"-05-15",sep=""), maxDate = paste(years[k],"-10-13",sep=""), keepZip=FALSE)
+#     }
   
-dates <- c("01","02","03","04","05","06","07","08","09",seq(10,31,1))
-months <- c("07","08")
+dates_31 <- c("01","02","03","04","05","06","07","08","09",seq(10,31,1))
+dates_30 <- c("01","02","03","04","05","06","07","08","09",seq(10,30,1))
+months_31 <- c("07","08")
+months_30 <- c("06","09")
+years <- seq(1981,2014,1)
+dates_may<- seq(15,31,1)
+dates_oct<-  c("01","02","03","04","05","06","07","08","09",seq(10,13,1))
 
-tmindata<- data.frame()
-for(k in 1:length(years)){
-  for(j in 1:length(months)){
-    for(i in 1:length(dates)){
-raster<- rast(paste("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/PIENproject/prismtmp/PRISM_tmin_stable_4kmD2_",years[k],months[j],dates[i],"_bil","/PRISM_tmin_stable_4kmD2_",years[k],months[j],dates[i],"_bil.bil",sep=""))
-tmin <- terra::extract(raster, adjusted_provs %>% filter(Provenance=="Plantation"), method="simple")
-tmindata <- bind_rows(tmindata,data.frame(year=years[k], month=months[j], day = dates[i], tmin = tmin[,2]))}}}
-
-tmindata %>% 
-  as.data.frame() %>% 
-  mutate(date=as_date(paste(year,month,day,sep="-"))) %>% 
-  filter(tmin < 0)
-
+##first for partial May
+# tmindata_31<- data.frame()
+# for(k in 1:length(years)){
+#     for(i in 1:length(dates_may)){
+# raster<- rast(paste("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/PIENproject/prismtmp/PRISM_tmin_stable_4kmD2_",years[k],"05",dates_may[i],"_bil","/PRISM_tmin_stable_4kmD2_",years[k],"05",dates_may[i],"_bil.bil",sep=""))
+# tmin <- terra::extract(raster, adjusted_provs %>% filter(Provenance=="Plantation"), method="simple")
+# tmindata_31 <- bind_rows(tmindata_31,data.frame(year=years[k], month="05", day = dates_may[i], tmin = tmin[,2]))}}
+# 
+# for(k in 1:length(years)){
+#   for(j in 1:length(months_31)){
+#     for(i in 1:length(dates_31)){
+# raster<- rast(paste("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/PIENproject/prismtmp/PRISM_tmin_stable_4kmD2_",years[k],months_31[j],dates_31[i],"_bil","/PRISM_tmin_stable_4kmD2_",years[k],months_31[j],dates_31[i],"_bil.bil",sep=""))
+# tmin <- terra::extract(raster, adjusted_provs %>% filter(Provenance=="Plantation"), method="simple")
+# tmindata_31 <- bind_rows(tmindata_31,data.frame(year=years[k], month=months_31[j], day = as.numeric(dates_31[i]), tmin = tmin[,2]))}}}
+# 
+# for(k in 1:length(years)){
+#     for(i in 1:length(dates_oct)){
+# raster<- rast(paste("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/PIENproject/prismtmp/PRISM_tmin_stable_4kmD2_",years[k],"10",dates_oct[i],"_bil","/PRISM_tmin_stable_4kmD2_",years[k],"10",dates_oct[i],"_bil.bil",sep=""))
+# tmin <- terra::extract(raster, adjusted_provs %>% filter(Provenance=="Plantation"), method="simple")
+# tmindata_31 <- bind_rows(tmindata_31,data.frame(year=years[k], month="10", day = as.numeric(dates_oct[i]), tmin = tmin[,2]))}}
+# 
+# 
+# head(tmindata_31)
+# tail(tmindata_31)
+# write.csv(tmindata_31,"tmindata_31.csv")
+# 
+# tmindata_30<- data.frame()
+# for(k in 1:length(years)){
+#   for(j in 1:length(months_30)){
+#     for(i in 1:length(dates_30)){
+# raster<- rast(paste("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/PIENproject/prismtmp/PRISM_tmin_stable_4kmD2_",years[k],months_30[j],dates_30[i],"_bil","/PRISM_tmin_stable_4kmD2_",years[k],months_30[j],dates_30[i],"_bil.bil",sep=""))
+# tmin <- terra::extract(raster, adjusted_provs %>% filter(Provenance=="Plantation"), method="simple")
+# tmindata_30 <- bind_rows(tmindata_30,data.frame(year=years[k], month=months_30[j], day = dates_30[i], tmin = tmin[,2]))}}}
+# 
+# write.csv(tmindata_30, "tmindata_30.csv")
 
 ```
 
@@ -539,7 +577,7 @@ ggplot(FDSI_raw, aes(x=year, y=FDSI))+
 ##CWD calculation
 
 ```{r}
-# source("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/grad school/cwd_function_v3.r")
+source("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/grad school/cwd_function_v3.r")
 # 
 # #get dem
 # dem_plantation <- rast("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/PIENproject/USGS_13_n40w107_20220216.tif")
@@ -770,6 +808,44 @@ prov_clim_adjusted_bi %>%
   dplyr::select(c(MAT:pas,smrpb,y)) %>% 
   cor()
 
+###model mat x nffd
+tempmod <- lm(nffd ~ MAT, data=prov_clim_adjusted_bi)
+plot(tempmod)
+summary(tempmod)
+
+tmean = 3.4
+12.173*tmean + 98.141
+
+(140-98.141)/12.173
+
+anna_piar<- read.csv("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/pifl_piar/PIAR sites and tested sites_aws.csv")
+
+
+anna_piar_vect <- vect(anna_piar, geom=c("Site.Longitude", "Site.Latitude"), crs=crs(us))
+tmean_annual <- rast("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/PRISM/PRISM_tmean_30yr_normal_800mM4_all_bil/PRISM_tmean_30yr_normal_800mM4_annual_bil.bil")
+tmean_annual
+
+ggplot()+
+  geom_spatraster(data=tmean_annual)+
+  geom_spatvector(data=anna_piar_vect %>% project(crs(tmean_annual)), col="pink")
+
+anna_piar_tmean <- terra::extract(tmean_annual, anna_piar_vect %>% project(crs(tmean_annual)), method="simple")
+anna_piar_clim <- terra::extract(clim_raster_stack, anna_piar_vect, method="simple")
+
+piar_mat_nffd_mod <- lm(nffd ~ MAT, data=anna_piar_clim)
+plot(piar_mat_nffd_mod)
+summary(piar_mat_nffd_mod)
+
+tmean = 3.4
+10.7945*tmean + 88.6801
+
+(140-98.141)/12.173
+
+
+##tmean needs to be at least 3.849 for an equivalent NFFD = 145
+
+###
+
 env_vars %>% 
   cor() %>% 
   ggcorrplot()
@@ -987,6 +1063,62 @@ pca_dist_df <- prov_pcapts %>%
   filter(!Provenance=="Plantation")
 ```
 
+##Frost
+
+```{r}
+tmindata_30 <- read.csv("tmindata_30.csv")
+tmindata_31 <- read.csv("tmindata_31.csv")
+
+
+head(tmindata_30)
+head(tmindata_31)
+
+tmin_all<- bind_rows(tmindata_30, tmindata_31) %>% 
+  mutate(date=mdy(paste(month,day,year,sep="-"))) %>% 
+  arrange(date)
+
+frost_days<- tmin_all %>% 
+  filter(tmin<0) %>% 
+  group_by(year) %>% 
+  summarise(n=n())
+
+ggplot(frost_days, aes(x=year, y=n))+
+  geom_point()+
+  geom_smooth(method="lm")
+  
+fd_mod <- lm(n ~ year, data=frost_days)
+par(mfrow=c(2,2))
+plot(fd_mod)
+summary(fd_mod)
+
+tmin_aves<- tmin_all %>% 
+  group_by(month,day) %>% 
+  summarise(ave_tmin=mean(tmin), se=sd(tmin)/sqrt(n())) %>% 
+  mutate(doy = ymd(paste("2000",month,day,sep="-")))
+
+
+vlines<- prov_clim_adjusted_bi %>% 
+  dplyr::select(Provenance,bFFP,eFFP) %>% 
+    mutate(bFFP_date = as.Date(bFFP, origin = "1999-12-31"),
+           eFFP_date = as.Date(eFFP, origin = "1999-12-31")) %>% 
+  arrange(bFFP) %>% 
+  mutate(num = seq(-3.6,7.8,.6)) 
+
+hlines <- vlines %>% 
+  pivot_longer(bFFP_date:eFFP_date)
+
+
+ggplot(tmin_aves, aes(x=doy, y=ave_tmin))+
+  # geom_vline(data=vlines, aes(xintercept=bFFP_date, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  # geom_vline(data=vlines, aes(xintercept=eFFP_date, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_line(data=hlines, aes(x=value, y=num, col=factor(Provenance, levels=provs_bylat$Provenance)), linewidth=3)+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  geom_text(data=hlines, aes(x=ymd("2000-08-01"), y=num+.2, label=Provenance))+
+  geom_point()+
+  geom_errorbar(aes(ymin=ave_tmin-se, ymax=ave_tmin+se ))+
+  theme(axis.text.x = element_text(angle=45, hjust=1))+
+  theme_bw()
+```
 
 ##PIEN climate niche
 
@@ -2636,7 +2768,7 @@ confint(survmod)
 wald.test(b = coef(survmod), Sigma = vcov(survmod), Terms=2:20) ##Provenance is significant
 coef(survmod)
 
-survmod_byyear<- glm(value ~ factor(year)*Provenance, data=moniger_survival_byyr, family="binomial")
+survmod_byyear<- glm(value ~ year*Provenance, data=moniger_survival_byyr, family="binomial")
 plot(survmod_byyear)
 summary(survmod_byyear)
 confint(survmod_byyear)
@@ -3830,7 +3962,7 @@ colnames(aet_date_wide)=c("YEAR","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG"
 aet_cwd_list <- list()
 for(i in 1:length(provs_arranged_lat[-9])){
 result <- seascorr(chrono = chron.list[[i]],
-                         climate= list(aet= aet_date_wide, cwd = cwd_date_wide),
+                         climate= list(aet= aet_date_wide[1:46,], cwd = cwd_date_wide[1:46,]),
                          timespan = c(1985,2015),
                          complete= 9,
                          season_lengths=seq(4,12,1),
@@ -3907,6 +4039,9 @@ ggplot(timeline_aet_cwd, aes(y=factor(Provenance, levels=provs_bylat$Provenance)
   theme_bw()+
   ylab("")
 
+season.labels = data.frame(date = c(my("06-1755"),my("03-1755"),my("12-1754"),my("09-1754"),my("06-1754"),my("03-1754"),my("12-1753"),my("09-1753")) %m+% months(1) + days(15),
+                           season = rep(c("Sm","Sp","Wt","Fa"),2))
+
 cor_analysis_plot_pc1_aet_cwd<- ggplot(timeline_aet_cwd, aes(y=factor(Provenance, levels=prov_pcapts %>% arrange(PC1) %>% pull(Provenance))))+
   geom_rect(aes(xmin=my("09-1753"), xmax = my("09-1754"),ymax=Inf, ymin=-Inf), fill="gray90")+
       geom_rect(aes(xmin=my("06-1755"), xmax = my("09-1755"),ymax=Inf, ymin=-Inf), fill="lightyellow")+
@@ -3945,7 +4080,7 @@ skills(object = aet_cwd_list[[20]],
 aet_spei_list <- list()
 for(i in 1:length(provs_arranged_lat[-9])){
 result <- seascorr(chrono = chron.list[[i]],
-                         climate= list(aet= aet_date_wide, spei = spei_date_wide),
+                         climate= list(aet= aet_date_wide[1:46,], spei = spei_date_wide[1:46,]),
                          timespan = c(1985,2015),
                          complete= 9,
                          season_lengths=seq(4,12,1),
@@ -4027,10 +4162,10 @@ cor_analysis_plot_pc1_aet_spei<- ggplot(timeline_aet_spei, aes(y=factor(Provenan
   ggtitle("Primary = AET")+
   theme(axis.text.x = element_blank(), panel.grid = element_blank(), axis.text.y = element_text(color="black", size=12), axis.ticks.x = element_blank(),strip.text = element_text(size=10, color="black"))
 
-png("figures/cor_analysis_timeline_aet.png", width=9,height=10, units="in", res=500)
-ggarrange(cor_analysis_plot_pc1_aet_spei,
-          cor_analysis_plot_pc1_aet_cwd, nrow=2, common.legend = TRUE, labels = c("A)","B)"))
-dev.off()
+# png("figures/cor_analysis_timeline_aet.png", width=9,height=10, units="in", res=500)
+# ggarrange(cor_analysis_plot_pc1_aet_spei,
+#           cor_analysis_plot_pc1_aet_cwd, nrow=2, common.legend = TRUE, labels = c("A)","B)"))
+# dev.off()
 
 ```
 
@@ -4041,7 +4176,7 @@ dev.off()
 temp_precip_list <- list()
 for(i in 1:length(provs_arranged_lat[-9])){
 result <- seascorr(chrono = chron.list[[i]],
-                         climate= list(temp= tmean_comb_plantation_wide, precip = ppt_comb_plantation_wide),
+                         climate= list(temp= tmean_comb_plantation_wide[1:46,], precip = ppt_comb_plantation_wide[1:46,]),
                          timespan = c(1985,2015),
                          complete= 9,
                          season_lengths=seq(4,12,1),
@@ -4120,8 +4255,7 @@ ggplot(timeline_temp_precip, aes(y=factor(Provenance, levels=prov_pcapts %>% arr
   ylab("")+
   theme(legend.position = "none")
 
-season.labels = data.frame(date = c(my("06-1755"),my("03-1755"),my("12-1754"),my("09-1754"),my("06-1754"),my("03-1754"),my("12-1753"),my("09-1753")) %m+% months(1) + days(15),
-                           season = rep(c("Sm","Sp","Wt","Fa"),2))
+
   
 cor_analysis_plot_pc1_temp<- ggplot(timeline_temp_precip, aes(y=factor(Provenance, levels=prov_pcapts %>% arrange(PC1) %>% pull(Provenance))))+
   geom_rect(aes(xmin=my("09-1753"), xmax = my("09-1754"),ymax=Inf, ymin=-Inf), fill="gray90")+
@@ -4159,7 +4293,7 @@ ggplot(timeline_temp_precip, aes(y=factor(Provenance, levels=prov_pcapts %>% arr
 precip_temp_list <- list()
 for(i in 1:length(provs_arranged_lat[-9])){
 result <- seascorr(chrono = chron.list[[i]],
-                         climate= list(precip = ppt_comb_plantation_wide,temp= tmean_comb_plantation_wide),
+                         climate= list(precip = ppt_comb_plantation_wide[1:46,],temp= tmean_comb_plantation_wide[1:46,]),
                          timespan = c(1985,2015),
                          complete= 9,
                          season_lengths=seq(4,12,1),
@@ -4259,7 +4393,7 @@ dev.off()
 
 ####climwin
 
-```{r}
+```{r, eval=FALSE}
 rwi.stats(growth.detrended.all)
 
 ppt_comb_plantation_update <- ppt_comb_plantation %>% 
@@ -4328,7 +4462,6 @@ output$combos
  
 head(output[[1]]$Dataset) 
 plotdelta(output[[1]]$Dataset)
-medwin(output[[1]]$Dataset)
 
 dataset_ppt <- output[[1]]$Dataset
 ConfidenceSet_ppt <- dataset_ppt[which(cumsum(dataset_ppt$ModWeight) <= 0.95),]
@@ -4344,7 +4477,6 @@ dataset_tmin <- output[[3]]$Dataset
 ConfidenceSet_tmin <- dataset_tmin[which(cumsum(dataset_tmin$ModWeight) <= 0.95),]
 sum(ConfidenceSet_tmin$ModelBeta*ConfidenceSet_tmin$ModWeight)
 plotdelta(output[[3]]$Dataset)
-medwin(output[[3]]$Dataset)
 summary(output[[3]]$BestModel)
 
 
@@ -4359,7 +4491,6 @@ dataset_vpdmin <- output[[5]]$Dataset
 ConfidenceSet_vpdmin <- dataset_vpdmin[which(cumsum(dataset_vpdmin$ModWeight) <= 0.95),]
 sum(ConfidenceSet_vpdmin$ModelBeta*ConfidenceSet_vpdmin$ModWeight)
 plotdelta(output[[5]]$Dataset)
-medwin(output[[5]]$Dataset)
 
 dataset_vpdmax <- output[[6]]$Dataset
 ConfidenceSet_vpdmax <- dataset_vpdmax[which(cumsum(dataset_vpdmax$ModWeight) <= 0.95),]
@@ -4439,7 +4570,7 @@ pvalue(dataset = output[[1]]$Dataset, datasetrand = output.randk[[1]], metric = 
 ```
 
 
-```{r}
+```{r, eval=FALSE}
 #trying climwin without provenance as an effect
 
 output_nop <- slidingwin(exclude = c(2,12),
@@ -4463,7 +4594,7 @@ output_nop$combos
 
 ```
 
-```{r}
+```{r, eval=FALSE}
 ##try with bioclim vars
 
 output_bioclim <- slidingwin(xvar=list(aet = bioclim_date$aet,
