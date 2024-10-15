@@ -87,7 +87,7 @@ prov_names<-adjusted_coords %>% dplyr::select(Provenance, no) %>%
   separate_wider_delim(first, delim= "-", names=c("first","2"), too_few="align_start") %>% 
     separate_wider_delim(second, delim= "-", names=c("second","3"), too_few="align_start") %>% 
   mutate(across(everything(), ~ replace(.x, is.na(.x), ""))) %>% 
-  mutate(code=paste(substr(first,0,2),substr(`2`,0,1),substr(second,0,2),substr(`3`,0,1),third, sep="")) %>% 
+  mutate(code=paste(substr(first,0,1),substr(`2`,0,1),substr(second,0,1),substr(`3`,0,1),third, sep="")) %>% 
   dplyr::select(c(Provenance,no,code)) %>% 
   mutate(no=as.integer(no))
 ```
@@ -99,38 +99,36 @@ prov_names<-adjusted_coords %>% dplyr::select(Provenance, no) %>%
 ```{r}
 #read in climate from climateNA
 
-#first download climate normals from ClimateNA then read in to R
-mastervarList <- c('mat', 'map','td','mcmt','msp','shm','nffd','bFFP','eFFP','mwmt','dd_0','dd5','emt','cmd','pas','PPT_sp','PPT_sm') #these are all the climate variables I want
-library()
-rasterDownload (region='NA',res='1000m',period='Normal_1961_1990',varList="NFFD",sDir='C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/PIENproject/PIENproject/ClimateNA')
+filenames <- c("AHM","bFFP","CMD","DD_18","DD_0","DD5","eFFP","EMT","Eref","EXT","FFP","MAP","MAT","MCMT","MSP","MWMT","NFFD","PAS","PPT_sm","PPT_sp","PPT_at","PPT_wt","RH","Tave_sm","Tave_wt","TD","SHM")
 
-normal_clim_rasters <- c()
-for(i in 1:length(mastervarList)){
-  normal_clim_rasters[i]<- paste("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/PIENproject/PIENproject/ClimateNA/NA/4000m/Normal_1961_1990/",mastervarList[i],".tif",sep="")
-}
+filenames_edited <- c("AHM","bFFP","CMD","DD18","DD0","DD5","eFFP","EMT","Eref","EXT","FFP","MAP","MAT","MCMT","MSP","MWMT","NFFD","PAS","PPTsm","PPTsp","PPTat","PPTwt","RH","Tavesm","Tavewt","TD","SHM")
 
-clim_raster_stack <- rast(normal_clim_rasters)
+
+clim_raster_stack <- rast(paste0("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/Normal_1961_1990_bioclim/Normal_1961_1990/Normal_1961_1990_bioclim/Normal_1961_1990_",filenames,".tif",sep=""))
+
+names(clim_raster_stack)<- filenames_edited
+
 
 prov_clim_adjusted_bi <- terra::extract(clim_raster_stack, adjusted_provs, method='bilinear') %>% cbind(as.data.frame(adjusted_provs)) %>% cbind(crds(adjusted_provs)) %>% 
-  mutate(smrpb = PPT_sm/PPT_sp, monsoonality = msp/map)
+  mutate(smrpb = PPTsm/PPTsp, monsoonality = MSP/MAP)
 
 prov_clim_adjusted_bi_long<- prov_clim_adjusted_bi %>% 
   mutate(no=ifelse(is.na(no),"Plan",no)) %>% 
-  dplyr::select(c(Provenance,MAT:PPT_sm, smrpb, monsoonality)) %>% 
+  dplyr::select(c(Provenance,MAT:PPTsm, smrpb, monsoonality)) %>% 
   pivot_longer(MAT:monsoonality) %>% 
   mutate(type="adj bilinear") 
 
-#nffd x map
+#NFFD x map
 ggplot()+
-  geom_point(data=prov_clim_adjusted_bi, size=3, aes(x=nffd, y=map), col="aquamarine3")+
-  geom_text(data=prov_clim_adjusted_bi, aes(x=nffd, y=map, label=Provenance), vjust=0.5, hjust=-.1)+
+  geom_point(data=prov_clim_adjusted_bi, size=3, aes(x=NFFD, y=MAP), col="aquamarine3")+
+  geom_text(data=prov_clim_adjusted_bi, aes(x=NFFD, y=MAP, label=Provenance), vjust=0.5, hjust=-.1)+
   theme_bw()+
   theme(legend.position = 'none')
 
-#nffd x TD
+#NFFD x TD
 ggplot()+
-  geom_point(data=prov_clim_adjusted_bi, size=3, aes(x=nffd, y=TD), col="aquamarine3")+
-  geom_text(data=prov_clim_adjusted_bi, aes(x=nffd, y=TD, label=Provenance), vjust=1)+
+  geom_point(data=prov_clim_adjusted_bi, size=3, aes(x=NFFD, y=TD), col="aquamarine3")+
+  geom_text(data=prov_clim_adjusted_bi, aes(x=NFFD, y=TD, label=Provenance), vjust=1)+
   theme_bw()+
   theme(legend.position = 'none')
 ```
@@ -176,28 +174,27 @@ ggplot(monthly_clim %>% filter(var=="PPT") %>% filter(!Provenance=="Plantation")
   geom_point(size=2)+
   geom_point(data=monthly_clim %>% filter(var=="PPT") %>% filter(Provenance=="Plantation") %>% rename(test=Provenance), aes(x=month, y=value), col="green",size=3)+
     facet_wrap(~factor(Provenance))
-
-
 ```
 
 
 ```{r}
 #compare climates of provenances
 prov_vars<- prov_clim_adjusted_bi %>% 
-  dplyr::select(c(Provenance,MAT:pas,smrpb)) %>% 
+  dplyr::select(c(Provenance,AHM:SHM,smrpb)) %>% 
   left_join(prov_names) %>% 
-  pivot_longer(MAT:smrpb, names_to = "var", values_to = "value")
+  pivot_longer(AHM:smrpb, names_to = "var", values_to = "value")
 
 order<- prov_clim_adjusted_bi %>% 
   arrange(y) %>% 
   pull(Provenance)
 
 # png("figures/prov_clim_plot.png", width=12, height=8, units="in", res=500)
-# ggplot(prov_vars, aes(x=factor(Provenance, levels=order), y=value, col=factor(Provenance, levels=order)))+
-#   geom_point(size=4)+
-#   facet_wrap(~var, scales="free_y")+
-#   scale_color_manual(values=unname(stepped()), name="Provenance")+
-#   theme(axis.text.x = element_text(angle=45,hjust=1, size=10), legend.position = 'none', strip.text=element_text(size=12), axis.title.x = element_blank())
+ggplot(prov_vars, aes(x=factor(Provenance, levels=order), y=value, col=factor(Provenance, levels=order)))+
+  geom_point(size=4)+
+  geom_hline(data=prov_vars %>% filter(Provenance=="Plantation"),aes(yintercept = value, group=var), col=unname(stepped())[9])+
+  facet_wrap(~var, scales="free_y")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  theme(axis.text.x = element_text(angle=45,hjust=1, size=10), legend.position = 'none', strip.text=element_text(size=12), axis.title.x = element_blank())
 # dev.off()
 
 ```
@@ -206,41 +203,36 @@ order<- prov_clim_adjusted_bi %>%
 
 ```{r}
 ##get future projections from ClimateNA
-gcms <- c("8GCMs_ensemble_ssp126_2011-2040", "8GCMs_ensemble_ssp126_2041-2070", "8GCMs_ensemble_ssp126_2071-2100", "8GCMs_ensemble_ssp245_2011-2040", "8GCMs_ensemble_ssp245_2041-2070", "8GCMs_ensemble_ssp245_2071-2100", "8GCMs_ensemble_ssp370_2011-2040", "8GCMs_ensemble_ssp370_2041-2070", "8GCMs_ensemble_ssp370_2071-2100", "8GCMs_ensemble_ssp585_2011-2040", "8GCMs_ensemble_ssp585_2041-2070", "8GCMs_ensemble_ssp585_2071-2100")
-# 
-# for(i in 1:length(gcms)){
-# rasterDownload(region='NA',res='4000m',period=gcms[i],varList=c("cmd","pas"),sDir='C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/climateNA')
-# }
 
-futures<- matrix(nrow = 12, ncol=15)
-for(i in 1:length(mastervarList[-c(16,17)])){
-futures[,i] <- paste(gcms,"/",mastervarList[-c(16,17)][i],".tif",sep="")
-}
+#2000's normal
+clim2000s <- rast(paste0("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/Normal_1991_2020_bioclim/Normal_1991_2020_bioclim/Normal_1991_2020_",filenames,".tif",sep=""))
 
-futures_list <- c(futures)
+names(clim2000s) <- paste(filenames_edited,"_ssp585_2000s", sep="") 
 
-future_clim_rasters <- c()
-for(i in 1:length(futures_list)){
-  future_clim_rasters[i]<- paste("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/climateNA/NA/4000m/",futures_list[i],sep="")
-}
+##2020's projections
+clim2020s <- rast(paste0("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ensemble_8GCMs_ssp585_2011_2040_bioclim/ensemble_8GCMs_ssp585_2011_2040/ensemble_8GCMs_ssp585_2011_2040_bioclim/ensemble_8GCMs_ssp585_2011_2040_",filenames,".tif",sep=""))
 
-future_clim_raster_stack <- rast(future_clim_rasters)
+names(clim2020s) <- paste(filenames_edited,"_ssp585_2020s", sep="")  
 
-names(future_clim_raster_stack)<- paste(names(future_clim_raster_stack),substr(futures_list, 16,26),sep="_") %>% 
-  str_replace(pattern="dd_0", replacement="dd0")
+##2050's projections
+clim2050s <- rast(paste0("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ensemble_8GCMs_ssp585_2041_2070_bioclim/ensemble_8GCMs_ssp585_2041_2070/ensemble_8GCMs_ssp585_2041_2070_bioclim/ensemble_8GCMs_ssp585_2041_2070_",filenames,".tif",sep=""))
+
+names(clim2050s) <- paste(filenames_edited,"_ssp585_2050s", sep="") 
+
+##2080's projections
+clim2080s <- rast(paste0("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ensemble_8GCMs_ssp585_2071_2100_bioclim/ensemble_8GCMs_ssp585_2071_2100/ensemble_8GCMs_ssp585_2071_2100_bioclim/ensemble_8GCMs_ssp585_2071_2100_",filenames,".tif",sep=""))
+
+names(clim2080s) <- paste(filenames_edited,"_ssp585_2080s", sep="")  
+
+future_clim_raster_stack <- c(clim2020s,clim2050s,clim2080s)
 
 prov_futures<- terra::extract(future_clim_raster_stack, adjusted_provs, weights=T)
 
 prov_futures_long<- prov_futures %>%
   left_join(data.frame(ID=seq(1,21,1), Provenance =adjusted_provs$Provenance)) %>% 
   dplyr::select(ID,Provenance,everything()) %>% 
-  pivot_longer(cols=mat_ssp126_2011:pas_ssp585_2071) %>% 
-  rowwise() %>% 
-  mutate(climvar = str_extract(name, "[^_]+"), carbon = str_split(name, fixed("_"))[[1]][2], period = str_split(name, fixed("_"))[[1]][3]) %>% 
-  mutate(period=ifelse(is.na(period), "1970's", 
-                       ifelse(period=="2011","2020's",
-                              ifelse(period=="2041","2050's",
-                                     ifelse(period=="2071", "2080's",period)))), carbon=ifelse(is.na(carbon),"historic",carbon))
+  pivot_longer(cols=AHM_ssp585_2020s:SHM_ssp585_2080s) %>% 
+  separate(name, into=c("climvar","carbon","period"), remove=TRUE) 
 
 prov_futures_long
 
@@ -387,7 +379,7 @@ ggplot(ppt_summed %>% filter(CN=="Plantation"), aes(x=year, y=ppt)) +
 ppt_seasonal_plantation <- ppt_comb_plantation %>% 
   filter(month %in% c(6,7,8)) %>% 
   group_by(CN, year) %>% 
-  summarise(ppt_sm = sum(ppt)) %>% 
+  summarise(PPTsm = sum(ppt)) %>% 
   left_join(ppt_comb_plantation %>% 
   filter(month %in% c(5,6,7,8,9)) %>% 
   group_by(CN, year) %>% 
@@ -399,11 +391,11 @@ ppt_seasonal_plantation <- ppt_comb_plantation %>%
   left_join(ppt_comb_plantation %>% 
   filter(month %in% c(9,10,11)) %>% 
   group_by(CN, year) %>% 
-  summarise(ppt_fa = sum(ppt))) %>% 
+  summarise(PPT_at = sum(ppt))) %>% 
   left_join(ppt_comb_plantation %>% 
   filter(month %in% c(3,4,5)) %>% 
   group_by(CN, year) %>% 
-  summarise(ppt_sp = sum(ppt))) %>% 
+  summarise(PPTsp = sum(ppt))) %>% 
   left_join(ppt_summed) 
 
 
@@ -440,6 +432,7 @@ tmean_summed <- as.data.frame(tmean_comb_plantation) %>%
 
 ggplot(tmean_summed %>% filter(CN=="Plantation"), aes(x=year, y=tmean)) +
   geom_point()+
+  geom_line()+
   geom_hline(yintercept=mean(tmean_summed %>% filter(CN=="Plantation") %>% pull(tmean)), col="red")
 
 ##seasonal temps
@@ -728,7 +721,7 @@ colnames(plantation_clim)
 
 plantation_clim_long <- plantation_clim %>% 
 dplyr::select(c(CN:vpdmax_sp, FDSI, aet_sum, cwd_sum, cwd_wy, spei_sum)) %>% 
-  pivot_longer(ppt_sm:spei_sum)
+  pivot_longer(PPTsm:spei_sum)
 
 ggplot(plantation_clim_long, aes(x=year, y=value))+
   geom_point()+
@@ -745,7 +738,7 @@ plantation_clim_long_qs<- plantation_clim_long %>%
   group_by(name) %>% 
   summarise(q2.5 = quantile(value, 0.025), q97.5 = quantile(value, 0.975), out.hi = quantile(value, c(0.75))  + IQR(value)*1.5, out.low = quantile(value, c(0.75)) - IQR(value)*1.5))
 
-data.frame(climvar = unique(plantation_clim_long_qs$name)) %>% write.csv("plantation_clim_vars.csv")
+#data.frame(climvar = unique(plantation_clim_long_qs$name)) %>% write.csv("plantation_clim_vars.csv")
 ##look at years where each climate variable exceeded the 97.5th (or 2.5th) percentile - these are years of potentially extreme climate 
 ggplot(plantation_clim_long_qs, aes(x=year, y=value, col=name))+
   geom_point()+
@@ -760,12 +753,12 @@ ggplot(plantation_clim_long_qs, aes(x=year, y=value, col=name))+
 unique(plantation_clim_long_qs$name)
 
 plantation_clim_xtremes<- plantation_clim_long_qs %>% 
-  mutate(extreme = ifelse(name %in% c("ppt_sm","ppt_gs","ppt_wt","ppt_fa","ppt_sp","ppt","FDSI","aet") & value < out.low, "yes",
+  mutate(extreme = ifelse(name %in% c("PPTsm","ppt_gs","ppt_wt","PPT_at","PPTsp","ppt","FDSI","aet") & value < out.low, "yes",
                           ifelse(name %in% c("value_sm_tmax","value_sm_tmean","value_sm_tmin","value_fa_tmax","value_fa_tmean","value_fa_tmin","value_wt_tmax","value_wt_tmean","value_wt_tmin","value_sp_tmax","value_sp_tmean","value_sp_tmin","vpdmax_sm","vpdmax_fa","vpdmax_wt","vpdmax_sp","cwd_sum","cwd_wy","spei_sum") & value > out.hi, "yes", "no" 
   ))) %>% 
   filter(extreme=="yes")
 
-View(plantation_clim_xtremes)
+head(plantation_clim_xtremes)
 
 plantation_clim_xtremes %>% 
   group_by(year) %>% 
@@ -801,22 +794,23 @@ plantation_clim_coldxtremes %>%
 
 #first look at correlations in climate variables
 env_vars<- prov_clim_adjusted_bi %>% 
-  dplyr::select(c(MAT:pas,smrpb))
+  dplyr::select(c(AHM:SHM,smrpb))
 
 prov_clim_adjusted_bi %>% 
   filter(!Provenance=="Gila NF") %>% 
-  dplyr::select(c(MAT:pas,smrpb,y)) %>% 
+  dplyr::select(c(AHM:SHM,smrpb,y)) %>% 
   cor()
 
-###model mat x nffd
-tempmod <- lm(nffd ~ MAT, data=prov_clim_adjusted_bi)
+###model mat x NFFD
+tempmod <- lm(NFFD ~ MAT, data=prov_clim_adjusted_bi)
+par(mfrow=c(2,2))
 plot(tempmod)
 summary(tempmod)
 
 tmean = 3.4
-12.173*tmean + 98.141
+13.051*tmean + 95.128
 
-(140-98.141)/12.173
+(140-95.128)/13.051
 
 anna_piar<- read.csv("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/pifl_piar/PIAR sites and tested sites_aws.csv")
 
@@ -832,17 +826,14 @@ ggplot()+
 anna_piar_tmean <- terra::extract(tmean_annual, anna_piar_vect %>% project(crs(tmean_annual)), method="simple")
 anna_piar_clim <- terra::extract(clim_raster_stack, anna_piar_vect, method="simple")
 
-piar_mat_nffd_mod <- lm(nffd ~ MAT, data=anna_piar_clim)
-plot(piar_mat_nffd_mod)
-summary(piar_mat_nffd_mod)
+piar_mat_NFFD_mod <- lm(NFFD ~ MAT, data=anna_piar_clim)
+plot(piar_mat_NFFD_mod)
+summary(piar_mat_NFFD_mod)
 
 tmean = 3.4
-10.7945*tmean + 88.6801
+11.1635*tmean + 87.4897     
 
-(140-98.141)/12.173
-
-
-##tmean needs to be at least 3.849 for an equivalent NFFD = 145
+(145-87.4897)/11.1635
 
 ###
 
@@ -855,7 +846,7 @@ env_vars %>%
   abs()>0.9
 
 env_vars_cut <- env_vars %>% 
-  dplyr::select(-c(bFFP, eFFP, EMT, pas, dd5, dd_0))
+  dplyr::select(-c(bFFP, eFFP, FFP, EMT, PAS, DD18, DD5, DD0, PPTsm, Tavewt, Tavesm))
 
 env_vars_cut %>%
   cor() %>% 
@@ -864,10 +855,12 @@ env_vars_cut %>%
 #look at linearity of relationships
 
 pairs(env_vars_cut, lower.panel = NULL)
+pairs(env_vars_cut[-20,], lower.panel = NULL) #looking at it without Gila
+
 
 prov_clim_adjusted_bi_wide <- prov_clim_adjusted_bi %>% 
   mutate(no=ifelse(is.na(no),"Plan",no)) %>% 
-  dplyr::select(c(Provenance,MAT:PPT_sm, smrpb, monsoonality))
+  dplyr::select(c(Provenance,AHM:SHM, smrpb, monsoonality))
 
 rownames(prov_clim_adjusted_bi_wide)<- prov_clim_adjusted_bi_wide$Provenance
 
@@ -877,6 +870,7 @@ pam4<-pam(adjbi_prov_clim_eucdist,k=4)
 pam4
 pam4$clustering #view cluster membership
 pam4$clusinfo
+par(mfrow=c(1,1))
 plot(pam4)
 
 pam5<-pam(adjbi_prov_clim_eucdist,k=5)
@@ -903,12 +897,11 @@ pam8$clustering #view cluster membership
 pam8$clusinfo
 plot(pam8)
 
-pam7$silinfo$avg.width #7 groups best by this metric
+pam7$silinfo$avg.width 
 pam6$silinfo$avg.width 
-pam5$silinfo$avg.width
+pam5$silinfo$avg.width #5 groups best by this metric
+pam4$silinfo$avg.width
 pam8$silinfo$avg.width
-
-
 ```
 
 
@@ -930,10 +923,10 @@ plot(clim_pca,type="l")
 ```
 
 ```{r, echo=FALSE}
-as.data.frame(clim_pca$rotation[,1:2]) %>% 
+as.data.frame(clim_pca$rotation[,1:3]) %>% 
   tibble::rownames_to_column() %>% 
   arrange(desc(abs(PC1)))
-as.data.frame(clim_pca$rotation[,1:2]) %>% 
+as.data.frame(clim_pca$rotation[,1:3]) %>% 
   tibble::rownames_to_column() %>% 
   arrange(desc(abs(PC2)))
 as.data.frame(clim_pca$rotation[,1:3]) %>% 
@@ -946,7 +939,7 @@ as.data.frame(clim_pca$rotation[,1:3]) %>%
 prov_pcapts<- clim_pca$x %>% 
   cbind(prov_clim_adjusted_bi) %>% 
   left_join(prov_names) %>% 
-  left_join(data.frame(cluster=pam7$clustering) %>% mutate(Provenance=rownames(data.frame(cluster=pam7$clustering))))
+  left_join(data.frame(cluster=pam5$clustering) %>% mutate(Provenance=rownames(data.frame(cluster=pam5$clustering))))
 
 autoplot(clim_pca,x=1,y=2,colour="aquamarine3",loadings.colour="red", loadings=T, loadings.label=T, loadings.label.colour="black", scale=0, loadings.label.size=4)+
   geom_point(data=prov_pcapts, aes(x=PC1, y=PC2, col=factor(cluster)), size=5)+
@@ -959,6 +952,10 @@ autoplot(clim_pca,x=1,y=3,colour="aquamarine3",loadings.colour="red", loadings=T
   theme(text=element_text(size=14, color="black"))
   
 canada_crop <- crop(canada, ext(-126.92, -97.23, 41.6769, 52))
+prov_pcapts_onlyprovs<- prov_pcapts %>% 
+  filter(!Provenance=="Plantation")
+
+provs_bylat <- prov_pcapts_onlyprovs %>% arrange(y)
 
 map<- ggplot()+
   geom_spatvector(data=westernus, col="grey", fill="gray100")+
@@ -981,15 +978,10 @@ map<- ggplot()+
     height=unit(.25, "in"),
     width=unit(.25, "in"))
 
+
 # png("figures/map.png", width=3, height=3, res=300, units = "in")
-# map
+ map
 # dev.off()
-
-prov_pcapts_onlyprovs<- prov_pcapts %>% 
-  filter(!Provenance=="Plantation")
-
-provs_bylat <- prov_pcapts_onlyprovs %>% arrange(y)
-
 
 pcaplot <- autoplot(clim_pca,x=1,y=2,colour=NA,loadings.colour="gray80", loadings=T, loadings.label=T, loadings.label.colour="darkgrey", scale=0, loadings.label.size=2.5, loadings.label.hjust=1, loadings.label.vjust=1)+
   geom_point(data=prov_pcapts_onlyprovs, aes(x=PC1, y=PC2, fill=factor(Provenance, levels=provs_bylat$Provenance)), size=1.5, shape=24)+
@@ -1037,13 +1029,65 @@ pcaplot <- autoplot(clim_pca,x=1,y=2,colour=NA,loadings.colour="gray80", loading
                       0))+
   theme(text=element_text(size=14, color="black"))+
   geom_point(data=prov_pcapts %>% filter(Provenance=="Plantation"), aes(x=PC1, y=PC2), col="black", size=1.5)+
-  geom_text(data=prov_pcapts %>% filter(Provenance=="Plantation"), aes(x=PC1, y=PC2, label=Provenance), size=2, hjust=0, vjust=1.4)+
+  geom_text(data=prov_pcapts %>% filter(Provenance=="Plantation"), aes(x=PC1, y=PC2, label=Provenance), size=2, hjust=1, vjust=-1)+
   theme_bw()+
   theme(legend.position = "none", axis.text = element_text(color="black", size=6), axis.title = element_text(size=8))
 #   
 # png("figures/pcaplot.png", width=3, height=3, res=300, units = "in")
-# pcaplot
+ pcaplot
 # dev.off()
+ 
+ pcaplot2 <- autoplot(clim_pca,x=1,y=3,colour=NA,loadings.colour="gray80", loadings=T, loadings.label=T, loadings.label.colour="darkgrey", scale=0, loadings.label.size=2.5, loadings.label.hjust=1, loadings.label.vjust=1)+
+  geom_point(data=prov_pcapts_onlyprovs, aes(x=PC1, y=PC3, fill=factor(Provenance, levels=provs_bylat$Provenance)), size=1.5, shape=24)+
+  scale_fill_manual(values=unname(stepped()), name="Provenance")+
+  geom_text(data=prov_pcapts_onlyprovs, aes(x=PC1, y=PC3, label=code), size=2,
+            hjust = c(1.2,
+                      0.5,
+                      .5,
+                      0.5,
+                      0.5,
+                      1.2,
+                      0.7,
+                      .2,
+                      1,
+                      1,
+                      0,
+                      1,
+                      1,
+                      -.2,
+                      1.2,
+                      0.5,
+                      0,
+                      -.4,
+                      0.5,
+                      -.2),
+            vjust = c(0,
+                      -1,
+                      1.4,
+                      1.4,
+                      -1,
+                      0,
+                      1.4,
+                      1.4,
+                      0,
+                      1.4,
+                      -1,
+                      1.4,
+                      1.4,
+                      0,
+                      0,
+                      1.4,
+                      1.4,
+                      .2,
+                      -1,
+                      0))+
+  theme(text=element_text(size=14, color="black"))+
+  geom_point(data=prov_pcapts %>% filter(Provenance=="Plantation"), aes(x=PC1, y=PC3), col="black", size=1.5)+
+  geom_text(data=prov_pcapts %>% filter(Provenance=="Plantation"), aes(x=PC1, y=PC3, label=Provenance), size=2, hjust=1, vjust=-1)+
+  theme_bw()+
+  theme(legend.position = "none", axis.text = element_text(color="black", size=6), axis.title = element_text(size=8))
+
+pcaplot2
 
 ```
 
@@ -1068,7 +1112,6 @@ pca_dist_df <- prov_pcapts %>%
 ```{r}
 tmindata_30 <- read.csv("tmindata_30.csv")
 tmindata_31 <- read.csv("tmindata_31.csv")
-
 
 head(tmindata_30)
 head(tmindata_31)
@@ -1102,7 +1145,7 @@ vlines<- prov_clim_adjusted_bi %>%
     mutate(bFFP_date = as.Date(bFFP, origin = "1999-12-31"),
            eFFP_date = as.Date(eFFP, origin = "1999-12-31")) %>% 
   arrange(bFFP) %>% 
-  mutate(num = seq(-3.6,7.8,.6)) 
+  mutate(num = seq(-3.6,8.4,.6)) 
 
 hlines <- vlines %>% 
   pivot_longer(bFFP_date:eFFP_date)
@@ -1123,13 +1166,12 @@ ggplot(tmin_aves, aes(x=doy, y=ave_tmin))+
 ##PIEN climate niche
 
 ```{r}
-pien <- rast("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ArcGIS/Projects/SpeciesRanges/pien_range.tif")
-
 us <- geodata::gadm(country = "USA",  level = 1, resolution = 2,
              path = "C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/maps")
 states=c("Arizona","Colorado","Idaho","Montana","Nevada","New Mexico","South Dakota","North Dakota","Nebraska","Utah","Wyoming","Kansas")
 interiorwest <- us[match(toupper(states),toupper(us$NAME_1)),]
 
+pien <- rast("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ArcGIS/Projects/SpeciesRanges/pien_range.tif")
 
 pien2 <- classify(pien, cbind(-Inf, 0, NA), right=TRUE)
 plot(pien2)
@@ -1137,23 +1179,19 @@ plot(pien2)
 pien_trim<- trim(pien2)
 plot(pien_trim)
 
-pien_IW<- crop(pien_trim %>% project(crs(interiorwest)), interiorwest)
-plot(pien_IW)
-
-pien_uniform <- classify(pien_IW, cbind(-Inf,Inf,1))
-plot(pien_uniform)
-
-pien_poly <- as.polygons(pien_uniform)
-plot(pien_poly)
-
-# engelmann_clim <- terra::extract(clim_raster_stack, pien_poly %>% project(crs(clim_raster_stack)), method="simple", weights=TRUE)
+# engelmann_points <- spatSample(pien_trim, size=100000000, method="regular", replace=FALSE, na.rm=TRUE, as.points=TRUE, values=TRUE, xy=TRUE)
 # 
-# ##extract PRISM data for summer/spring precip ratio
+#engelmann_clim <- terra::extract(clim_raster_stack, engelmann_points %>% project(crs(clim_raster_stack)), method="simple", weights=TRUE)
+# 
+# # #extract PRISM data for summer/spring precip ratio
+# climdir <- "C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/PRISM"
+# months<-c('01','02','03','04','05','06','07','08','09','10','11','12')
+# 
 # ppt_data_pien<-vector()
 # for(j in 1:length(months)){
 #   raster<-paste(climdir,'/PRISM_ppt_30yr_normal_800mM4_all_bil/PRISM_ppt_30yr_normal_800mM4_',months[j],'_bil.bil',sep="")
 #   rast <- rast(raster)
-#   ext.poly <- terra::extract(rast,pien_poly %>% project(crs(clim_raster_stack)), method="simple", weights = TRUE, df=TRUE)
+#   ext.poly <- terra::extract(rast,engelmann_points %>% project(crs(clim_raster_stack)), method="simple", weights = TRUE, df=TRUE)
 #   ppt<-ext.poly[,2]
 #   ID<- seq(1:nrow(ext.poly))
 #   month <- rep(months[j],length(ext.poly[,2]))
@@ -1169,22 +1207,23 @@ plot(pien_poly)
 #   mutate(JA_ppt = sum(`07`,`08`, na.rm=T), smrpb = sum(`07`,`08`,`09`,na.rm=T)/sum(`04`,`05`,`06`, na.rm=T))
 # 
 # saveRDS(pien_ppt_sum, "pien_ppt_sum.RDS")
-# saveRDS(engelmann_clim, "engelmann_clim.RDS")
+# 
+# pien_ppt_sum <- readRDS("pien_ppt_sum.RDS")
+# 
+# clim_pien <- left_join(engelmann_clim, pien_ppt_sum)
+# 
+# saveRDS(clim_pien, "clim_pien.RDS")
 
-pien_ppt_sum <- readRDS("pien_ppt_sum.RDS")
-
-#clim_pien <- left_join(engelmann_clim, pien_ppt_sum) ##not sure how to do this with polygons and weights
-
-engelmann_clim <- readRDS("engelmann_clim.RDS")
-
+clim_pien <- readRDS("clim_pien.RDS")
+ 
 plantation_only <- prov_pcapts %>% filter(Provenance == "Plantation")
 
-ggplot(engelmann_clim, aes(x=MAT, y=map))+
+ggplot(clim_pien, aes(x=MAT, y=MAP))+
   geom_hex(alpha=0.7)+
   scale_fill_gradientn(colors=c("gray","black"))+
-  geom_point(data=prov_pcapts %>% filter(!Provenance=="Plantation"), aes(x=MAT, y=map, col=Provenance), size=4)+
+  geom_point(data=prov_pcapts %>% filter(!Provenance=="Plantation"), aes(x=MAT, y=MAP, col=Provenance), size=4)+
   ggrepel::geom_text_repel(data=prov_pcapts %>% filter(!Provenance=="Plantation"), aes(label=code))+
-  geom_point(data=plantation_only, aes(x=MAT, y=map), size=4, col="gold", shape=18)+
+  geom_point(data=plantation_only, aes(x=MAT, y=MAP), size=4, col="gold", shape=18)+
   ggrepel::geom_text_repel(data=plantation_only, aes(label=code))+
   scale_color_manual(values=unname(stepped()))+
   theme_bw()+
@@ -1195,18 +1234,16 @@ plantation_future <- prov_futures_long %>% filter(Provenance=="Plantation") %>%
 
 carbon.colors<- c("black",brewer.pal(6,"RdBu")[c(6,5,2,1)])
 
-ggplot(engelmann_clim, aes(x=MAT, y=map))+
+ggplot(clim_pien, aes(x=MAT, y=MAP))+
   geom_hex(alpha=0.7)+
   scale_fill_gradientn(colors=c("gray","black"))+
-  geom_point(data=plantation_only, aes(x=MAT, y=map), size=4, col="gold", shape=18)+
-  geom_point(data=plantation_future, aes(x=mat/10, y=map, col=carbon, shape=period), size=4)+
+  geom_point(data=plantation_only, aes(x=MAT, y=MAP), size=4, col="gold", shape=18)+
+  geom_point(data=plantation_future, aes(x=MAT, y=MAP, col=carbon, shape=period), size=4)+
   scale_color_manual(values=carbon.colors[-1])+
-  geom_point(data=prov_pcapts %>% filter(!Provenance=="Plantation"), aes(x=MAT, y=map), size=2)+
+  geom_point(data=prov_pcapts %>% filter(!Provenance=="Plantation"), aes(x=MAT, y=MAP), size=2)+
   ggrepel::geom_text_repel(data=prov_pcapts %>% filter(!Provenance=="Plantation"), aes(label=code))+
   theme_bw()+
   theme(text = element_text(size=16, color="black"))
-
-
 ```
 
 #Response variables
@@ -1260,12 +1297,12 @@ ggplot(dbh_long, aes(x=factor(Provenance, levels=provs_arranged_lat), y=DBH, col
   facet_wrap(~factor(year,levels=c("DBH91","DBH96","DBH06","DBH14")), nrow=1)+
   theme(legend.position = 'none', axis.text.x = element_text(angle=45, hjust=1))
 
-ggplot(dbh_clim_data, aes(x=factor(nffd), y=DBH, col=Provenance))+
+ggplot(dbh_clim_data, aes(x=factor(NFFD), y=DBH, col=Provenance))+
   geom_boxplot()+
   facet_wrap(~factor(year,levels=c("DBH91","DBH96","DBH06","DBH14")), nrow=1)+
   theme(legend.position = 'none', axis.text.x = element_text(angle=45, hjust=1))
 
-ggplot(dbh_clim_data, aes(x=factor(cmd), y=DBH, col=Provenance))+
+ggplot(dbh_clim_data, aes(x=factor(CMD), y=DBH, col=Provenance))+
   geom_boxplot()+
   facet_wrap(~factor(year,levels=c("DBH91","DBH96","DBH06","DBH14")), nrow=1)+
   theme(legend.position = 'none', axis.text.x = element_text(angle=45, hjust=1))
@@ -1489,17 +1526,18 @@ dbh_lat_plot <- ggplot()+
 ggarrange(dbh_dist_plot, dbh_lat_plot, common.legend = TRUE)
 ```
 
+
 ####extra models
 ```{r}
 
 colnames(dbh_num14)
 
 provenance_climvars <- dbh_num14 %>% 
-  dplyr::select(MAT:PPT_sm, smrpb, monsoonality) %>% 
+  dplyr::select(MAT:PPTsm, smrpb, monsoonality) %>% 
   colnames()
 
 dbh_num14_long <- dbh_num14 %>% 
-  pivot_longer(c(MAT:PPT_sm, smrpb, monsoonality))
+  pivot_longer(c(MAT:PPTsm, smrpb, monsoonality))
 
 dbh_mods<- data.frame()
 dbh_num14_nog <- dbh_num14 %>% filter(!Provenance=="Gila NF")
@@ -1913,7 +1951,7 @@ dev.off()
 ```{r}
 
 ht_data_clim14_long <- ht_data_clim14 %>% 
-  pivot_longer(c(MAT:PPT_sm, smrpb, monsoonality), names_to="climvar.name", values_to = "climvar.value")
+  pivot_longer(c(MAT:PPTsm, smrpb, monsoonality), names_to="climvar.name", values_to = "climvar.value")
 
 ht_mods<- data.frame()
 
@@ -1956,7 +1994,7 @@ ht_mods_quad %>% arrange(pvalue2_nog) #nothing significant when Gila is taken ou
 ht_SR <- ht_data_clim14_nog %>% filter(y < 44)
   
 ht_SR_long <- ht_SR %>% 
-  pivot_longer(c(MAT:PPT_sm, smrpb, monsoonality), names_to="climvar.name", values_to = "climvar.value")
+  pivot_longer(c(MAT:PPTsm, smrpb, monsoonality), names_to="climvar.name", values_to = "climvar.value")
 
 ht_SR_mods<- data.frame()
 
@@ -1970,7 +2008,7 @@ ht_SR_mods <- bind_rows(ht_SR_mods, data.frame(var=provenance_climvars[i], pvalu
 
 ht_SR_mods %>% arrange(pvalue) ##TD is significant
 
-cor(ht_SR %>% dplyr::select(c(MAT:PPT_sm,elev,x,y,smrpb,monsoonality)))
+cor(ht_SR %>% dplyr::select(c(MAT:PPTsm,elev,x,y,smrpb,monsoonality)))
 #TD is the main differentiating climate vactor in the southern rockies, this might be why it's coming out. 
 
 ##TD
@@ -2051,7 +2089,7 @@ ggplot(data= ht_data_clim14, aes(x=Seedling.Ht..from.Nursery, y=value, col=Prove
 dbh_SR <- dbh_num14_alldist %>% filter(!Provenance=="Gila NF") %>% filter(y < 44)
   
 dbh_SR_long <- dbh_SR %>% 
-  pivot_longer(c(MAT:PPT_sm, smrpb, monsoonality), names_to="climvar.name", values_to = "climvar.value")
+  pivot_longer(c(MAT:PPTsm, smrpb, monsoonality), names_to="climvar.name", values_to = "climvar.value")
 
 dbh_SR_mods<- data.frame()
 
@@ -2132,7 +2170,7 @@ ggplot()+
 ht_NR <- ht_data_clim14_nog %>% filter(y > 44)
   
 ht_NR_long <- ht_NR %>% 
-  pivot_longer(c(MAT:PPT_sm, smrpb, monsoonality), names_to="climvar.name", values_to = "climvar.value")
+  pivot_longer(c(MAT:PPTsm, smrpb, monsoonality), names_to="climvar.name", values_to = "climvar.value")
 
 ht_NR_mods<- data.frame()
 
@@ -2144,7 +2182,7 @@ ht_NR_mods <- bind_rows(ht_NR_mods, data.frame(var=provenance_climvars[i], pvalu
 
 }
 
-ht_NR_mods %>% arrange(pvalue) ##eFFP, SHM, EMT, PPT_sm, nffd
+ht_NR_mods %>% arrange(pvalue) ##eFFP, SHM, EMT, PPTsm, NFFD
 
 ##TD
 ht_SHM_mod <- lmer(value ~ climvar.value + (1|Provenance), data=ht_NR_long %>% filter(climvar.name=="SHM"))
@@ -2204,7 +2242,7 @@ ggplot(data= ht_data_clim14, aes(x=Seedling.Ht..from.Nursery, y=value, col=Prove
 dbh_NR <- dbh_num14_alldist %>% filter(!Provenance=="Gila NF") %>% filter(y > 44)
   
 dbh_NR_long <- dbh_NR %>% 
-  pivot_longer(c(MAT:PPT_sm, smrpb, monsoonality), names_to="climvar.name", values_to = "climvar.value")
+  pivot_longer(c(MAT:PPTsm, smrpb, monsoonality), names_to="climvar.name", values_to = "climvar.value")
 
 dbh_NR_mods<- data.frame()
 
@@ -2537,7 +2575,7 @@ moniger_provclim<- moniger_data_comb %>%
                         name == "Cones06" ~ 2006)) %>% 
   dplyr::select(-name) %>% 
   left_join(moniger_data_comb) %>% 
-  pivot_longer(c(MAT:PPT_sm, smrpb, monsoonality), names_to="climvar.name", values_to = "climvar.value") %>% 
+  pivot_longer(c(MAT:PPTsm, smrpb, monsoonality), names_to="climvar.name", values_to = "climvar.value") %>% 
   filter(!is.na(Cones))
 
 cone_mods<- data.frame()
@@ -2991,7 +3029,7 @@ ggplot(SDnewdata_nog3, aes(x = dist.to.plant, y = PredictedProb, col= factor(geo
 
 ```{r}
 moniger_survival_long <- moniger_survival %>% 
-  pivot_longer(c(MAT:PPT_sm, smrpb, monsoonality), names_to="climvar.name", values_to = "climvar.value")
+  pivot_longer(c(MAT:PPTsm, smrpb, monsoonality), names_to="climvar.name", values_to = "climvar.value")
 
 surv_mods<- data.frame()
 
@@ -3006,32 +3044,32 @@ surv_mods <- bind_rows(surv_mods, data.frame(var=provenance_climvars[i], pvalue 
 
 surv_mods %>% arrange(pvalue_nog) ##length of growing season seems to be influential both with and without Gila
 
-#nffd
-surv_nffd_mod <- glmer(Stat14 ~ scale(climvar.value) + (1|Provenance), data=moniger_survival_long %>% filter(climvar.name=="nffd"), family="binomial")
-summary(surv_nffd_mod)
+#NFFD
+surv_NFFD_mod <- glmer(Stat14 ~ scale(climvar.value) + (1|Provenance), data=moniger_survival_long %>% filter(climvar.name=="NFFD"), family="binomial")
+summary(surv_NFFD_mod)
 
-surv_nffd_data <- moniger_survival_long %>% filter(climvar.name=="nffd")
+surv_NFFD_data <- moniger_survival_long %>% filter(climvar.name=="NFFD")
 
-newdata_nffd_surv <- data.frame(
-    climvar.value = seq(min(surv_nffd_data$climvar.value), 
-                      max(surv_nffd_data$climvar.value), 
+newdata_NFFD_surv <- data.frame(
+    climvar.value = seq(min(surv_NFFD_data$climvar.value), 
+                      max(surv_NFFD_data$climvar.value), 
                       length.out = 100
                       ))
 
 ##take random effect out to make predictions
-surv_nffd_mod_glm <- glm(Stat14 ~ scale(climvar.value), data=moniger_survival_long %>% filter(climvar.name=="nffd"), family="binomial")
+surv_NFFD_mod_glm <- glm(Stat14 ~ scale(climvar.value), data=moniger_survival_long %>% filter(climvar.name=="NFFD"), family="binomial")
 
 ##predictions
-survnffd_newdata1 <- with(surv_nffd_data, data.frame(climvar.value = seq(min(climvar.value),max(climvar.value),length.out=50)))
+survNFFD_newdata1 <- with(surv_NFFD_data, data.frame(climvar.value = seq(min(climvar.value),max(climvar.value),length.out=50)))
 
-survnffd_newdata2 <- cbind(survnffd_newdata1, predict(surv_nffd_mod_glm, newdata = survnffd_newdata1, type = "link", se=TRUE))
-survnffd_newdata3 <- within(survnffd_newdata2, {
+survNFFD_newdata2 <- cbind(survNFFD_newdata1, predict(surv_NFFD_mod_glm, newdata = survNFFD_newdata1, type = "link", se=TRUE))
+survNFFD_newdata3 <- within(survNFFD_newdata2, {
     PredictedProb <- plogis(fit)
     LL <- plogis(fit - (1.96 * se.fit))
     UL <- plogis(fit + (1.96 * se.fit))
 })
 
-surv_nffd_plot<- ggplot(survnffd_newdata3, aes(x = climvar.value, y = PredictedProb)) + geom_ribbon(aes(ymin = LL,
+surv_NFFD_plot<- ggplot(survNFFD_newdata3, aes(x = climvar.value, y = PredictedProb)) + geom_ribbon(aes(ymin = LL,
     ymax = UL), alpha = 0.2) + 
   geom_line(linewidth = 1)+
   xlab("NFFD")+
@@ -3040,8 +3078,8 @@ surv_nffd_plot<- ggplot(survnffd_newdata3, aes(x = climvar.value, y = PredictedP
   theme_bw()
 
 #without Gila is still significant
-surv_nffd_mod_nog <- glmer(Stat14 ~ scale(climvar.value) + (1|Provenance), data=moniger_survival_long %>% filter(climvar.name=="nffd") %>% filter(!Provenance=="Gila NF"), family="binomial")
-summary(surv_nffd_mod_nog)
+surv_NFFD_mod_nog <- glmer(Stat14 ~ scale(climvar.value) + (1|Provenance), data=moniger_survival_long %>% filter(climvar.name=="NFFD") %>% filter(!Provenance=="Gila NF"), family="binomial")
+summary(surv_NFFD_mod_nog)
 ############
 
 
@@ -3197,8 +3235,8 @@ surv_cmd_plot<- ggplot(survcmd_newdata3, aes(x = climvar.value, y = PredictedPro
 surv_sig_clim<- bind_rows(
 survcmd_newdata3 %>% 
   mutate(var = "cmd"),
-survnffd_newdata3 %>% 
-  mutate(var="nffd"),
+survNFFD_newdata3 %>% 
+  mutate(var="NFFD"),
 survMWMT_newdata3 %>% 
   mutate(var="mwmt"))
 
@@ -3536,7 +3574,7 @@ qqmath(gini_byMAT)
 summary(gini_byMAT)
 
 #map
-gini_bymap <- lmer(log(gini) ~ map + (1|Provenance), data=gini_clim_df)
+gini_bymap <- lmer(log(gini) ~ MAP+ (1|Provenance), data=gini_clim_df)
 plot(gini_bymap)
 qqmath(gini_bymap)
 summary(gini_bymap)
@@ -3553,11 +3591,11 @@ plot(gini_byMCMT)
 qqmath(gini_byMCMT)
 summary(gini_byMCMT)
 
-#msp
-gini_bymsp <- lmer(log(gini) ~ msp + (1|Provenance), data=gini_clim_df)
-plot(gini_bymsp)
-qqmath(gini_bymsp)
-summary(gini_bymsp)
+#MSP
+gini_byMSP <- lmer(log(gini) ~ MSP + (1|Provenance), data=gini_clim_df)
+plot(gini_byMSP)
+qqmath(gini_byMSP)
+summary(gini_byMSP)
 
 #SHM
 gini_bySHM <- lmer(log(gini) ~ SHM + (1|Provenance), data=gini_clim_df)
@@ -3565,11 +3603,11 @@ plot(gini_bySHM)
 qqmath(gini_bySHM)
 summary(gini_bySHM)
 
-#nffd
-gini_bynffd <- lmer(log(gini) ~ nffd + (1|Provenance), data=gini_clim_df)
-plot(gini_bynffd)
-qqmath(gini_bynffd)
-summary(gini_bynffd)
+#NFFD
+gini_byNFFD <- lmer(log(gini) ~ NFFD + (1|Provenance), data=gini_clim_df)
+plot(gini_byNFFD)
+qqmath(gini_byNFFD)
+summary(gini_byNFFD)
 
 #bFFP
 gini_bybFFP <- lmer(log(gini) ~ bFFP + (1|Provenance), data=gini_clim_df)
@@ -6092,12 +6130,12 @@ ggplot(growth_red_sum, aes(x=Provenance, y=sum.growth.red))+
 ##look at correlation between current year and previous year climate variables at plantation
 
 plantation_clim_minus1<- plantation_clim %>% mutate(year = year+1) %>% 
- dplyr::select(c(CN:year,ppt_sm:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum))
+ dplyr::select(c(CN:year,PPTsm:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum))
 
 colnames(plantation_clim_minus1)<- paste("prior_",colnames(plantation_clim_minus1),sep="")
 
 plantation_clim_cor<- plantation_clim %>% 
- dplyr::select(c(CN:year,ppt_sm:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum)) %>% 
+ dplyr::select(c(CN:year,PPTsm:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum)) %>% 
   left_join(plantation_clim_minus1, by=c("year" = "prior_year", "CN" = "prior_CN")) %>% 
   filter(! year %in% c(1971)) %>% 
   ungroup() %>% 
@@ -6110,7 +6148,7 @@ plantation_clim_cor>0.7
 ggcorrplot(plantation_clim_cor, type="lower", insig = "blank", lab=FALSE)
 
 plantation_clim_cor_yrof<- plantation_clim %>% 
- dplyr::select(c(CN:year,ppt_sm:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum)) %>% 
+ dplyr::select(c(CN:year,PPTsm:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum)) %>% 
   filter(! year %in% c(1970)) %>% 
   ungroup() %>% 
   filter(year>1970) %>% 
@@ -6126,7 +6164,7 @@ ggcorrplot(plantation_clim_cor_yrof, type="lower", insig = "blank", lab=TRUE)
 ##calculate correlations between detrended growth and climate at plantation
 growth_climate_df <- growth.detrended.df %>% 
   left_join(plantation_clim) %>% 
- dplyr::select(c(CN:year,ppt_sm:ppt_sp, vpdmax_sm:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum)) %>% 
+ dplyr::select(c(CN:year,PPTsm:PPTsp, vpdmax_sm:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum)) %>% 
   left_join(plantation_clim_minus1, by=c("year" = "prior_year", "CN" = "prior_CN")) %>% 
   ungroup() %>% 
   filter(year>1970) %>% 
@@ -6327,13 +6365,13 @@ plantation_clim %>%
   dplyr::select(c(all_lms %>% 
   filter(pvalue<0.05) %>% 
   pull(var) )) %>% 
-  dplyr::select(-c("ppt_sm","ppt_sp","ppt_fa","prior_ppt_sm","prior_ppt","prior_value_fa_tmax","prior_value_fa_tmean","prior_value_wt_tmax","prior_value_wt_tmean")) %>% 
+  dplyr::select(-c("PPTsm","PPTsp","PPT_at","prior_PPTsm","prior_ppt","prior_value_fa_tmax","prior_value_fa_tmean","prior_value_wt_tmax","prior_value_wt_tmean")) %>% 
   cor() %>% 
   ggcorrplot()
 
 all_lms %>% 
   filter(pvalue<0.05) %>% 
-  filter(! var %in% c("ppt_sm","ppt_sp","ppt_fa","prior_ppt_sm","prior_ppt","prior_value_fa_tmax","prior_value_fa_tmean","prior_value_wt_tmax","prior_value_wt_tmean"))
+  filter(! var %in% c("PPTsm","PPTsp","PPT_at","prior_PPTsm","prior_ppt","prior_value_fa_tmax","prior_value_fa_tmean","prior_value_wt_tmax","prior_value_wt_tmean"))
 
 climmod_cor <- lmer(log(rw_spline) ~ ppt_gs + ppt_wt + vpdmax_sm + vpdmax_fa + vpdmax_wt + vpdmax_sp + prior_ppt_gs + prior_ppt_wt + prior_value_sm_tmin + prior_value_fa_tmin + prior_value_wt_tmin + prior_vpdmax_sm + prior_vpdmax_fa + prior_vpdmax_wt + prior_vpdmax_sp + (1|Provenance), data=growth_climate_df)
 plot(climmod_cor)
@@ -6465,19 +6503,19 @@ lmerdata_pcs <- bind_rows(lmerdata_pcs, data.frame(climvar=climvars[i], pc1value
 lmerdata_pcs %>% 
   filter((pc1pvalue.lmer < 0.05 | pc2pvalue.lmer < 0.05 | pc1pc2value.lmer<0.05))
 
-#ppt_wt x msp
-ggplot(data=cor_provclim_long %>% filter(climvar=="ppt_wt"& name=="msp"), aes(x=value, y=cor))+
+#ppt_wt x MSP
+ggplot(data=cor_provclim_long %>% filter(climvar=="ppt_wt"& name=="MSP"), aes(x=value, y=cor))+
   geom_point()+
   geom_smooth(method="lm")+
   xlab("mean summer precip (mm)")+
   ggtitle("ppt_wt")
 
-ppt_wt_msp<- cor_provclim_long %>% filter(climvar=="ppt_wt" & name=="msp") 
+ppt_wt_MSP<- cor_provclim_long %>% filter(climvar=="ppt_wt" & name=="MSP") 
 
-ppt_wt_msp_mod <- lmer(cor ~ value + (1|Provenance), data=ppt_wt_msp)
-plot(ppt_wt_msp_mod)
-qqmath(ppt_wt_msp_mod)
-summary(ppt_wt_msp_mod)
+ppt_wt_MSP_mod <- lmer(cor ~ value + (1|Provenance), data=ppt_wt_MSP)
+plot(ppt_wt_MSP_mod)
+qqmath(ppt_wt_MSP_mod)
+summary(ppt_wt_MSP_mod)
 
 #vpdmax_sm x PC1
 ggplot(data=cor_provclim_long %>% filter(climvar=="vpdmax_sm"& name=="PC1"), aes(x=value, y=cor))+
@@ -6749,7 +6787,7 @@ summary(prior_cwd_wy_TD_mod)
 
 ```{r}
 ##plot with just bioclimate variables
-ggplot(data=cor_provclim_long %>% filter(climvar %in% c("FDSI","prior_aet_sum","prior_cwd_wy") & name=="msp"), aes(x=value, y=cor))+
+ggplot(data=cor_provclim_long %>% filter(climvar %in% c("FDSI","prior_aet_sum","prior_cwd_wy") & name=="MSP"), aes(x=value, y=cor))+
   geom_point()+
   geom_smooth(method="lm")+
   xlab("mean summer precip (mm)")+
@@ -6841,34 +6879,34 @@ ggplot(dbh_clim_data %>% filter(climvar=="prior_ppt_wt"), aes(x=DBH14, y=cor))+
   facet_wrap(~climvar)
 
 ##DBH x prior ppt fa
-DBH_prior_ppt_famod <- lmer(cor ~ DBH_recent + (1|Provenance), data=dbh_clim_data %>% filter(climvar=="prior_ppt_fa"))
-plot(DBH_prior_ppt_famod)
-qqmath(DBH_prior_ppt_famod)
-summary(DBH_prior_ppt_famod)
+DBH_prior_PPT_atmod <- lmer(cor ~ DBH_recent + (1|Provenance), data=dbh_clim_data %>% filter(climvar=="prior_PPT_at"))
+plot(DBH_prior_PPT_atmod)
+qqmath(DBH_prior_PPT_atmod)
+summary(DBH_prior_PPT_atmod)
 
-ggplot(dbh_clim_data %>% filter(climvar=="prior_ppt_fa"), aes(x=DBH14, y=cor))+
+ggplot(dbh_clim_data %>% filter(climvar=="prior_PPT_at"), aes(x=DBH14, y=cor))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_wrap(~climvar)
 
 ##DBH x ppt sm
-DBH_ppt_smmod <- lmer(cor ~ DBH_recent + (1|Provenance), data=dbh_clim_data %>% filter(climvar=="ppt_sm"))
-plot(DBH_ppt_smmod)
-qqmath(DBH_ppt_smmod)
-summary(DBH_ppt_smmod)
+DBH_PPTsmmod <- lmer(cor ~ DBH_recent + (1|Provenance), data=dbh_clim_data %>% filter(climvar=="PPTsm"))
+plot(DBH_PPTsmmod)
+qqmath(DBH_PPTsmmod)
+summary(DBH_PPTsmmod)
 
-ggplot(dbh_clim_data %>% filter(climvar=="ppt_sm"), aes(x=DBH14, y=cor))+
+ggplot(dbh_clim_data %>% filter(climvar=="PPTsm"), aes(x=DBH14, y=cor))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_wrap(~climvar)
 
 ##DBH x ppt fa
-DBH_ppt_famod <- lmer(cor ~ DBH_recent + (1|Provenance), data=dbh_clim_data %>% filter(climvar=="ppt_fa"))
-plot(DBH_ppt_famod)
-qqmath(DBH_ppt_famod)
-summary(DBH_ppt_famod)
+DBH_PPT_atmod <- lmer(cor ~ DBH_recent + (1|Provenance), data=dbh_clim_data %>% filter(climvar=="PPT_at"))
+plot(DBH_PPT_atmod)
+qqmath(DBH_PPT_atmod)
+summary(DBH_PPT_atmod)
 
-ggplot(dbh_clim_data %>% filter(climvar=="ppt_fa"), aes(x=DBH14, y=cor))+
+ggplot(dbh_clim_data %>% filter(climvar=="PPT_at"), aes(x=DBH14, y=cor))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_wrap(~climvar)
