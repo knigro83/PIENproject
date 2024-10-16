@@ -86,10 +86,19 @@ prov_names<-adjusted_coords %>% dplyr::select(Provenance, no) %>%
  separate_wider_delim(Provenance, delim=" ", names=c("first","second","third"), too_few = "align_start", cols_remove=FALSE) %>% 
   separate_wider_delim(first, delim= "-", names=c("first","2"), too_few="align_start") %>% 
     separate_wider_delim(second, delim= "-", names=c("second","3"), too_few="align_start") %>% 
-  mutate(across(everything(), ~ replace(.x, is.na(.x), ""))) %>% 
+  mutate(across(everything(), ~ replace(.x, is.na(.x), ""))) %>%
+  mutate(`3` = ifelse(second=="NF","F",`3`)) %>% 
   mutate(code=paste(substr(first,0,1),substr(`2`,0,1),substr(second,0,1),substr(`3`,0,1),third, sep="")) %>% 
   dplyr::select(c(Provenance,no,code)) %>% 
-  mutate(no=as.integer(no))
+  mutate(no=as.integer(no)) %>% 
+  mutate(code=case_when(Provenance == "Roosevelt NF" ~ "RoNF",
+                        Provenance == "Pike NF" ~ "PiNF",
+                        Provenance == "Gunnison NF" ~ "GuNF",
+                        Provenance == "Coconino NF" ~ "CoNF",
+                        Provenance == "Payette NF" ~ "PaNF",
+                        Provenance == "Cache NF" ~ "CaNF",
+                        Provenance == "Gila NF" ~ "GiNF",
+                        TRUE ~ code))
 ```
 
 #Climate
@@ -957,9 +966,16 @@ prov_pcapts_onlyprovs<- prov_pcapts %>%
 
 provs_bylat <- prov_pcapts_onlyprovs %>% arrange(y)
 
-map<- ggplot()+
+###put pien distribution on map
+pien_little_map <- vect("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ArcGIS/Projects/SpeciesRanges/Engelmann spruce ( Picea engelmannii) extent, North America/data/commondata/data0/piceenge.shp")
+plot(pien_little_map)
+pien_little_map_prj <- project(pien_little_map, crs(westernus))
+pien_little_map_prj_crop <- crop(pien_little_map_prj, ext(-126.92, -93.36, 26.2, 52) )
+
+map <- ggplot()+
   geom_spatvector(data=westernus, col="grey", fill="gray100")+
   geom_spatvector(data=canada_crop, col="grey", fill="gray100")+
+  geom_spatvector(data=pien_little_map_prj_crop, fill="wheat", col="wheat")+
   geom_spatvector(data=adjusted_provs %>% left_join(prov_names) %>% filter(!Provenance == "Plantation"), aes(fill=factor(Provenance, levels=provs_bylat$Provenance)), shape=24, size=1.5)+
     scale_fill_manual(values=unname(stepped()), name="Provenance")+
   geom_spatvector(data=adjusted_provs %>% left_join(prov_names) %>% filter(Provenance == "Plantation"), color="black", size=1.5)+
@@ -977,7 +993,6 @@ map<- ggplot()+
     style=north_arrow_fancy_orienteering(text_size=8, line_width = 0.8),
     height=unit(.25, "in"),
     width=unit(.25, "in"))
-
 
 # png("figures/map.png", width=3, height=3, res=300, units = "in")
  map
@@ -1089,6 +1104,25 @@ pcaplot <- autoplot(clim_pca,x=1,y=2,colour=NA,loadings.colour="gray80", loading
 
 pcaplot2
 
+
+require(raster)
+require(geosphere)
+
+r <- raster(extent(-180, 180, -90, 90), res=0.1)
+lat <- lon <- r
+xy <- coordinates(r)
+lat[] <- xy[, 2]
+
+# set day
+day=182
+
+dl <- calc(lat, fun = function(x) daylength(x,day))
+dl <- rast(dl)
+
+dl_182_provs <- terra::extract(dl, adjusted_provs, method="simple")
+
+dl_182_provs %>% bind_cols(crds(adjusted_provs)) %>% bind_cols(as.data.frame(adjusted_provs)) %>% View()
+
 ```
 
 ```{r}
@@ -1100,11 +1134,24 @@ plantation_pc2<- prov_pcapts %>%
   filter(Provenance=="Plantation") %>% 
   pull(PC2)
 
-pca_dist_df <- prov_pcapts %>% 
+plantation_pc3<- prov_pcapts %>% 
+  filter(Provenance=="Plantation") %>% 
+  pull(PC3)
+
+matrix(c(plantation_pc1, plantation_pc2, plantation_pc3), ncol=3)
+
+pca_dist_df1 <- prov_pcapts %>% 
   mutate(PC1diff = abs(PC1-plantation_pc1), PC2diff = abs(PC2 - plantation_pc2)) %>% 
   mutate(dist.to.plant = sqrt(PC1diff^2 + PC2diff^2)) %>% 
   arrange(dist.to.plant) %>% 
-  filter(!Provenance=="Plantation")
+  filter(!Provenance=="Plantation") 
+
+dist_df_3d<-matrix(nrow=nrow(pca_dist_df1), ncol=1)
+for(i in 1:nrow(pca_dist_df1)){
+dist_df_3d[i,] <- dist(as.matrix(bind_rows(data.frame(PC1 = plantation_pc1, PC2 = plantation_pc2, PC3 = plantation_pc3), pca_dist_df1[i, c("PC1", "PC2", "PC3")])))}
+  
+pca_dist_df<- pca_dist_df1 %>% 
+  bind_cols(data.frame(dist.to.plant.3d = dist_df_3d))
 ```
 
 ##Frost
@@ -1404,7 +1451,7 @@ pairwise_dbh14 %>%
 dbh_num14 <- dbh_numeric %>% filter(year=="DBH14")
 ##distance in PCA space from plantation
 dbh_num14_pcadist<- dbh_num14 %>% 
-  left_join(pca_dist_df %>% dplyr::select(code, dist.to.plant))
+  left_join(pca_dist_df %>% dplyr::select(code, dist.to.plant, dist.to.plant.3d))
 
 
 #distance models
@@ -1416,19 +1463,19 @@ dbh_num14_alldist %>% dplyr::select(PC1,PC2,dist.to.plant,geo.dist.to.plant.km,x
 dbh_num14_alldist_noG <- dbh_num14_alldist %>% 
   filter(!Provenance=="Gila NF")
 
-mod_dbh_dist <- lmer(DBH ~ scale(geo.dist.to.plant.km)*scale(dist.to.plant) + (1|Provenance), data=dbh_num14_alldist)
+mod_dbh_dist <- lmer(DBH ~ scale(geo.dist.to.plant.km)*scale(dist.to.plant.3d) + (1|Provenance), data=dbh_num14_alldist)
 plot(mod_dbh_dist)
 qqmath(mod_dbh_dist)
 summary(mod_dbh_dist)
 options(na.action="na.fail")
 dredge(mod_dbh_dist)
 
-mod_dbh_dist2 <- lmer(DBH ~ scale(geo.dist.to.plant.km)+scale(dist.to.plant) + (1|Provenance), data=dbh_num14_alldist)
+mod_dbh_dist2 <- lmer(DBH ~ scale(geo.dist.to.plant.km)+scale(dist.to.plant.3d) + (1|Provenance), data=dbh_num14_alldist)
 plot(mod_dbh_dist2)
 qqmath(mod_dbh_dist2)
 summary(mod_dbh_dist2)
 
-mod_dbh_dist2_noG <- lmer(DBH ~ scale(geo.dist.to.plant.km)+scale(dist.to.plant) + (1|Provenance), data=dbh_num14_alldist_noG)
+mod_dbh_dist2_noG <- lmer(DBH ~ scale(geo.dist.to.plant.km)+scale(dist.to.plant.3d) + (1|Provenance), data=dbh_num14_alldist_noG)
 plot(mod_dbh_dist2_noG)
 qqmath(mod_dbh_dist2_noG)
 summary(mod_dbh_dist2_noG)
@@ -1436,7 +1483,7 @@ summary(mod_dbh_dist2_noG)
 ggplot(dbh_num14_alldist, aes(x=geo.dist.to.plant.km, y=DBH, col=Provenance))+
   geom_point()+
   geom_smooth(method="lm")
-ggplot(dbh_num14_alldist, aes(x=dist.to.plant, y=DBH, col=Provenance))+
+ggplot(dbh_num14_alldist, aes(x=dist.to.plant.3d, y=DBH, col=Provenance))+
   geom_point()+
   geom_smooth(method="lm")
 
@@ -1464,13 +1511,14 @@ dbh_dist_plot <- ggplot()+
 ####PCA
 ```{r}
 ##PCs and x 
-mod_dbh_pca_x <- lmer(DBH ~ PC1*PC2 + PC1*scale(x) + PC2*scale(x) + I(PC1^2) + I(PC2^2) + I(scale(x)^2) + (1|Provenance), data=dbh_num14_alldist)
+mod_dbh_pca_x <- lmer(DBH ~ PC1*PC2 + PC1*scale(x) + PC2*scale(x) + + I(PC1^2) + I(PC2^2) + + I(scale(x)^2) + (1|Provenance), data=dbh_num14_alldist)
 plot(mod_dbh_pca_x)
 qqmath(mod_dbh_pca_x)
 summary(mod_dbh_pca_x)
 dredge(mod_dbh_pca_x)
 
-bestmod_dbh_pca_x <- lmer(DBH ~ PC2 + I(PC2^2) + scale(x) + (1|Provenance), data=dbh_num14_alldist)
+bestmod_dbh_pca_x <- lmer(DBH ~ scale(x) + (1|Provenance), data=dbh_num14_alldist)
+
 summary(bestmod_dbh_pca_x)
 
 mod_dbh_pca_x_nog <- lmer(DBH ~ PC1*PC2 + PC1*scale(x) + PC2*scale(x) + I(PC1^2) + I(PC2^2) + I(scale(x)^2) + (1|Provenance), data=dbh_num14_alldist_noG)
@@ -1479,8 +1527,12 @@ qqmath(mod_dbh_pca_x_nog)
 summary(mod_dbh_pca_x_nog)
 dredge(mod_dbh_pca_x_nog)
 
-bestmod_dbh_pca_x_nog <- lmer(DBH ~ PC2 + I(PC2^2) + scale(x) + (1|Provenance), data=dbh_num14_alldist_noG)
+bestmod_dbh_pca_x_nog <- lmer(DBH ~ scale(x) + (1|Provenance), data=dbh_num14_alldist_noG)
 summary(bestmod_dbh_pca_x_nog) #null model was better than this though so not a strong effect. 
+
+ggplot(dbh_num14_alldist_noG, aes(x=x, y=DBH))+
+  geom_point()+
+  geom_smooth(method="lm")
 
 ##PCs and y 
 mod_dbh_pca_y <- lmer(DBH ~ PC1*PC2 + PC1*scale(y) + PC2*scale(y) + I(PC1^2) + I(PC2^2) + I(scale(y)^2) + (1|Provenance), data=dbh_num14_alldist)
@@ -1491,11 +1543,12 @@ dredge(mod_dbh_pca_y)
 
 AICc(mod_dbh_pca_x, mod_dbh_pca_y)
 
-bestmod_dbh_pca_y <- lmer(DBH ~ PC1 + I(PC1^2) + scale(y) + I(scale(y)^2) + (1|Provenance), data=dbh_num14_alldist)
+bestmod_dbh_pca_y <- lmer(DBH ~ PC2 + I(PC2^2) + scale(y) + I(scale(y)^2) + (1|Provenance), data=dbh_num14_alldist)
 summary(bestmod_dbh_pca_y)
 
-ggplot(dbh_num14_alldist, aes(x=y, y=DBH))+
-  geom_point()
+ggplot(dbh_num14_alldist, aes(x=PC2, y=DBH))+
+  geom_point()+
+  geom_smooth(method="glm")
 
 mod_dbh_pca_y_nog <- lmer(DBH ~ PC1*PC2 + PC1*scale(y) + PC2*scale(y) + I(PC1^2) + I(PC2^2) + I(scale(y)^2) + (1|Provenance), data=dbh_num14_alldist_noG)
 plot(mod_dbh_pca_y_nog)
@@ -1526,6 +1579,22 @@ dbh_lat_plot <- ggplot()+
 ggarrange(dbh_dist_plot, dbh_lat_plot, common.legend = TRUE)
 ```
 
+```{r}
+##all 3 PCs
+mod_dbh_pcs <- lmer(DBH ~ PC1*PC2 + PC1*PC3 + PC2*PC3 + I(PC1^2) + I(PC2^2) + I(PC3^2) + (1|Provenance), data=dbh_num14_alldist)
+plot(mod_dbh_pcs)
+qqmath(mod_dbh_pcs)
+summary(mod_dbh_pcs)
+dredge(mod_dbh_pcs) ##null model is the best model 
+
+AICc(mod_dbh_pca_x, mod_dbh_pca_y, mod_dbh_pcs) ##model with latitude has the lowest AICc
+
+mod_dbh_pcs_nog <- lmer(DBH ~ PC1*PC2 + PC1*PC3 + PC2*PC3 + I(PC1^2) + I(PC2^2) + I(PC3^2) + (1|Provenance), data=dbh_num14_alldist_noG)
+plot(mod_dbh_pcs_nog)
+qqmath(mod_dbh_pcs_nog)
+summary(mod_dbh_pcs_nog)
+dredge(mod_dbh_pcs_nog) ##null model is best again
+```
 
 ####extra models
 ```{r}
@@ -1533,11 +1602,11 @@ ggarrange(dbh_dist_plot, dbh_lat_plot, common.legend = TRUE)
 colnames(dbh_num14)
 
 provenance_climvars <- dbh_num14 %>% 
-  dplyr::select(MAT:PPTsm, smrpb, monsoonality) %>% 
+  dplyr::select(AHM:SHM, smrpb, monsoonality) %>% 
   colnames()
 
 dbh_num14_long <- dbh_num14 %>% 
-  pivot_longer(c(MAT:PPTsm, smrpb, monsoonality))
+  pivot_longer(c(AHM:SHM, smrpb, monsoonality))
 
 dbh_mods<- data.frame()
 dbh_num14_nog <- dbh_num14 %>% filter(!Provenance=="Gila NF")
@@ -1578,7 +1647,7 @@ dbh_mods_quad %>% arrange(pvalue2_nog) #nothing significant
 
 colnames(moniger_data_comb)
 
-ggplot(moniger_data_comb, aes(x=factor(cmd), y=HT14, fill=Provenance))+
+ggplot(moniger_data_comb, aes(x=factor(CMD), y=HT14, fill=Provenance))+
   geom_boxplot()+
   theme(legend.position = 'right', axis.text.x = element_text(angle=45, hjust=1))
 
@@ -1817,40 +1886,49 @@ TukeyHSD(totht_mod14)$Provenance %>%
 
 ht_data_clim14 <- ht_data_clim %>% 
   filter(name=="HT14") %>% 
-  left_join(pca_dist_df %>% dplyr::select(code, dist.to.plant)) %>% 
+  left_join(pca_dist_df %>% dplyr::select(code, dist.to.plant,dist.to.plant.3d)) %>% 
   left_join(geo.dist.df)
 
 ht_data_clim14_nog <- ht_data_clim14 %>% filter(!Provenance=="Gila NF")
 
 ## Distance model
-ht_dist_mod <- lmer(value ~ scale(geo.dist.to.plant.km)*scale(dist.to.plant) + (1|Provenance), data=ht_data_clim14)
+ht_dist_mod <- lmer(value ~ scale(geo.dist.to.plant.km)*scale(dist.to.plant.3d) + (1|Provenance), data=ht_data_clim14)
 plot(ht_dist_mod)
 qqmath(ht_dist_mod)
 summary(ht_dist_mod)
+dredge(ht_dist_mod)
 
-ggplot(data=ht_data_clim14, aes(x=dist.to.plant, y=value))+
+best_ht_dist_mod <- lmer(value ~ scale(geo.dist.to.plant.km)*scale(dist.to.plant.3d) + (1|Provenance), data=ht_data_clim14)
+summary(best_ht_dist_mod)
+
+ggplot(data=ht_data_clim14, aes(x=dist.to.plant.3d, y=value))+
   geom_point()+
   geom_smooth(method="lm")
 ggplot(data=ht_data_clim14, aes(x=geo.dist.to.plant.km, y=value))+
   geom_point()+
   geom_smooth(method="lm")
 
-ht_dist_mod_nog <- lmer(value ~ scale(geo.dist.to.plant.km)*scale(dist.to.plant) + (1|Provenance), data=ht_data_clim14_nog)
+ht_dist_mod_nog <- lmer(value ~ scale(geo.dist.to.plant.km)*scale(dist.to.plant.3d) + (1|Provenance), data=ht_data_clim14_nog)
 plot(ht_dist_mod_nog)
 qqmath(ht_dist_mod_nog)
 summary(ht_dist_mod_nog)
+dredge(ht_dist_mod_nog)
 
-ggplot(data=ht_data_clim14_nog, aes(x=dist.to.plant, y=value, col=geo.dist.to.plant.km>800))+
+best_ht_dist_mod_nog <- lmer(value ~ scale(geo.dist.to.plant.km) + scale(dist.to.plant.3d) + (1|Provenance), data=ht_data_clim14_nog)
+summary(best_ht_dist_mod_nog)
+
+ggplot(data=ht_data_clim14_nog, aes(x=dist.to.plant.3d, y=value, col=geo.dist.to.plant.km>800))+
   geom_point()+
   geom_smooth(method="lm")
+
 ggplot(data=ht_data_clim14_nog, aes(x=geo.dist.to.plant.km, y=value))+
   geom_point()+
   geom_smooth(method="lm")
-ggplot(data=ht_data_clim14_nog, aes(x=dist.to.plant, y=value))+
+ggplot(data=ht_data_clim14_nog, aes(x=dist.to.plant.3d, y=value))+
   geom_point()+
   geom_smooth(method="lm")
 
-ht_dist_plot<- interact_plot(ht_dist_mod_nog, pred=dist.to.plant, modx=geo.dist.to.plant.km, plot.points = TRUE, interval = TRUE, int.width = 0.95, colors="blue2", data=ht_data_clim14)+
+ht_dist_plot<- interact_plot(ht_dist_mod_nog, pred=dist.to.plant.3d, modx=geo.dist.to.plant.km, plot.points = TRUE, interval = TRUE, int.width = 0.95, colors="blue2", data=ht_data_clim14)+
   xlab("Climatic distance to plantation")+
   ylab("Height (m)")+
   theme_bw()+
@@ -1869,10 +1947,10 @@ qqmath(mod_ht_pca_x)
 summary(mod_ht_pca_x)
 dredge(mod_ht_pca_x)
 
-bestmod_ht_pca_x <- lmer(value ~ PC1 + I(PC1^2) + (1|Provenance), data=ht_data_clim14)
+bestmod_ht_pca_x <- lmer(value ~ PC1 + PC2 + I(PC2^2) + scale(x) + (1|Provenance), data=ht_data_clim14)
 summary(bestmod_ht_pca_x)
 
-ggplot(data=ht_data_clim14, aes(x=PC1, y=value))+
+ggplot(data=ht_data_clim14, aes(x=PC2, y=value))+
   geom_point()
 
 mod_ht_pca_x_nog <- lmer(value ~ PC1*PC2 + PC1*x + PC2*x + I(PC1^2) + I(PC2^2) + I(scale(x)^2) + (1|Provenance), data=ht_data_clim14_nog)
@@ -1891,12 +1969,12 @@ dredge(mod_ht_pca_y)
 
 AICc(mod_ht_pca_x, mod_ht_pca_y) #y is lower
 
-bestmod_ht_pca_y <- lmer(value ~ PC1 + I(PC1^2) + scale(y) + I(scale(y)^2) + (1|Provenance), data=ht_data_clim14)
+bestmod_ht_pca_y <- lmer(value ~ PC1 + PC2 + I(PC2^2) + scale(y) + (1|Provenance), data=ht_data_clim14)
 summary(bestmod_ht_pca_y)
 
 ggplot(ht_data_clim14, aes(x=y, y=value))+
   geom_point()
-ggplot(ht_data_clim14, aes(x=PC1, y=value))+
+ggplot(ht_data_clim14, aes(x=PC2, y=value))+
   geom_point()
 
 mod_ht_pca_y_nog <- lmer(value ~ PC1*PC2 + PC1*y + PC2*y + I(PC1^2) + I(PC2^2) + I(scale(y)^2) + (1|Provenance), data=ht_data_clim14_nog)
@@ -1940,18 +2018,43 @@ geo.legend <- get_legend(interact_plot(ht_dist_mod_nog, pred=dist.to.plant, modx
 
 library(cowplot)
 
-png("figures/dbh_height_fig.png", width=9,height=7, units="in", res=500)
+#png("figures/dbh_height_fig.png", width=9,height=7, units="in", res=500)
 grid.arrange(grid.arrange(dbh_dist_plot,dbh_lat_plot,ht_dist_plot,ht_lat_plot),grid.arrange(prov.legend,geo.legend, nrow=2, heights=c(1,0.4)),widths=c(1,0.4))
-dev.off()
+#dev.off()
 
 ```
  
+```{r}
+##all 3 PCs
+mod_ht_pcs <- lmer(value ~ PC1*PC2 + PC1*PC3 + PC2*PC3 + I(PC1^2) + I(PC2^2) + I(PC3^2) + (1|Provenance), data=ht_data_clim14)
+plot(mod_ht_pcs)
+qqmath(mod_ht_pcs)
+summary(mod_ht_pcs)
+dredge(mod_ht_pcs) 
+
+AICc(mod_ht_pca_x, mod_ht_pca_y, mod_ht_pcs) ##PC3 model has the lowest AICc
+
+bestmod_ht_pcs <- lmer(value ~ PC3 + I(PC3^2) + (1|Provenance), data=ht_data_clim14)
+plot(bestmod_ht_pcs)
+qqmath(bestmod_ht_pcs)
+summary(bestmod_ht_pcs)
+
+mod_ht_pcs_nog <- lmer(value ~ PC1*PC2 + PC1*PC3 + PC2*PC3 + I(PC1^2) + I(PC2^2) + I(PC3^2) + (1|Provenance), data=ht_data_clim14_nog)
+plot(mod_ht_pcs_nog)
+qqmath(mod_ht_pcs_nog)
+summary(mod_ht_pcs_nog)
+dredge(mod_ht_pcs_nog) ##null model is best
+
+AICc(mod_ht_pca_x_nog, mod_ht_pca_y_nog, mod_ht_pcs_nog) ##PC3 model still has the lowest AICc
+
+```
+
 ####extra models
 
 ```{r}
 
 ht_data_clim14_long <- ht_data_clim14 %>% 
-  pivot_longer(c(MAT:PPTsm, smrpb, monsoonality), names_to="climvar.name", values_to = "climvar.value")
+  pivot_longer(c(AHM:SHM, smrpb, monsoonality), names_to="climvar.name", values_to = "climvar.value")
 
 ht_mods<- data.frame()
 
@@ -1994,7 +2097,7 @@ ht_mods_quad %>% arrange(pvalue2_nog) #nothing significant when Gila is taken ou
 ht_SR <- ht_data_clim14_nog %>% filter(y < 44)
   
 ht_SR_long <- ht_SR %>% 
-  pivot_longer(c(MAT:PPTsm, smrpb, monsoonality), names_to="climvar.name", values_to = "climvar.value")
+  pivot_longer(c(AHM:SHM, smrpb, monsoonality), names_to="climvar.name", values_to = "climvar.value")
 
 ht_SR_mods<- data.frame()
 
@@ -2006,10 +2109,10 @@ ht_SR_mods <- bind_rows(ht_SR_mods, data.frame(var=provenance_climvars[i], pvalu
 
 }
 
-ht_SR_mods %>% arrange(pvalue) ##TD is significant
+ht_SR_mods %>% arrange(pvalue) ##TD & RH are significant
 
-cor(ht_SR %>% dplyr::select(c(MAT:PPTsm,elev,x,y,smrpb,monsoonality)))
-#TD is the main differentiating climate vactor in the southern rockies, this might be why it's coming out. 
+cor(ht_SR %>% dplyr::select(c(AHM:SHM,elev,x,y,smrpb,monsoonality)))
+#TD is the main differentiating climate factor in the southern rockies, this might be why it's coming out. 
 
 ##TD
 ht_TD_mod <- lmer(value ~ climvar.value + (1|Provenance), data=ht_SR_long %>% filter(climvar.name=="TD"))
@@ -2018,6 +2121,16 @@ qqmath(ht_TD_mod)
 summary(ht_TD_mod)
 
 ggplot(data=ht_SR_long %>% filter(climvar.name=="TD"), aes(x=climvar.value, y=value))+
+  geom_point()+
+  geom_smooth(method="lm")
+
+##RH
+ht_RH_mod <- lmer(value ~ climvar.value + (1|Provenance), data=ht_SR_long %>% filter(climvar.name=="RH"))
+plot(ht_RH_mod)
+qqmath(ht_RH_mod)
+summary(ht_RH_mod)
+
+ggplot(data=ht_SR_long %>% filter(climvar.name=="RH"), aes(x=climvar.value, y=value))+
   geom_point()+
   geom_smooth(method="lm")
 
@@ -2033,23 +2146,23 @@ ht_SR_mods_quad <- bind_rows(ht_SR_mods_quad, data.frame(var=provenance_climvars
 
 }
 
-ht_SR_mods_quad %>% arrange(pvalue2) #MAP has significant quadratic effect
+ht_SR_mods_quad %>% arrange(pvalue2) #MAP & winter ppt have significant quadratic effect
 
 ##MAP
-ht_map_quad <- lmer(value ~ climvar.value + I(climvar.value^2) + (1|Provenance), data=ht_SR_long %>% filter(climvar.name=="map"))
+ht_map_quad <- lmer(value ~ climvar.value + I(climvar.value^2) + (1|Provenance), data=ht_SR_long %>% filter(climvar.name=="MAP"))
 plot(ht_map_quad)
 qqmath(ht_map_quad)
 summary(ht_map_quad)
 
-ht_map_quad_lm <- lm(value ~ climvar.value + I(climvar.value^2), data=ht_SR_long %>% filter(climvar.name=="map"))
-newdata_ht_map <- with(ht_SR_long %>% filter(climvar.name=="map"), data.frame(climvar.value=seq(min(climvar.value),max(climvar.value),length.out=100)))
+ht_map_quad_lm <- lm(value ~ climvar.value + I(climvar.value^2), data=ht_SR_long %>% filter(climvar.name=="MAP"))
+newdata_ht_map <- with(ht_SR_long %>% filter(climvar.name=="MAP"), data.frame(climvar.value=seq(min(climvar.value),max(climvar.value),length.out=100)))
 
 ht_map_predict <- predict(ht_map_quad_lm, newdata = newdata_ht_map, interval="confidence")
 
 predictdata_ht_map <- cbind(newdata_ht_map, ht_map_predict)
 
 ggplot()+
-  geom_point(data=ht_SR_long %>% filter(climvar.name=="map"), aes(x=climvar.value, y=value, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_point(data=ht_SR_long %>% filter(climvar.name=="MAP"), aes(x=climvar.value, y=value, col=factor(Provenance, levels=provs_bylat$Provenance)))+
   geom_ribbon(data=predictdata_ht_map, aes(x=climvar.value, ymin=lwr, ymax=upr), fill="black", alpha=0.2)+
   geom_line(data=predictdata_ht_map, aes(x=climvar.value,y=fit), color="black")+
   xlab("MAP")+
@@ -2066,13 +2179,11 @@ ggplot(data=ht_SR, aes(x=y, y=value, col=Provenance))+
   geom_point()+
   geom_smooth(method="lm")
 
-
-
 #nursery height
 totht_mod_nursery <- lmer(value ~ Seedling.Ht..from.Nursery + (1|Provenance), data=ht_data_clim14)
 plot(totht_mod_nursery)
 qqmath(totht_mod_nursery)
-summary(totht_mod_nursery) ##significant effect of nursery height on total height in 2014 when Gila is removed
+summary(totht_mod_nursery) 
 
 totht_mod_nursery_nog <- lmer(value ~ Seedling.Ht..from.Nursery + (1|Provenance), data=ht_data_clim14_nog)
 plot(totht_mod_nursery_nog)
@@ -2089,7 +2200,7 @@ ggplot(data= ht_data_clim14, aes(x=Seedling.Ht..from.Nursery, y=value, col=Prove
 dbh_SR <- dbh_num14_alldist %>% filter(!Provenance=="Gila NF") %>% filter(y < 44)
   
 dbh_SR_long <- dbh_SR %>% 
-  pivot_longer(c(MAT:PPTsm, smrpb, monsoonality), names_to="climvar.name", values_to = "climvar.value")
+  pivot_longer(c(AHM:SHM, smrpb, monsoonality), names_to="climvar.name", values_to = "climvar.value")
 
 dbh_SR_mods<- data.frame()
 
@@ -2098,10 +2209,17 @@ mod <- lmer(DBH ~ climvar.value + (1|Provenance), data=dbh_SR_long %>% filter(cl
 pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
 
 dbh_SR_mods <- bind_rows(dbh_SR_mods, data.frame(var=provenance_climvars[i], pvalue = pvalue))
-
 }
 
-dbh_SR_mods %>% arrange(pvalue) ##nothing significant
+dbh_SR_mods %>% arrange(pvalue) ##RH, TD, and smrpb significant
+
+ggplot(data=dbh_SR_long %>% filter(climvar.name=="TD"), aes(x=climvar.value, y=DBH))+
+  geom_point()+
+  geom_smooth(method="lm")
+
+ggplot(data=dbh_SR_long %>% filter(climvar.name=="smrpb"), aes(x=climvar.value, y=DBH))+
+  geom_point()+
+  geom_smooth(method="lm")
 
 ###quadratic
 
@@ -2115,50 +2233,30 @@ dbh_SR_mods_quad <- bind_rows(dbh_SR_mods_quad, data.frame(var=provenance_climva
 
 }
 
-dbh_SR_mods_quad %>% arrange(pvalue2) #dd_0 and MAT significant
+dbh_SR_mods_quad %>% arrange(pvalue2) #PPTwt significant
 
-##dd_0
-dd0_dbh_quad <- lmer(DBH ~ climvar.value + I(climvar.value^2) + (1|Provenance), data=dbh_SR_long %>% filter(climvar.name=="dd_0"))
-plot(dd0_dbh_quad)
-qqmath(dd0_dbh_quad)
-summary(dd0_dbh_quad)
+##PPTwt
+pptwt_dbh_quad <- lmer(DBH ~ climvar.value + I(climvar.value^2) + (1|Provenance), data=dbh_SR_long %>% filter(climvar.name=="PPTwt"))
+plot(pptwt_dbh_quad)
+qqmath(pptwt_dbh_quad)
+summary(pptwt_dbh_quad)
 
 
-dd0_dbh_quad_lm <- lm(DBH ~ climvar.value + I(climvar.value^2), data=dbh_SR_long %>% filter(climvar.name=="dd_0"))
-newdata_dbh_dd0 <- with(dbh_SR_long %>% filter(climvar.name=="dd_0"), data.frame(climvar.value=seq(min(climvar.value),max(climvar.value),length.out=100)))
+pptwt_dbh_quad_lm <- lm(DBH ~ climvar.value + I(climvar.value^2), data=dbh_SR_long %>% filter(climvar.name=="PPTwt"))
+newdata_dbh_pptwt <- with(dbh_SR_long %>% filter(climvar.name=="PPTwt"), data.frame(climvar.value=seq(min(climvar.value),max(climvar.value),length.out=100)))
 
-dbh_dd0_predict <- predict(dd0_dbh_quad_lm, newdata = newdata_dbh_dd0, interval="confidence")
+dbh_pptwt_predict <- predict(pptwt_dbh_quad_lm, newdata = newdata_dbh_pptwt, interval="confidence")
 
-predictdata_dbh_dd0 <- cbind(newdata_dbh_dd0, dbh_dd0_predict)
+predictdata_dbh_pptwt <- cbind(newdata_dbh_pptwt, dbh_pptwt_predict)
 
 ggplot()+
-  geom_point(data=dbh_SR_long %>% filter(climvar.name=="dd_0"), aes(x=climvar.value, y=DBH, col=factor(Provenance, levels=provs_bylat$Provenance)))+
-  geom_ribbon(data=predictdata_dbh_dd0, aes(x=climvar.value, ymin=lwr, ymax=upr), fill="black", alpha=0.2)+
-  geom_line(data=predictdata_dbh_dd0, aes(x=climvar.value,y=fit), color="black")+
-  xlab("dd_0")+
+  geom_point(data=dbh_SR_long %>% filter(climvar.name=="PPTwt"), aes(x=climvar.value, y=DBH, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_ribbon(data=predictdata_dbh_pptwt, aes(x=climvar.value, ymin=lwr, ymax=upr), fill="black", alpha=0.2)+
+  geom_line(data=predictdata_dbh_pptwt, aes(x=climvar.value,y=fit), color="black")+
+  xlab("PPTwt")+
   scale_color_manual(values=unname(stepped()),name="Provenance")+
   theme_bw()
 
-##MAT
-MAT_dbh_quad <- lmer(DBH ~ climvar.value + I(climvar.value^2) + (1|Provenance), data=dbh_SR_long %>% filter(climvar.name=="MAT"))
-plot(MAT_dbh_quad)
-qqmath(MAT_dbh_quad)
-summary(MAT_dbh_quad)
-
-MAT_dbh_quad_lm <- lm(DBH ~ climvar.value + I(climvar.value^2), data=dbh_SR_long %>% filter(climvar.name=="MAT"))
-newdata_dbh_MAT <- with(dbh_SR_long %>% filter(climvar.name=="MAT"), data.frame(climvar.value=seq(min(climvar.value),max(climvar.value),length.out=100)))
-
-dbh_MAT_predict <- predict(MAT_dbh_quad_lm, newdata = newdata_dbh_MAT, interval="confidence")
-
-predictdata_dbh_MAT <- cbind(newdata_dbh_MAT, dbh_MAT_predict)
-
-ggplot()+
-  geom_point(data=dbh_SR_long %>% filter(climvar.name=="MAT"), aes(x=climvar.value, y=DBH, col=factor(Provenance, levels=provs_bylat$Provenance)))+
-  geom_ribbon(data=predictdata_dbh_MAT, aes(x=climvar.value, ymin=lwr, ymax=upr), fill="black", alpha=0.2)+
-  geom_line(data=predictdata_dbh_MAT, aes(x=climvar.value,y=fit), color="black")+
-  xlab("MAT")+
-  scale_color_manual(values=unname(stepped()),name="Provenance")+
-  theme_bw()
 ```
 
 
@@ -2166,11 +2264,11 @@ ggplot()+
 
 #####height
 ```{r}
-##Look at just southern Rockies, excluding Gila
+##Look at just northern region
 ht_NR <- ht_data_clim14_nog %>% filter(y > 44)
   
 ht_NR_long <- ht_NR %>% 
-  pivot_longer(c(MAT:PPTsm, smrpb, monsoonality), names_to="climvar.name", values_to = "climvar.value")
+  pivot_longer(c(AHM:SHM, smrpb, monsoonality), names_to="climvar.name", values_to = "climvar.value")
 
 ht_NR_mods<- data.frame()
 
@@ -2182,7 +2280,7 @@ ht_NR_mods <- bind_rows(ht_NR_mods, data.frame(var=provenance_climvars[i], pvalu
 
 }
 
-ht_NR_mods %>% arrange(pvalue) ##eFFP, SHM, EMT, PPTsm, NFFD
+ht_NR_mods %>% arrange(pvalue) ##eFFP, SHM, EMT, PPTsm, NFFD...and many more
 
 ##TD
 ht_SHM_mod <- lmer(value ~ climvar.value + (1|Provenance), data=ht_NR_long %>% filter(climvar.name=="SHM"))
@@ -2206,43 +2304,16 @@ ht_NR_mods_quad <- bind_rows(ht_NR_mods_quad, data.frame(var=provenance_climvars
 
 }
 
-ht_NR_mods_quad %>% arrange(pvalue2) #MAP has significant quadratic effect
-
-
-##Latitude
-htmod_NR <- lmer(value ~ y + (1|Provenance), data=ht_NR)
-plot(htmod_NR)
-qqmath(htmod_NR)
-summary(htmod_NR)
-
-ggplot(data=ht_NR, aes(x=y, y=value, col=Provenance))+
-  geom_point()+
-  geom_smooth(method="lm")
-
-
-
-#nursery height
-totht_mod_nursery <- lmer(value ~ Seedling.Ht..from.Nursery + (1|Provenance), data=ht_data_clim14)
-plot(totht_mod_nursery)
-qqmath(totht_mod_nursery)
-summary(totht_mod_nursery) ##significant effect of nursery height on total height in 2014 when Gila is removed
-
-totht_mod_nursery_nog <- lmer(value ~ Seedling.Ht..from.Nursery + (1|Provenance), data=ht_data_clim14_nog)
-plot(totht_mod_nursery_nog)
-qqmath(totht_mod_nursery_nog)
-summary(totht_mod_nursery_nog) ##significant effect of nursery height on total height in 2014 when Gila is removed
-
-ggplot(data= ht_data_clim14, aes(x=Seedling.Ht..from.Nursery, y=value, col=Provenance))+
-  geom_point()
+ht_NR_mods_quad %>% arrange(pvalue2) #MAP and many more have significant quadratic effect
 ```
 
 #####dbh
 ```{r}
-##Look at just southern Rockies, excluding Gila
+##Look at just northern region
 dbh_NR <- dbh_num14_alldist %>% filter(!Provenance=="Gila NF") %>% filter(y > 44)
   
 dbh_NR_long <- dbh_NR %>% 
-  pivot_longer(c(MAT:PPTsm, smrpb, monsoonality), names_to="climvar.name", values_to = "climvar.value")
+  pivot_longer(c(AHM:SHM, smrpb, monsoonality), names_to="climvar.name", values_to = "climvar.value")
 
 dbh_NR_mods<- data.frame()
 
@@ -2254,7 +2325,7 @@ dbh_NR_mods <- bind_rows(dbh_NR_mods, data.frame(var=provenance_climvars[i], pva
 
 }
 
-dbh_NR_mods %>% arrange(pvalue) ##nothing significant
+dbh_NR_mods %>% arrange(pvalue) ##MAT and many others significant
 
 ###quadratic
 
@@ -2268,39 +2339,7 @@ dbh_NR_mods_quad <- bind_rows(dbh_NR_mods_quad, data.frame(var=provenance_climva
 
 }
 
-dbh_NR_mods_quad %>% arrange(pvalue2) 
-
-##dd_0
-dd0_dbh_quad <- lmer(DBH ~ climvar.value + I(climvar.value^2) + (1|Provenance), data=dbh_NR_long %>% filter(climvar.name=="dd_0"))
-plot(dd0_dbh_quad)
-qqmath(dd0_dbh_quad)
-summary(dd0_dbh_quad)
-
-dd0_dbh_quad_lm <- lm(DBH ~ climvar.value + I(climvar.value^2), data=dbh_NR_long %>% filter(climvar.name=="dd_0"))
-newdata_dbh_dd0 <- with(dbh_NR_long %>% filter(climvar.name=="dd_0"), data.frame(climvar.value=seq(min(climvar.value),max(climvar.value),length.out=100)))
-
-dbh_dd0_predict <- predict(dd0_dbh_quad_lm, newdata = newdata_dbh_dd0, interval="confidence")
-
-predictdata_dbh_dd0 <- cbind(newdata_dbh_dd0, dbh_dd0_predict)
-
-ggplot()+
-  geom_point(data=dbh_NR_long %>% filter(climvar.name=="dd_0"), aes(x=climvar.value, y=DBH, col=factor(Provenance, levels=provs_bylat$Provenance)))+
-  geom_ribbon(data=predictdata_dbh_dd0, aes(x=climvar.value, ymin=lwr, ymax=upr), fill="black", alpha=0.2)+
-  geom_line(data=predictdata_dbh_dd0, aes(x=climvar.value,y=fit), color="black")+
-  xlab("dd_0")+
-  scale_color_manual(values=unname(stepped()),name="Provenance")+
-  theme_bw()
-
-##Latitude
-dbhmod_NR <- lmer(DBH ~ y + (1|Provenance), data=dbh_NR)
-plot(dbhmod_NR)
-qqmath(dbhmod_NR)
-summary(dbhmod_NR)
-
-ggplot(data=dbh_NR, aes(x=y, y=DBH, col=Provenance))+
-  geom_point()+
-  geom_smooth(method="lm")
-
+dbh_NR_mods_quad %>% arrange(pvalue2) #MAP and others significant
 ```
 
 ##Cones
@@ -2398,7 +2437,7 @@ cone_fig<- ggplot(newdata3, aes(x = year, y = PredictedProb)) + geom_ribbon(aes(
         legend.title = element_text(color="black", size=10))
 
 # png("figures/cone_fig.png", height=3, width=3, res=300, units="in")
-# cone_fig
+ cone_fig
 # dev.off()
 
 ```
@@ -2430,7 +2469,7 @@ left_join(moniger_data_comb %>%
                         name == "Cones06" ~ 2006)) %>% 
   dplyr::select(-name)) %>% 
 left_join(moniger_data_comb %>% 
-  dplyr::select(c(SORT, PC1, PC2, x, y, code))) %>% 
+  dplyr::select(c(SORT, PC1, PC2, PC3, x, y, code))) %>% 
   filter(!(is.na(height)|is.na(DBH)|is.na(Cones)))
 
 cone_clim_mod_htx <- glmer(Cones ~ scale(height)*PC1 + I(PC1^2) + scale(height)*PC2 + I(PC2^2) + scale(height)*scale(x) + I(scale(x)^2)+ (1|code) + (1|year), data=moniger_subset, family="binomial")
@@ -2452,21 +2491,27 @@ AICc(cone_clim_mod_hty, cone_clim_mod_dbhx, cone_clim_mod_dbhy,cone_clim_mod_htx
 dredge.cone.clim <- readRDS("dredge.cone.clim.RDS")
 dredge.cone.clim
 
+best.mod.cone.clim <- glmer(Cones ~ scale(height)*scale(x) + PC2 + I(PC2^2) + (1|code) + (1|year), data= moniger_subset, family = "binomial")
+summary(best.mod.cone.clim)
+
+#no gila
 moniger_subset_nog <- moniger_subset %>% filter(!code=="GiNF")
 
 cone_clim_mod_htx_nog <- glmer(Cones ~ scale(height)*PC1 + I(PC1^2) + scale(height)*PC2 + I(PC2^2) + scale(height)*scale(x) + I(scale(x)^2)+ (1|code) + (1|year), data=moniger_subset_nog, family="binomial")
 summary(cone_clim_mod_htx_nog)
 
-best.mod.cone.clim <- glmer(Cones ~ scale(height)*scale(x) + PC1 + I(PC1^2) + (1|code) + (1|year), data= moniger_subset, family = "binomial")
-summary(best.mod.cone.clim)
+# dredge.cone.clim.nog <- dredge(cone_clim_mod_htx_nog)
+# saveRDS(dredge.cone.clim.nog, "dredge.cone.clim.nog.RDS")
+dredge.cone.clim.nog <- readRDS("dredge.cone.clim.nog.RDS")
+dredge.cone.clim.nog
 
-best.mod.cone.clim_nog <- glmer(Cones ~ scale(height)*scale(x) + PC1 + I(PC1^2) + (1|code) + (1|year), data= moniger_subset %>% filter(!code=="GiNF"), family = "binomial")
+best.mod.cone.clim_nog <- glmer(Cones ~ scale(height)*scale(x) + (1|code) + (1|year), data= moniger_subset %>% filter(!code=="GiNF"), family = "binomial")
 summary(best.mod.cone.clim_nog)
 
 ##predictions
 CCnewdata1 <- with(moniger_subset, data.frame(height = seq(min(height),max(height),length.out=50), PC1=mean(PC1), PC2 = mean(PC2), x = rep(seq(-121, -105, 2),each=50)))
 
-cone_clim_mod_glm <- glm(Cones ~ scale(height)*scale(x) + PC1 + I(PC1^2), data= moniger_subset, family = "binomial")
+cone_clim_mod_glm <- glm(Cones ~ scale(height)*scale(x) + PC2 + I(PC2^2), data= moniger_subset, family = "binomial")
 
 CCnewdata2 <- cbind(CCnewdata1, predict(cone_clim_mod_glm, newdata = CCnewdata1, type = "link", se=TRUE))
 CCnewdata3 <- within(CCnewdata2, {
@@ -2499,11 +2544,11 @@ cone_dist_data <- moniger_subset %>%
 
 cone_dist_data_nog <- cone_dist_data %>% filter(!Provenance == "Gila NF")
 
-cone_dist_mod <- glmer(Cones ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km)*scale(height) + (1|code) + (1|year), data=cone_dist_data, family="binomial")
+cone_dist_mod <- glmer(Cones ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km)*scale(height) + (1|code) + (1|year), data=cone_dist_data, family="binomial")
 plot(cone_dist_mod)
 summary(cone_dist_mod)
 
-cone_dist_mod_nog <- glmer(Cones ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km)*scale(height) + (1|code) + (1|year), data=cone_dist_data_nog, family="binomial")
+cone_dist_mod_nog <- glmer(Cones ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km)*scale(height) + (1|code) + (1|year), data=cone_dist_data_nog, family="binomial")
 plot(cone_dist_mod_nog)
 summary(cone_dist_mod_nog)
 
@@ -2536,13 +2581,12 @@ ggplot(CDnewdata3, aes(x = height, y = PredictedProb, col=factor(geo.dist.to.pla
   scale_fill_viridis(discrete = TRUE)
 
 #no g predictions
-cone_dist_bestmod_nog <- glmer(Cones ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km)*scale(height) + (1|code) + (1|year), data=cone_dist_data  %>% filter(!Provenance == "Gila NF"), family="binomial")
+cone_dist_bestmod_nog <- glmer(Cones ~ scale(geo.dist.to.plant.km)*scale(height) + (1|code) + (1|year), data=cone_dist_data  %>% filter(!Provenance == "Gila NF"), family="binomial")
 summary(cone_dist_bestmod_nog)
 
-cone_dist_mod_glm_nog <- glm(Cones ~scale(dist.to.plant)*scale(geo.dist.to.plant.km)*scale(height) , data=cone_dist_data  %>% filter(!Provenance == "Gila NF"), family="binomial")
+cone_dist_mod_glm_nog <- glm(Cones ~scale(geo.dist.to.plant.km)*scale(height) , data=cone_dist_data  %>% filter(!Provenance == "Gila NF"), family="binomial")
 
-CDNGnewdata1 <- expand.grid(dist.to.plant = seq(0,6, by=2), 
-                                              geo.dist.to.plant.km=seq(80,1600,by=190), 
+CDNGnewdata1 <- expand.grid(geo.dist.to.plant.km=seq(80,1600,by=190), 
                    height=seq(min(cone_dist_data  %>% filter(!Provenance == "Gila NF") %>% pull(height)), max(cone_dist_data  %>% filter(!Provenance == "Gila NF") %>% pull(height)), length.out=50))
 
 CDNGnewdata2 <- cbind(CDNGnewdata1, predict(cone_dist_mod_glm_nog, newdata = CDNGnewdata1, type = "link", se=TRUE))
@@ -2556,7 +2600,6 @@ cone_dist_plot<- ggplot(CDNGnewdata3, aes(x = height, y = PredictedProb, col=fac
     ymax = UL, fill=factor(geo.dist.to.plant.km)), alpha = 0.2, col=NA) + geom_line(linewidth = 1, aes(col=factor(geo.dist.to.plant.km)))+
   scale_color_viridis(discrete = TRUE, name="Geographic\ndistance (km)")+
   scale_fill_viridis(discrete = TRUE, name="Geographic\ndistance (km)")+
-  facet_wrap(~factor(dist.to.plant, labels=c("PCA distance = 0", "PCA distance = 2","PCA distance = 4", "PCA distance = 6")))+
   xlab("Height (m)")+
   ylab("Predicted Probability of Cones")+
   theme_bw()+
@@ -2575,7 +2618,7 @@ moniger_provclim<- moniger_data_comb %>%
                         name == "Cones06" ~ 2006)) %>% 
   dplyr::select(-name) %>% 
   left_join(moniger_data_comb) %>% 
-  pivot_longer(c(MAT:PPTsm, smrpb, monsoonality), names_to="climvar.name", values_to = "climvar.value") %>% 
+  pivot_longer(c(AHM:SHM, smrpb, monsoonality), names_to="climvar.name", values_to = "climvar.value") %>% 
   filter(!is.na(Cones))
 
 cone_mods<- data.frame()
@@ -2673,45 +2716,7 @@ pvalues_nog<- as.data.frame(summary(mod_nog)$coefficients)[2:3,]$`Pr(>|z|)`
 cone_mods_quad <- bind_rows(cone_mods_quad, data.frame(var=provenance_climvars[i], pvalue1 = pvalues[1], pvalue2 = pvalues[2], pvalue1_nog = pvalues_nog[1], pvalue2_nog = pvalues_nog[2]))
 }
 
-cone_mods_quad %>% arrange(pvalue2_nog) ##TD is only quadratic effect significant both with and without Gila
-
-###TD
-cone_TD_mod <- glmer(Cones ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|code) + (1|year), data=moniger_provclim %>% filter(climvar.name=="TD"), family="binomial")
-summary(cone_TD_mod)
-
-cone_TD_data <- moniger_provclim %>% filter(climvar.name=="TD")
-
-newdata_TD_cone <- data.frame(
-    climvar.value = seq(min(cone_TD_data$climvar.value), 
-                      max(cone_TD_data$climvar.value), 
-                      length.out = 100
-                      ))
-
-##take random effect out to make predictions
-cone_TD_mod_glm <- glm(Cones ~ scale(climvar.value) + I(scale(climvar.value)^2), data=moniger_provclim %>% filter(climvar.name=="TD"), family="binomial")
-
-##predictions
-coneTD_newdata1 <- with(cone_TD_data, data.frame(climvar.value = seq(min(climvar.value),max(climvar.value),length.out=50)))
-
-coneTD_newdata2 <- cbind(coneTD_newdata1, predict(cone_TD_mod_glm, newdata = coneTD_newdata1, type = "link", se=TRUE))
-coneTD_newdata3 <- within(coneTD_newdata2, {
-    PredictedProb <- plogis(fit)
-    LL <- plogis(fit - (1.96 * se.fit))
-    UL <- plogis(fit + (1.96 * se.fit))
-})
-
-td_cone_plot<- ggplot(coneTD_newdata3, aes(x = climvar.value, y = PredictedProb)) + geom_ribbon(aes(ymin = LL,
-    ymax = UL), alpha = 0.2) + 
-  geom_line(linewidth = 1)+
-  xlab("Temperature Differential")+
-  ylab("Predicted Probability")+
-  theme_bw()+
-  ggtitle("Cones")
-
-#without Gila is still significant
-cone_TD_mod_nog <- glmer(Cones ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|code) + (1|year), data=moniger_provclim %>% filter(climvar.name=="TD") %>% filter(!Provenance=="Gila NF"), family="binomial")
-summary(cone_TD_mod_nog)
-
+cone_mods_quad %>% arrange(pvalue2_nog) ##none significant 
 ```
 
 ####plots
