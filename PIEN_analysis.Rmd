@@ -2574,7 +2574,7 @@ cone_dist_mod_glm <- glm(Cones ~ scale(geo.dist.to.plant.km)*scale(height), data
 
 ##predictions
 CDnewdata1 <- with(cone_dist_data, data.frame(geo.dist.to.plant.km = rep(seq(80,1600, by=190), each=50), 
-                                              dist.to.plant=mean(dist.to.plant), 
+                                              dist.to.plant.3d=mean(dist.to.plant.3d), 
                    height=seq(min(height), max(height), length.out=50)))
 
 CDnewdata2 <- cbind(CDnewdata1, predict(cone_dist_mod_glm, newdata = CDnewdata1, type = "link", se=TRUE))
@@ -3014,15 +3014,15 @@ surv_pcadist_data <- moniger_survival %>%
   left_join(pca_dist_df, by="Provenance") %>% 
   left_join(geo.dist.df)
 
-survmod_dist<- glmer(Stat14 ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=surv_pcadist_data, family = "binomial")
+survmod_dist<- glmer(Stat14 ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=surv_pcadist_data, family = "binomial")
 plot(survmod_dist)
 summary(survmod_dist) #significant
 
-survmod_dist_glm<- glm(Stat14 ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km), data=surv_pcadist_data, family = "binomial")
+survmod_dist_glm<- glm(Stat14 ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km), data=surv_pcadist_data, family = "binomial")
 
 ###make plot for distance model
-SDnewdata1 <- with(surv_pcadist_data, data.frame(dist.to.plant = seq(min(surv_pcadist_data$dist.to.plant), 
-                      max(surv_pcadist_data$dist.to.plant), 
+SDnewdata1 <- with(surv_pcadist_data, data.frame(dist.to.plant.3d = seq(min(surv_pcadist_data$dist.to.plant.3d), 
+                      max(surv_pcadist_data$dist.to.plant.3d), 
                       length.out = 50),
     geo.dist.to.plant.km = rep(seq(80,1600,190),each=50)))
 
@@ -3033,7 +3033,7 @@ SDnewdata3 <- within(SDnewdata2, {
     UL <- plogis(fit + (1.96 * se.fit))
 })
 
-surv_dist_plot<-ggplot(SDnewdata3, aes(x = dist.to.plant, y = PredictedProb, col= factor(geo.dist.to.plant.km))) + geom_ribbon(aes(ymin = LL,
+surv_dist_plot<-ggplot(SDnewdata3, aes(x = dist.to.plant.3d, y = PredictedProb, col= factor(geo.dist.to.plant.km))) + geom_ribbon(aes(ymin = LL,
     ymax = UL, fill = factor(geo.dist.to.plant.km)),col=NA, alpha = 0.2) + geom_line(aes(colour = factor(geo.dist.to.plant.km)),
     linewidth = 1)+
   geom_line()+
@@ -3047,15 +3047,15 @@ surv_dist_plot<-ggplot(SDnewdata3, aes(x = dist.to.plant, y = PredictedProb, col
 ##no gila
 surv_pcadist_data_nog <- surv_pcadist_data %>% filter(!Provenance=="Gila NF")
 
-survmod_dist_nog<- glmer(Stat14 ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=surv_pcadist_data_nog, family = "binomial")
+survmod_dist_nog<- glmer(Stat14 ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=surv_pcadist_data_nog, family = "binomial")
 plot(survmod_dist_nog)
 summary(survmod_dist_nog) 
 
-survmod_dist_glm_nog<- glm(Stat14 ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km), data=surv_pcadist_data_nog, family = "binomial")
+survmod_dist_glm_nog<- glm(Stat14 ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km), data=surv_pcadist_data_nog, family = "binomial")
 
 ###make plot for distance model
-SDnewdata_nog1 <- with(surv_pcadist_data_nog, data.frame(dist.to.plant = seq(min(dist.to.plant), 
-                      max(dist.to.plant), 
+SDnewdata_nog1 <- with(surv_pcadist_data_nog, data.frame(dist.to.plant.3d = seq(min(dist.to.plant.3d), 
+                      max(dist.to.plant.3d), 
                       length.out = 50),
     geo.dist.to.plant.km = rep(seq(80,1600,190),each=50)))
 
@@ -3066,7 +3066,7 @@ SDnewdata_nog3 <- within(SDnewdata_nog2, {
     UL <- plogis(fit + (1.96 * se.fit))
 })
 
-ggplot(SDnewdata_nog3, aes(x = dist.to.plant, y = PredictedProb, col= factor(geo.dist.to.plant.km))) + geom_ribbon(aes(ymin = LL,
+ggplot(SDnewdata_nog3, aes(x = dist.to.plant.3d, y = PredictedProb, col= factor(geo.dist.to.plant.km))) + geom_ribbon(aes(ymin = LL,
     ymax = UL, fill = factor(geo.dist.to.plant.km)),col=NA, alpha = 0.2) + geom_line(aes(colour = factor(geo.dist.to.plant.km)),
     linewidth = 1)+
   geom_line()+
@@ -5450,9 +5450,6 @@ ggplot(RR4_clim, aes(x=PC2, y=resilience))+
   geom_point()+
   geom_smooth(method="lm")
 
-survmod_pcx<- glmer(Stat14 ~ PC1+ I(PC1^2) + PC2 + I(PC2^2) + scale(x) + I(scale(x)^2) + (1|Provenance), data=moniger_survival, family="binomial")
-
-
 ##PCA models
 resis_mod_pcx <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2) + (1|Provenance), data=RR4_clim)
 plot(resis_mod_pcx)
@@ -5478,17 +5475,16 @@ summary(resis_mod_pcy_noG) #nothing significant when Gila removed
 
 dredge(resis_mod_pcy) ##null model is the best
 
-
 #distance model
-resis_mod_dist <- lmer(log(resistance) ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR4_clim)
+resis_mod_dist <- lmer(log(resistance) ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR4_clim)
 plot(resis_mod_dist)
 qqmath(resis_mod_dist)
 summary(resis_mod_dist) #geographic distance to the plantation is significant
 
-resis_mod_dist_noG <- lmer(log(resistance) ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR4_clim %>% filter(!Provenance=="Gila NF"))
+resis_mod_dist_noG <- lmer(log(resistance) ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR4_clim %>% filter(!Provenance=="Gila NF"))
 plot(resis_mod_dist_noG)
 qqmath(resis_mod_dist_noG)
-summary(resis_mod_dist_noG) #geographic distance to the plantation is still significant
+summary(resis_mod_dist_noG) #geographic distance to the plantation is marginally significant without Gila
 
 dredge(resis_mod_dist) ##null model is best though...
 
@@ -5496,10 +5492,10 @@ dredge(resis_mod_dist) ##null model is best though...
 newdata_geodist <- data.frame(
     geo.dist.to.plant.km = seq(min(RR4_clim$geo.dist.to.plant.km), 
                       max(RR4_clim$geo.dist.to.plant.km), length.out = 100), 
-    dist.to.plant = mean(RR4_clim$dist.to.plant))
+    dist.to.plant.3d = mean(RR4_clim$dist.to.plant.3d))
 
 ##take random effect out to make predictions
-resis_mod_dist_lm <- lm(log(resistance) ~  scale(dist.to.plant)*scale(geo.dist.to.plant.km), data=RR4_clim)
+resis_mod_dist_lm <- lm(log(resistance) ~  scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km), data=RR4_clim)
 
 predicted_scores <- predict(
   resis_mod_dist_lm, 
@@ -5522,7 +5518,7 @@ RR0102_clim<- spline_calcs_0102 %>%
   left_join(pca_dist_df) %>% 
   left_join(geo.dist.df)
 
-ggplot(RR0102_clim, aes(x=PC2, y=resilience))+
+ggplot(RR0102_clim, aes(x=PC2, y=resilience, col=Provenance))+
   geom_point()+
   geom_smooth(method="lm")
 
@@ -5547,17 +5543,17 @@ summary(resis_0102mod_pcy)
 resis_0102mod_pcy_noG <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2)+ (1|Provenance), data=RR0102_clim %>% filter(!Provenance=="Gila NF"))
 plot(resis_0102mod_pcy_noG)
 qqmath(resis_0102mod_pcy_noG)
-summary(resis_0102mod_pcy_noG) #latitude is significant when Gila removed
+summary(resis_0102mod_pcy_noG) #nothing is significant when Gila removed
 
 dredge(resis_0102mod_pcy) ##null model is the best still though 
 
 #distance model
-resis_0102mod_dist <- lmer(log(resistance) ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR0102_clim)
+resis_0102mod_dist <- lmer(log(resistance) ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR0102_clim)
 plot(resis_0102mod_dist)
 qqmath(resis_0102mod_dist)
 summary(resis_0102mod_dist) #geographic distance to the plantation is significant
 
-resis_0102mod_dist_noG <- lmer(log(resistance) ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR0102_clim %>% filter(!Provenance=="Gila NF"))
+resis_0102mod_dist_noG <- lmer(log(resistance) ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR0102_clim %>% filter(!Provenance=="Gila NF"))
 plot(resis_0102mod_dist_noG)
 qqmath(resis_0102mod_dist_noG)
 summary(resis_0102mod_dist_noG) #geographic distance to the plantation is not significant
@@ -5602,12 +5598,12 @@ summary(resis_0203mod_pcy_noG)
 dredge(resis_0203mod_pcy) ##null model is the best 
 
 #distance model
-resis_0203mod_dist <- lmer(log(resistance) ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR0203_clim)
+resis_0203mod_dist <- lmer(log(resistance) ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR0203_clim)
 plot(resis_0203mod_dist)
 qqmath(resis_0203mod_dist)
 summary(resis_0203mod_dist) #climatic distance to the plantation is significant
 
-resis_0203mod_dist_noG <- lmer(log(resistance) ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR0203_clim %>% filter(!Provenance=="Gila NF"))
+resis_0203mod_dist_noG <- lmer(log(resistance) ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR0203_clim %>% filter(!Provenance=="Gila NF"))
 plot(resis_0203mod_dist_noG)
 qqmath(resis_0203mod_dist_noG)
 summary(resis_0203mod_dist_noG) #nothing significant when gila removed
@@ -5652,12 +5648,12 @@ summary(resis_0003mod_pcy_noG)
 dredge(resis_0003mod_pcy) ##null model is the best 
 
 #distance model
-resis_0003mod_dist <- lmer(log(resistance) ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR0003_clim)
+resis_0003mod_dist <- lmer(log(resistance) ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR0003_clim)
 plot(resis_0003mod_dist)
 qqmath(resis_0003mod_dist)
-summary(resis_0003mod_dist) #climatic distance to the plantation is significant
+summary(resis_0003mod_dist) #nothing significant
 
-resis_0003mod_dist_noG <- lmer(log(resistance) ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR0003_clim %>% filter(!Provenance=="Gila NF"))
+resis_0003mod_dist_noG <- lmer(log(resistance) ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR0003_clim %>% filter(!Provenance=="Gila NF"))
 plot(resis_0003mod_dist_noG)
 qqmath(resis_0003mod_dist_noG)
 summary(resis_0003mod_dist_noG) #nothing significant when gila removed
@@ -5680,12 +5676,12 @@ ggplot(RR0005_clim, aes(x=PC2, y=resilience))+
 resis_0005mod_pcx <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2) + (1|Provenance), data=RR0005_clim)
 plot(resis_0005mod_pcx)
 qqmath(resis_0005mod_pcx)
-summary(resis_0005mod_pcx) 
+summary(resis_0005mod_pcx)#nothing significant
 
 resis_0005mod_pcx_noG <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2)+ (1|Provenance), data=RR0005_clim %>% filter(!Provenance=="Gila NF"))
 plot(resis_0005mod_pcx_noG)
 qqmath(resis_0005mod_pcx_noG)
-summary(resis_0005mod_pcx_noG) #PC2 significant 
+summary(resis_0005mod_pcx_noG) #nothing significant 
 
 dredge(resis_0005mod_pcx) ##null model is the best
 
@@ -5702,12 +5698,12 @@ summary(resis_0005mod_pcy_noG)
 dredge(resis_0005mod_pcy) ##null model is the best 
 
 #distance model
-resis_0005mod_dist <- lmer(log(resistance) ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR0005_clim)
+resis_0005mod_dist <- lmer(log(resistance) ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR0005_clim)
 plot(resis_0005mod_dist)
 qqmath(resis_0005mod_dist)
-summary(resis_0005mod_dist) #climatic distance to the plantation is significant
+summary(resis_0005mod_dist) #nothing significant
 
-resis_0005mod_dist_noG <- lmer(log(resistance) ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR0005_clim %>% filter(!Provenance=="Gila NF"))
+resis_0005mod_dist_noG <- lmer(log(resistance) ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR0005_clim %>% filter(!Provenance=="Gila NF"))
 plot(resis_0005mod_dist_noG)
 qqmath(resis_0005mod_dist_noG)
 summary(resis_0005mod_dist_noG) #nothing significant when gila removed
@@ -5752,12 +5748,12 @@ summary(resis_9904mod_pcy_noG)
 dredge(resis_9904mod_pcy) ##null model is the best 
 
 #distance model
-resis_9904mod_dist <- lmer(log(resistance) ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR9904_clim)
+resis_9904mod_dist <- lmer(log(resistance) ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR9904_clim)
 plot(resis_9904mod_dist)
 qqmath(resis_9904mod_dist)
-summary(resis_9904mod_dist) #climatic distance to the plantation is significant
+summary(resis_9904mod_dist) #nothing significant
 
-resis_9904mod_dist_noG <- lmer(log(resistance) ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR9904_clim %>% filter(!Provenance=="Gila NF"))
+resis_9904mod_dist_noG <- lmer(log(resistance) ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR9904_clim %>% filter(!Provenance=="Gila NF"))
 plot(resis_9904mod_dist_noG)
 qqmath(resis_9904mod_dist_noG)
 summary(resis_9904mod_dist_noG) #nothing significant when gila removed
@@ -5803,12 +5799,12 @@ summary(resis_1mod_pcy_noG)
 dredge(resis_1mod_pcy) ##null model is the best 
 
 #distance model
-resis_1mod_dist <- lmer(log(resistance) ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR1_clim)
+resis_1mod_dist <- lmer(log(resistance) ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR1_clim)
 plot(resis_1mod_dist)
 qqmath(resis_1mod_dist)
 summary(resis_1mod_dist) 
 
-resis_1mod_dist_noG <- lmer(log(resistance) ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR1_clim %>% filter(!Provenance=="Gila NF"))
+resis_1mod_dist_noG <- lmer(log(resistance) ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR1_clim %>% filter(!Provenance=="Gila NF"))
 plot(resis_1mod_dist_noG)
 qqmath(resis_1mod_dist_noG)
 summary(resis_1mod_dist_noG) #nothing significant when gila removed
@@ -5853,17 +5849,17 @@ summary(resis_2mod_pcy_noG)
 dredge(resis_2mod_pcy) ##null model is the best 
 
 #distance model
-resis_2mod_dist <- lmer(log(resistance) ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR2_clim)
+resis_2mod_dist <- lmer(log(resistance) ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR2_clim)
 plot(resis_2mod_dist)
 qqmath(resis_2mod_dist)
-summary(resis_2mod_dist) 
+summary(resis_2mod_dist) #geo distance is significant
 
-resis_2mod_dist_noG <- lmer(log(resistance) ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR2_clim %>% filter(!Provenance=="Gila NF"))
+resis_2mod_dist_noG <- lmer(log(resistance) ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR2_clim %>% filter(!Provenance=="Gila NF"))
 plot(resis_2mod_dist_noG)
 qqmath(resis_2mod_dist_noG)
-summary(resis_2mod_dist_noG) #nothing significant when gila removed
+summary(resis_2mod_dist_noG) #geo distance is significant when gila removed
 
-dredge(resis_2mod_dist) ##null model is best 
+dredge(resis_2mod_dist) ##but null model is best 
 ```
 
 ```{r}
@@ -5903,12 +5899,12 @@ summary(resis_3mod_pcy_noG)
 dredge(resis_3mod_pcy) ##null model is the best 
 
 #distance model
-resis_3mod_dist <- lmer(log(resistance) ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR3_clim)
+resis_3mod_dist <- lmer(log(resistance) ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR3_clim)
 plot(resis_3mod_dist)
 qqmath(resis_3mod_dist)
 summary(resis_3mod_dist) 
 
-resis_3mod_dist_noG <- lmer(log(resistance) ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR3_clim %>% filter(!Provenance=="Gila NF"))
+resis_3mod_dist_noG <- lmer(log(resistance) ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR3_clim %>% filter(!Provenance=="Gila NF"))
 plot(resis_3mod_dist_noG)
 qqmath(resis_3mod_dist_noG)
 summary(resis_3mod_dist_noG) #nothing significant when gila removed
@@ -5953,12 +5949,12 @@ summary(resis_7mod_pcy_noG)
 dredge(resis_7mod_pcy) ##null model is the best 
 
 #distance model
-resis_7mod_dist <- lmer(log(resistance) ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR7_clim)
+resis_7mod_dist <- lmer(log(resistance) ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR7_clim)
 plot(resis_7mod_dist)
 qqmath(resis_7mod_dist)
 summary(resis_7mod_dist) 
 
-resis_7mod_dist_noG <- lmer(log(resistance) ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR7_clim %>% filter(!Provenance=="Gila NF"))
+resis_7mod_dist_noG <- lmer(log(resistance) ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR7_clim %>% filter(!Provenance=="Gila NF"))
 plot(resis_7mod_dist_noG)
 qqmath(resis_7mod_dist_noG)
 summary(resis_7mod_dist_noG) #nothing significant when gila removed
@@ -5985,7 +5981,7 @@ plot(resil_mod_pcx_noG)
 qqmath(resil_mod_pcx_noG)
 summary(resil_mod_pcx_noG)
 
-dredge(resil_mod_pcx) #PC1 is only term when Gila is included
+dredge(resil_mod_pcx) #null model is best when Gila is included
 dredge(resil_mod_pcx_noG) #null is best when Gila is excluded
 
 resil_mod_pcy <- lmer(resilience ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2) + (1|Provenance), data=RR4_clim)
@@ -6001,16 +5997,20 @@ plot(resil_mod_pcy_noG)
 qqmath(resil_mod_pcy_noG)
 summary(resil_mod_pcy_noG)
 
-dredge(resil_mod_pcy) #PC1 is only term when Gila is included
-dredge(resil_mod_pcy_noG) #null is best when Gila is excluded
+dredge(resil_mod_pcy) #null model is best when Gila is included
+dredge(resil_mod_pcy_noG) #null is best when Gila is excluded, though model with just latitude has delta <2
+
+ggplot(RR4_clim_noG, aes(x=y, y=resilience))+
+  geom_point()+
+  geom_smooth(method="glm")
 
 
 ##distance
-resil_mod_dist <- lmer(resilience ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR4_clim)
+resil_mod_dist <- lmer(resilience ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR4_clim)
 plot(resil_mod_dist)
 qqmath(resil_mod_dist)
 summary(resil_mod_dist) #both significant
-dredge(resil_mod_dist) #just pca distance is best model
+dredge(resil_mod_dist) #null is best, followed by climate distance only
 
 resil_mod_dist_noG <- lmer(resilience ~ scale(dist.to.plant)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR4_clim_noG)
 plot(resil_mod_dist_noG)
@@ -6020,7 +6020,7 @@ dredge(resil_mod_dist_noG) #null model is better though
 
 ##figure for effect of geo dist on resilience
 ##take random effect out to make predictions
-resil_mod_dist_lm_noG <- lm(resilience ~  scale(dist.to.plant)*scale(geo.dist.to.plant.km), data=RR4_clim_noG)
+resil_mod_dist_lm_noG <- lm(resilience ~  scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km), data=RR4_clim_noG)
 
 predicted_scores_resil <- predict(
   resil_mod_dist_lm_noG, 
@@ -6034,6 +6034,463 @@ ggplot()+
   geom_line(data=newdata_geodist_pred_resil, aes(x=geo.dist.to.plant.km, y=fit), col="turquoise")
 
 ```
+
+
+######all other time periods
+```{r}
+
+#####01-02
+##PCA models
+resil_0102mod_pcx <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2) + (1|Provenance), data=RR0102_clim)
+plot(resil_0102mod_pcx)
+qqmath(resil_0102mod_pcx)
+summary(resil_0102mod_pcx) 
+
+resil_0102mod_pcx_noG <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2)+ (1|Provenance), data=RR0102_clim %>% filter(!Provenance=="Gila NF"))
+plot(resil_0102mod_pcx_noG)
+qqmath(resil_0102mod_pcx_noG)
+summary(resil_0102mod_pcx_noG) #nothing significant when Gila removed
+
+dredge(resil_0102mod_pcx) ##null model is the best
+
+resil_0102mod_pcy <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2) + (1|Provenance), data=RR0102_clim)
+plot(resil_0102mod_pcy)
+qqmath(resil_0102mod_pcy)
+summary(resil_0102mod_pcy) 
+
+resil_0102mod_pcy_noG <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2)+ (1|Provenance), data=RR0102_clim %>% filter(!Provenance=="Gila NF"))
+plot(resil_0102mod_pcy_noG)
+qqmath(resil_0102mod_pcy_noG)
+summary(resil_0102mod_pcy_noG) #nothing is significant when Gila removed
+
+dredge(resil_0102mod_pcy) ##null model is the best still though 
+
+#distance model
+resil_0102mod_dist <- lmer(log(resilience) ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR0102_clim)
+plot(resil_0102mod_dist)
+qqmath(resil_0102mod_dist)
+summary(resil_0102mod_dist) #geographic distance to the plantation is significant
+
+resil_0102mod_dist_noG <- lmer(log(resilience) ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR0102_clim %>% filter(!Provenance=="Gila NF"))
+plot(resil_0102mod_dist_noG)
+qqmath(resil_0102mod_dist_noG)
+summary(resil_0102mod_dist_noG) #geographic distance to the plantation is still significant
+
+dredge(resil_0102mod_dist) ##null model is still best though 
+```
+
+```{r}
+#####02-03
+RR0203_clim<- spline_calcs_0203 %>% 
+  left_join(prov_pcapts) %>% 
+  left_join(pca_dist_df) %>% 
+  left_join(geo.dist.df)
+
+ggplot(RR0203_clim, aes(x=PC2, y=resilience))+
+  geom_point()+
+  geom_smooth(method="lm")
+
+##PCA models
+resil_0203mod_pcx <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2) + (1|Provenance), data=RR0203_clim)
+plot(resil_0203mod_pcx)
+qqmath(resil_0203mod_pcx)
+summary(resil_0203mod_pcx) #PC1:PC2 is significant
+
+resil_0203mod_pcx_noG <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2)+ (1|Provenance), data=RR0203_clim %>% filter(!Provenance=="Gila NF"))
+plot(resil_0203mod_pcx_noG)
+qqmath(resil_0203mod_pcx_noG)
+summary(resil_0203mod_pcx_noG) #nothing significant 
+
+dredge(resil_0203mod_pcx) ##null model is the best
+
+resil_0203mod_pcy <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2) + (1|Provenance), data=RR0203_clim)
+plot(resil_0203mod_pcy)
+qqmath(resil_0203mod_pcy)
+summary(resil_0203mod_pcy) 
+
+resil_0203mod_pcy_noG <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2)+ (1|Provenance), data=RR0203_clim %>% filter(!Provenance=="Gila NF"))
+plot(resil_0203mod_pcy_noG)
+qqmath(resil_0203mod_pcy_noG)
+summary(resil_0203mod_pcy_noG) 
+
+dredge(resil_0203mod_pcy) ##null model is the best 
+
+#distance model
+resil_0203mod_dist <- lmer(log(resilience) ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR0203_clim)
+plot(resil_0203mod_dist)
+qqmath(resil_0203mod_dist)
+summary(resil_0203mod_dist) #both distances are significant
+
+resil_0203mod_dist_noG <- lmer(log(resilience) ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR0203_clim %>% filter(!Provenance=="Gila NF"))
+plot(resil_0203mod_dist_noG)
+qqmath(resil_0203mod_dist_noG)
+summary(resil_0203mod_dist_noG) #nothing significant when gila removed
+
+dredge(resil_0203mod_dist) ##null model is best 
+```
+
+```{r}
+#####00-03
+RR0003_clim<- spline_calcs_0003 %>% 
+  left_join(prov_pcapts) %>% 
+  left_join(pca_dist_df) %>% 
+  left_join(geo.dist.df)
+
+ggplot(RR0003_clim, aes(x=PC2, y=resilience))+
+  geom_point()+
+  geom_smooth(method="lm")
+
+##PCA models
+resil_0003mod_pcx <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2) + (1|Provenance), data=RR0003_clim)
+plot(resil_0003mod_pcx)
+qqmath(resil_0003mod_pcx)
+summary(resil_0003mod_pcx) #longitude significant
+
+resil_0003mod_pcx_noG <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2)+ (1|Provenance), data=RR0003_clim %>% filter(!Provenance=="Gila NF"))
+plot(resil_0003mod_pcx_noG)
+qqmath(resil_0003mod_pcx_noG)
+summary(resil_0003mod_pcx_noG) #nothing significant 
+
+dredge(resil_0003mod_pcx) ##null model is the best
+
+resil_0003mod_pcy <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2) + (1|Provenance), data=RR0003_clim)
+plot(resil_0003mod_pcy)
+qqmath(resil_0003mod_pcy)
+summary(resil_0003mod_pcy) 
+
+resil_0003mod_pcy_noG <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2)+ (1|Provenance), data=RR0003_clim %>% filter(!Provenance=="Gila NF"))
+plot(resil_0003mod_pcy_noG)
+qqmath(resil_0003mod_pcy_noG)
+summary(resil_0003mod_pcy_noG) 
+
+dredge(resil_0003mod_pcy) ##null model is the best 
+
+#distance model
+resil_0003mod_dist <- lmer(log(resilience) ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR0003_clim)
+plot(resil_0003mod_dist)
+qqmath(resil_0003mod_dist)
+summary(resil_0003mod_dist) #both distances are significant
+
+resil_0003mod_dist_noG <- lmer(log(resilience) ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR0003_clim %>% filter(!Provenance=="Gila NF"))
+plot(resil_0003mod_dist_noG)
+qqmath(resil_0003mod_dist_noG)
+summary(resil_0003mod_dist_noG) #nothing significant when gila removed
+
+dredge(resil_0003mod_dist) ##null model is best 
+```
+
+```{r}
+#####00-05
+RR0005_clim<- spline_calcs_0005 %>% 
+  left_join(prov_pcapts) %>% 
+  left_join(pca_dist_df) %>% 
+  left_join(geo.dist.df) %>% 
+  filter(!is.na(resilience))
+
+ggplot(RR0005_clim, aes(x=PC2, y=resilience))+
+  geom_point()+
+  geom_smooth(method="lm")
+
+##PCA models
+resil_0005mod_pcx <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2) + (1|Provenance), data=RR0005_clim)
+plot(resil_0005mod_pcx)
+qqmath(resil_0005mod_pcx)
+summary(resil_0005mod_pcx)#nothing significant
+
+resil_0005mod_pcx_noG <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2)+ (1|Provenance), data=RR0005_clim %>% filter(!Provenance=="Gila NF"))
+plot(resil_0005mod_pcx_noG)
+qqmath(resil_0005mod_pcx_noG)
+summary(resil_0005mod_pcx_noG) #nothing significant 
+
+dredge(resil_0005mod_pcx) ##null model is the best
+
+resil_0005mod_pcy <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2) + (1|Provenance), data=RR0005_clim)
+plot(resil_0005mod_pcy)
+qqmath(resil_0005mod_pcy)
+summary(resil_0005mod_pcy) 
+
+resil_0005mod_pcy_noG <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2)+ (1|Provenance), data=RR0005_clim %>% filter(!Provenance=="Gila NF"))
+plot(resil_0005mod_pcy_noG)
+qqmath(resil_0005mod_pcy_noG)
+summary(resil_0005mod_pcy_noG) 
+
+dredge(resil_0005mod_pcy) ##null model is the best 
+
+#distance model
+resil_0005mod_dist <- lmer(log(resilience) ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR0005_clim)
+plot(resil_0005mod_dist)
+qqmath(resil_0005mod_dist)
+summary(resil_0005mod_dist) #both distances are significant
+
+resil_0005mod_dist_noG <- lmer(log(resilience) ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR0005_clim %>% filter(!Provenance=="Gila NF"))
+plot(resil_0005mod_dist_noG)
+qqmath(resil_0005mod_dist_noG)
+summary(resil_0005mod_dist_noG) #nothing significant when gila removed
+
+dredge(resil_0005mod_dist) ##null model is best 
+```
+
+```{r}
+#####99-04
+RR9904_clim<- spline_calcs_9904 %>% 
+  left_join(prov_pcapts) %>% 
+  left_join(pca_dist_df) %>% 
+  left_join(geo.dist.df)
+
+ggplot(RR9904_clim, aes(x=PC2, y=resilience))+
+  geom_point()+
+  geom_smooth(method="lm")
+
+##PCA models
+resil_9904mod_pcx <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2) + (1|Provenance), data=RR9904_clim)
+plot(resil_9904mod_pcx)
+qqmath(resil_9904mod_pcx)
+summary(resil_9904mod_pcx) 
+
+resil_9904mod_pcx_noG <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2)+ (1|Provenance), data=RR9904_clim %>% filter(!Provenance=="Gila NF"))
+plot(resil_9904mod_pcx_noG)
+qqmath(resil_9904mod_pcx_noG)
+summary(resil_9904mod_pcx_noG) #nothing significant 
+
+dredge(resil_9904mod_pcx) ##null model is the best
+
+resil_9904mod_pcy <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2) + (1|Provenance), data=RR9904_clim)
+plot(resil_9904mod_pcy)
+qqmath(resil_9904mod_pcy)
+summary(resil_9904mod_pcy) 
+
+resil_9904mod_pcy_noG <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2)+ (1|Provenance), data=RR9904_clim %>% filter(!Provenance=="Gila NF"))
+plot(resil_9904mod_pcy_noG)
+qqmath(resil_9904mod_pcy_noG)
+summary(resil_9904mod_pcy_noG) 
+
+dredge(resil_9904mod_pcy) ##null model is the best 
+
+#distance model
+resil_9904mod_dist <- lmer(log(resilience) ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR9904_clim)
+plot(resil_9904mod_dist)
+qqmath(resil_9904mod_dist)
+summary(resil_9904mod_dist) #climate distance significant
+
+resil_9904mod_dist_noG <- lmer(log(resilience) ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR9904_clim %>% filter(!Provenance=="Gila NF"))
+plot(resil_9904mod_dist_noG)
+qqmath(resil_9904mod_dist_noG)
+summary(resil_9904mod_dist_noG) #nothing significant when gila removed
+
+dredge(resil_9904mod_dist) ##null model is best 
+```
+
+
+```{r}
+#####99-04
+RR1_clim<- spline_calcs_list[[1]] %>% 
+  left_join(prov_pcapts) %>% 
+  left_join(pca_dist_df) %>% 
+  left_join(geo.dist.df)
+
+ggplot(RR1_clim, aes(x=PC2, y=resilience))+
+  geom_point()+
+  geom_smooth(method="lm")
+
+##PCA models
+resil_1mod_pcx <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2) + (1|Provenance), data=RR1_clim)
+plot(resil_1mod_pcx)
+qqmath(resil_1mod_pcx)
+summary(resil_1mod_pcx) 
+
+resil_1mod_pcx_noG <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2)+ (1|Provenance), data=RR1_clim %>% filter(!Provenance=="Gila NF"))
+plot(resil_1mod_pcx_noG)
+qqmath(resil_1mod_pcx_noG)
+summary(resil_1mod_pcx_noG) #nothing significant 
+
+dredge(resil_1mod_pcx) ##null model is the best
+
+resil_1mod_pcy <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2) + (1|Provenance), data=RR1_clim)
+plot(resil_1mod_pcy)
+qqmath(resil_1mod_pcy)
+summary(resil_1mod_pcy) #PC1:PC2 significant
+
+resil_1mod_pcy_noG <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2)+ (1|Provenance), data=RR1_clim %>% filter(!Provenance=="Gila NF"))
+plot(resil_1mod_pcy_noG)
+qqmath(resil_1mod_pcy_noG)
+summary(resil_1mod_pcy_noG) #nothing significant
+
+dredge(resil_1mod_pcy) ##null model is the best 
+
+#distance model
+resil_1mod_dist <- lmer(log(resilience) ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR1_clim)
+plot(resil_1mod_dist)
+qqmath(resil_1mod_dist)
+summary(resil_1mod_dist)  #climate distance significant
+
+resil_1mod_dist_noG <- lmer(log(resilience) ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR1_clim %>% filter(!Provenance=="Gila NF"))
+plot(resil_1mod_dist_noG)
+qqmath(resil_1mod_dist_noG)
+summary(resil_1mod_dist_noG) #nothing significant when gila removed
+
+dredge(resil_1mod_dist) ##null model is best 
+```
+
+```{r}
+#####3 year
+RR2_clim<- spline_calcs_list[[2]] %>% 
+  left_join(prov_pcapts) %>% 
+  left_join(pca_dist_df) %>% 
+  left_join(geo.dist.df)
+
+RR2_clim_nog <- RR2_clim %>% filter(!Provenance=="Gila NF")
+
+ggplot(RR2_clim, aes(x=PC2, y=resilience))+
+  geom_point()+
+  geom_smooth(method="lm")
+
+##PCA models
+resil_2mod_pcx <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2) + (1|Provenance), data=RR2_clim)
+plot(resil_2mod_pcx)
+qqmath(resil_2mod_pcx)
+summary(resil_2mod_pcx) #longitude significant
+
+resil_2mod_pcx_noG <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2)+ (1|Provenance), data=RR2_clim %>% filter(!Provenance=="Gila NF"))
+plot(resil_2mod_pcx_noG)
+qqmath(resil_2mod_pcx_noG)
+summary(resil_2mod_pcx_noG) #longitude still significant 
+
+dredge(resil_2mod_pcx) ##null model is the best though
+
+resil_2mod_pcy <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2) + (1|Provenance), data=RR2_clim)
+plot(resil_2mod_pcy)
+qqmath(resil_2mod_pcy)
+summary(resil_2mod_pcy) 
+
+resil_2mod_pcy_noG <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2)+ (1|Provenance), data=RR2_clim_nog)
+plot(resil_2mod_pcy_noG)
+qqmath(resil_2mod_pcy_noG)
+summary(resil_2mod_pcy_noG) 
+
+dredge(resil_2mod_pcy) ##model with just latitude is best, followed closely by the best model
+dredge(resil_2mod_pcy_noG)
+
+resil_2mod_pcy_bestmod <- lmer(log(resilience) ~ scale(y) + I(scale(y)^2) + (1|Provenance), data=RR2_clim)
+plot(resil_2mod_pcy_bestmod)
+qqmath(resil_2mod_pcy_bestmod)
+summary(resil_2mod_pcy_bestmod) 
+
+
+#distance model
+resil_2mod_dist <- lmer(log(resilience) ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR2_clim)
+plot(resil_2mod_dist)
+qqmath(resil_2mod_dist)
+summary(resil_2mod_dist) #both distances are significant
+
+resil_2mod_dist_noG <- lmer(log(resilience) ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR2_clim %>% filter(!Provenance=="Gila NF"))
+plot(resil_2mod_dist_noG)
+qqmath(resil_2mod_dist_noG)
+summary(resil_2mod_dist_noG) #geo distance is significant when gila removed
+
+dredge(resil_2mod_dist) ##but null model is best 
+```
+
+```{r}
+#####5 year
+RR3_clim<- spline_calcs_list[[3]] %>% 
+  left_join(prov_pcapts) %>% 
+  left_join(pca_dist_df) %>% 
+  left_join(geo.dist.df)
+
+ggplot(RR3_clim, aes(x=PC2, y=resilience))+
+  geom_point()+
+  geom_smooth(method="lm")
+
+##PCA models
+resil_3mod_pcx <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2) + (1|Provenance), data=RR3_clim)
+plot(resil_3mod_pcx)
+qqmath(resil_3mod_pcx)
+summary(resil_3mod_pcx) #longitude significant
+
+resil_3mod_pcx_noG <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2)+ (1|Provenance), data=RR3_clim %>% filter(!Provenance=="Gila NF"))
+plot(resil_3mod_pcx_noG)
+qqmath(resil_3mod_pcx_noG)
+summary(resil_3mod_pcx_noG) #nothing significant 
+
+dredge(resil_3mod_pcx) ##null model is the best
+
+resil_3mod_pcy <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2) + (1|Provenance), data=RR3_clim)
+plot(resil_3mod_pcy)
+qqmath(resil_3mod_pcy)
+summary(resil_3mod_pcy) 
+
+resil_3mod_pcy_noG <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2)+ (1|Provenance), data=RR3_clim %>% filter(!Provenance=="Gila NF"))
+plot(resil_3mod_pcy_noG)
+qqmath(resil_3mod_pcy_noG)
+summary(resil_3mod_pcy_noG) 
+
+dredge(resil_3mod_pcy) ##null model is the best 
+
+#distance model
+resil_3mod_dist <- lmer(log(resilience) ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR3_clim)
+plot(resil_3mod_dist)
+qqmath(resil_3mod_dist)
+summary(resil_3mod_dist) #both distances are significant
+
+resil_3mod_dist_noG <- lmer(log(resilience) ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR3_clim %>% filter(!Provenance=="Gila NF"))
+plot(resil_3mod_dist_noG)
+qqmath(resil_3mod_dist_noG)
+summary(resil_3mod_dist_noG) #nothing significant when gila removed
+
+dredge(resil_3mod_dist) ##null model is best 
+```
+
+```{r}
+#####7 year
+RR7_clim<- spline_calcs_list[[4]] %>% 
+  left_join(prov_pcapts) %>% 
+  left_join(pca_dist_df) %>% 
+  left_join(geo.dist.df) %>% 
+  filter(!is.na(resilience))
+
+ggplot(RR7_clim, aes(x=PC2, y=resilience))+
+  geom_point()+
+  geom_smooth(method="lm")
+
+##PCA models
+resil_7mod_pcx <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2) + (1|Provenance), data=RR7_clim)
+plot(resil_7mod_pcx)
+qqmath(resil_7mod_pcx)
+summary(resil_7mod_pcx) 
+
+resil_7mod_pcx_noG <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(x) + I(scale(x)^2)+ (1|Provenance), data=RR7_clim %>% filter(!Provenance=="Gila NF"))
+plot(resil_7mod_pcx_noG)
+qqmath(resil_7mod_pcx_noG)
+summary(resil_7mod_pcx_noG) #nothing significant 
+
+dredge(resil_7mod_pcx) ##null model is the best
+
+resil_7mod_pcy <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2) + (1|Provenance), data=RR7_clim)
+plot(resil_7mod_pcy)
+qqmath(resil_7mod_pcy)
+summary(resil_7mod_pcy) #nothing significant
+
+resil_7mod_pcy_noG <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2)+ (1|Provenance), data=RR7_clim %>% filter(!Provenance=="Gila NF"))
+plot(resil_7mod_pcy_noG)
+qqmath(resil_7mod_pcy_noG)
+summary(resil_7mod_pcy_noG) #nothing significant
+
+dredge(resil_7mod_pcy) ##null model is the best 
+
+#distance model
+resil_7mod_dist <- lmer(log(resilience) ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR7_clim)
+plot(resil_7mod_dist)
+qqmath(resil_7mod_dist)
+summary(resil_7mod_dist) 
+
+resil_7mod_dist_noG <- lmer(log(resilience) ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=RR7_clim %>% filter(!Provenance=="Gila NF"))
+plot(resil_7mod_dist_noG)
+qqmath(resil_7mod_dist_noG)
+summary(resil_7mod_dist_noG) #nothing significant when gila removed
+
+dredge(resil_7mod_dist) ##null model is best 
+```
+
 
 ###Other Metrics
 
@@ -6290,8 +6747,6 @@ growth_climate_df <- growth.detrended.df %>%
   filter(year>1970) %>% 
   filter(!is.na(rw_spline))
 
-
-
 climvars <- colnames(growth_climate_df %>% dplyr::select(-c(CN:year)))
 tree_ids <- unique(growth_climate_df$tree)
 
@@ -6327,9 +6782,9 @@ cor_clean <- gc_cor_df %>%
   left_join(growth_climate_df %>%dplyr::select(tree,Provenance) %>% unique(), by="tree") %>%
   filter(!is.na(cor))
 
-ggplot(cor_clean %>% filter(climvar %in% c("aet_sum" , "cwd_wy" , "FDSI", "spei_sum", "prior_aet_sum", "prior_cwd_wy", "prior_FDSI" , "prior_spei_sum")), aes(x=Provenance, y=cor, color=p.value<0.05))+
+ggplot(cor_clean %>% filter(climvar %in% c("aet_sum" , "cwd_wy" , "PPTsm", "vpdmax_wt", "prior_aet_sum", "prior_cwd_wy", "prior_PPTsm" , "prior_vpdmax_wt")), aes(x=Provenance, y=cor, color=p.value<0.05))+
   geom_jitter(height=0, width=0.1, size=3,alpha=0.7)+
-  facet_wrap(~factor(climvar, levels=c("aet_sum","cwd_wy","FDSI","spei_sum", "prior_aet_sum","prior_cwd_wy","prior_FDSI","prior_spei_sum")),nrow=2)+
+  facet_wrap(~factor(climvar, levels=c("aet_sum","cwd_wy","PPTsm","vpdmax_wt", "prior_aet_sum","prior_cwd_wy","prior_PPTsm","prior_vpdmax_wt")),nrow=2)+
   scale_color_manual(values=c("gray20", "red"))+
   geom_hline(yintercept=0)+
   theme_bw()+
@@ -6341,7 +6796,7 @@ ggplot(cor_clean %>% filter(climvar %in% c("aet_sum" , "cwd_wy" , "FDSI", "spei_
         strip.text = element_text(color="black", size=12))
   
 ##all the rest of the climate variables
-ggplot(cor_clean %>% filter(!climvar %in% c("aet_sum" , "cwd_wy" , "FDSI", "spei_sum", "prior_aet_sum", "prior_cwd_wy", "prior_FDSI" , "prior_spei_sum")) %>% left_join(name_conversion, by=c("Provenance"="oldname")) %>% left_join(prov_names, by=c("newname"="Provenance")), aes(x=code, y=cor, color=p.value<0.05))+
+ggplot(cor_clean %>% left_join(name_conversion, by=c("Provenance"="oldname")) %>% left_join(prov_names, by=c("newname"="Provenance")), aes(x=code, y=cor, color=p.value<0.05))+
   geom_jitter(height=0, width=0.1, size=3,alpha=0.7)+
   facet_wrap(~climvar)+
   scale_color_manual(values=c("gray20", "red"))+
@@ -6421,14 +6876,14 @@ ttestdata <- bind_rows(ttestdata, row)}}
 sig.cors.byprov <- cor_clean %>% left_join(ttestdata %>% filter(pvalue < 0.05)) %>% 
   mutate(sig = case_when(!is.na(pvalue) ~ "*",
                          .default = "")) %>% 
-  filter(climvar %in% c("aet_sum" , "cwd_wy" , "FDSI", "spei_sum", "prior_aet_sum", "prior_cwd_wy", "prior_FDSI" , "prior_spei_sum")) %>% 
+  filter(climvar %in% c("aet_sum" , "cwd_wy" , "PPTsm", "vpdmax_wt", "prior_aet_sum", "prior_cwd_wy", "prior_PPTsm" , "prior_vpdmax_wt")) %>% 
   filter(!is.na(pvalue)) %>% 
   left_join(name_conversion, by=c("Provenance"="oldname"))
 
 nonsig.provs <- cor_clean %>% left_join(ttestdata %>% filter(pvalue < 0.05)) %>% 
   mutate(sig = case_when(!is.na(pvalue) ~ "*",
                          .default = "")) %>% 
-  filter(climvar %in% c("aet_sum" , "cwd_wy" , "FDSI", "spei_sum", "prior_aet_sum", "prior_cwd_wy", "prior_FDSI" , "prior_spei_sum")) %>% 
+  filter(climvar %in% c("aet_sum" , "cwd_wy" , "PPTsm", "vpdmax_wt", "prior_aet_sum", "prior_cwd_wy", "prior_PPTsm" , "prior_vpdmax_wt")) %>% 
   dplyr::select(climvar, Provenance, pvalue) %>% 
   unique() %>%
   group_by(Provenance) %>% 
@@ -6436,17 +6891,17 @@ nonsig.provs <- cor_clean %>% left_join(ttestdata %>% filter(pvalue < 0.05)) %>%
   filter(sum==0)%>% 
   left_join(name_conversion, by=c("Provenance"="oldname"))
 
-nonsig_data<- data.frame(climvar=rep(unique(sig.cors.byprov$climvar),2),newname=rep(nonsig.provs$newname, each=8), Provenance = rep(nonsig.provs$Provenance, each=8))
+nonsig_data<- data.frame(climvar=rep(unique(sig.cors.byprov$climvar),1),newname=rep(nonsig.provs$newname, each=7), Provenance = rep(nonsig.provs$Provenance, each=7))
 
 correlation_plot<- ggplot(data=sig.cors.byprov %>% bind_rows(nonsig_data) %>% left_join(prov_names, by=c("newname"="Provenance")), aes(x=factor(code, levels=provs_bylat$code), y=estimate))+
-    geom_jitter(data= cor_clean %>% filter(climvar %in% c("aet_sum" , "cwd_wy" , "FDSI", "spei_sum", "prior_aet_sum", "prior_cwd_wy", "prior_FDSI" , "prior_spei_sum")) %>% left_join(name_conversion, by=c("Provenance"="oldname")) %>% dplyr::select(-Provenance) %>% left_join(prov_names, by=c("newname"="Provenance")), aes(x=factor(code, levels=provs_bylat$code), y=cor), fill="gray", color="black", size=2, height=0, width=0.1, alpha=0.2)+
+    geom_jitter(data= cor_clean %>% filter(climvar %in% c("aet_sum","prior_aet_sum","cwd_wy" ,"prior_cwd_wy","PPTsm",  "prior_PPTsm","vpdmax_wt","prior_vpdmax_wt")) %>% left_join(name_conversion, by=c("Provenance"="oldname")) %>% dplyr::select(-Provenance) %>% left_join(prov_names, by=c("newname"="Provenance")), aes(x=factor(code, levels=provs_bylat$code), y=cor), fill="gray", color="black", size=2, height=0, width=0.1, alpha=0.2)+
   geom_errorbar(aes(x=factor(code, levels=provs_bylat$code), ymin=lwr, ymax=upr, color = factor(code, levels=provs_bylat$code)),width=0.8, linewidth=1)+
     geom_errorbar(aes(x=factor(code, levels=provs_bylat$code), ymin=lwr, ymax=upr),width=0.8, color="black", linewidth=0.5)+
   geom_point(size=2, shape=21, aes(fill=factor(code, levels=provs_bylat$code)))+
   scale_color_manual(values=unname(stepped()), name="Provenance")+
   scale_fill_manual(values=unname(stepped()), name="Provenance")+
   geom_hline(yintercept=0, col="black")+
-  facet_wrap(~factor(climvar, levels=c("aet_sum","prior_aet_sum","cwd_wy","prior_cwd_wy","FDSI","prior_FDSI","spei_sum","prior_spei_sum")),ncol=2)+
+  facet_wrap(~factor(climvar, levels=c("aet_sum","prior_aet_sum","cwd_wy" ,"prior_cwd_wy","PPTsm",  "prior_PPTsm","vpdmax_wt","prior_vpdmax_wt")),ncol=2)+
   xlab("")+
   theme_bw()+
   theme(axis.text.x = element_text(angle=45, hjust=1, size=8, color="black"),
@@ -6457,7 +6912,7 @@ correlation_plot<- ggplot(data=sig.cors.byprov %>% bind_rows(nonsig_data) %>% le
         panel.grid = element_blank())
 
 # png("figures/correlation_plot.png", width=6.5, height=5, res = 300, units = "in")
-# correlation_plot
+ correlation_plot
 # dev.off()
 ```
 
@@ -6576,7 +7031,7 @@ cor_provclim<- cor_clean %>%
   dplyr::rename(Provenance = newname) %>% 
   left_join(
 prov_pcapts %>% 
-  dplyr::select(c(Provenance,PC1:PC2,MAT:pas,smrpb)), by="Provenance")
+  dplyr::select(c(Provenance,PC1:PC2,AHM:SHM,smrpb)), by="Provenance")
 
 cor_provclim_long <- pivot_longer(cor_provclim, PC1:smrpb)
 
@@ -6623,6 +7078,92 @@ lmerdata_pcs <- bind_rows(lmerdata_pcs, data.frame(climvar=climvars[i], pc1value
 lmerdata_pcs %>% 
   filter((pc1pvalue.lmer < 0.05 | pc2pvalue.lmer < 0.05 | pc1pc2value.lmer<0.05))
 
+#vpdmax_wt x smrpb
+ggplot(data=cor_provclim_long %>% filter(climvar=="vpdmax_wt"& name=="smrpb"), aes(x=value, y=cor))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  xlab("smrpb")+
+  ggtitle("vpdmax_wt")
+
+vpdmax_wt_smrpb<- cor_provclim_long %>% filter(climvar=="vpdmax_wt" & name=="smrpb") 
+
+vpdmax_wt_smrpb_mod <- lmer(cor ~ value + (1|Provenance), data=vpdmax_wt_smrpb)
+plot(vpdmax_wt_smrpb_mod)
+qqmath(vpdmax_wt_smrpb_mod)
+summary(vpdmax_wt_smrpb_mod)
+
+vpdmax_wt_smrpb_mod_nog <- lmer(cor ~ value + (1|Provenance), data=vpdmax_wt_smrpb %>% filter(!Provenance=="Gila NF"))
+plot(vpdmax_wt_smrpb_mod_nog)
+qqmath(vpdmax_wt_smrpb_mod_nog)
+summary(vpdmax_wt_smrpb_mod_nog) #not significant without Gila
+
+#FDSI x CMD
+ggplot(data=cor_provclim_long %>% filter(climvar=="FDSI"& name=="CMD"), aes(x=value, y=cor))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  xlab("CMD")+
+  ggtitle("FDSI")
+
+FDSI_CMD<- cor_provclim_long %>% filter(climvar=="FDSI" & name=="CMD") 
+
+FDSI_CMD_mod <- lmer(cor ~ value + (1|Provenance), data=FDSI_CMD)
+plot(FDSI_CMD_mod)
+qqmath(FDSI_CMD_mod)
+summary(FDSI_CMD_mod)
+
+FDSI_CMD_mod_nog <- lmer(cor ~ value + (1|Provenance), data=FDSI_CMD %>% filter(!Provenance=="Gila NF"))
+plot(FDSI_CMD_mod_nog)
+qqmath(FDSI_CMD_mod_nog)
+summary(FDSI_CMD_mod_nog) #significant
+
+#cwd_wy x PPTwt
+ggplot(data=cor_provclim_long %>% filter(climvar=="cwd_wy"& name=="PPTwt"), aes(x=value, y=cor))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  xlab("PPTwt")+
+  ggtitle("cwd_wy")
+
+cwd_wy_PPTwt<- cor_provclim_long %>% filter(climvar=="cwd_wy" & name=="PPTwt") 
+
+cwd_wy_PPTwt_mod <- lmer(cor ~ value + (1|Provenance), data=cwd_wy_PPTwt)
+plot(cwd_wy_PPTwt_mod)
+qqmath(cwd_wy_PPTwt_mod)
+summary(cwd_wy_PPTwt_mod)
+
+cwd_wy_PPTwt_mod_nog <- lmer(cor ~ value + (1|Provenance), data=cwd_wy_PPTwt %>% filter(!Provenance=="Gila NF"))
+plot(cwd_wy_PPTwt_mod_nog)
+qqmath(cwd_wy_PPTwt_mod_nog)
+summary(cwd_wy_PPTwt_mod_nog) #still significant
+```
+
+```{r}
+
+annual_climvar <- lmerdata %>% filter(pvalue.lmer < 0.05) %>% filter(!climvar %in% c("prior_value_wt_tmax","prior_value_wt_tmin","prior_value_sp_tmax","prior_value_sp_tmean")) %>% pull(climvar)
+prov_climvar <- lmerdata %>% filter(pvalue.lmer < 0.05) %>% filter(!climvar %in% c("prior_value_wt_tmax","prior_value_wt_tmin","prior_value_sp_tmax","prior_value_sp_tmean")) %>% pull(name)
+
+correlation_strength_results <- data.frame()
+for(i in 1:length(annual_climvar)){
+    mod <- lmer(cor ~ value + (1|Provenance), data=cor_provclim_long %>% filter(climvar==annual_climvar[i] & name==prov_climvar[i]))
+    mod_nog <- lmer(cor ~ value + (1|Provenance), data=cor_provclim_long %>% filter(climvar==annual_climvar[i] & name==prov_climvar[i]) %>% filter(!Provenance=="Gila NF"))
+    
+    correlation_strength_results <- bind_rows(correlation_strength_results, data.frame(annual_climvar = annual_climvar[i], prov_climvar = prov_climvar[i], pvalue_all = as.data.frame(summary(mod)$coefficients)[2,] %>% pull(`Pr(>|t|)`), pvalue_nog = as.data.frame(summary(mod_nog)$coefficients)[2,] %>% pull(`Pr(>|t|)`)))
+}
+
+correlation_strength_results %>% 
+  filter(pvalue_nog<0.05)
+
+ggplot(data=left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) , aes(x=value, y=cor))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_grid(annual_climvar~prov_climvar, scales="free")+
+  geom_hline(yintercept=0, col="red")
+
+
+```
+
+
+```{r}
 #ppt_wt x MSP
 ggplot(data=cor_provclim_long %>% filter(climvar=="ppt_wt"& name=="MSP"), aes(x=value, y=cor))+
   geom_point()+
@@ -6954,7 +7495,7 @@ ggplot(dbh_clim_data %>% filter(climvar=="prior_FDSI"), aes(x=DBH14, y=cor))+
   geom_smooth(method="lm")+
   facet_wrap(~climvar)
 
-##DBH x prior vpdmax_sum
+##DBH x prior vpdmax_sm
 DBH_priorvpdmaxmod <- lmer(cor ~ DBH_recent + (1|Provenance), data=dbh_clim_data %>% filter(climvar=="prior_vpdmax_sm"))
 plot(DBH_priorvpdmaxmod)
 qqmath(DBH_priorvpdmaxmod)
@@ -6998,7 +7539,7 @@ ggplot(dbh_clim_data %>% filter(climvar=="prior_ppt_wt"), aes(x=DBH14, y=cor))+
   geom_smooth(method="lm")+
   facet_wrap(~climvar)
 
-##DBH x prior ppt fa
+##DBH x prior ppt at
 DBH_prior_PPT_atmod <- lmer(cor ~ DBH_recent + (1|Provenance), data=dbh_clim_data %>% filter(climvar=="prior_PPT_at"))
 plot(DBH_prior_PPT_atmod)
 qqmath(DBH_prior_PPT_atmod)
@@ -7020,7 +7561,7 @@ ggplot(dbh_clim_data %>% filter(climvar=="PPTsm"), aes(x=DBH14, y=cor))+
   geom_smooth(method="lm")+
   facet_wrap(~climvar)
 
-##DBH x ppt fa
+##DBH x ppt at
 DBH_PPT_atmod <- lmer(cor ~ DBH_recent + (1|Provenance), data=dbh_clim_data %>% filter(climvar=="PPT_at"))
 plot(DBH_PPT_atmod)
 qqmath(DBH_PPT_atmod)
