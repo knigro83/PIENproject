@@ -141,13 +141,13 @@ ggplot()+
   theme_bw()+
   theme(legend.position = 'none')
 
-crop_clim <- crop(clim_raster_stack %>% project(crs(us)), ext(-121, -120, 48.1, 48.2))
-
-plot(crop_clim$AHM)
-
-ggplot()+
-  geom_spatraster(data=crop_clim, aes(fill=AHM))+
-  geom_spatvector(data= adjusted_provs %>% filter(Provenance=="Wenatchee NF") %>% project(crs(crop_clim)))
+# crop_clim <- crop(clim_raster_stack %>% project(crs(us)), ext(-121, -120, 48.1, 48.2))
+# 
+# plot(crop_clim$AHM)
+# 
+# ggplot()+
+#   geom_spatraster(data=crop_clim, aes(fill=AHM))+
+#   geom_spatvector(data= adjusted_provs %>% filter(Provenance=="Wenatchee NF") %>% project(crs(crop_clim)))
 
 ```
 
@@ -178,10 +178,27 @@ monthly_clim <- monthly_ppt %>%
   mutate(month=substr(name,nchar(name)-1,nchar(name)),
          var = substr(name,0,nchar(name)-2))
 
+monthly_clim_wide <- monthly_clim %>% 
+  dplyr::select(c(Provenance, no, elev, value, month, var)) %>% 
+  pivot_wider(values_from=value, names_from=var)
+
 ggplot(monthly_clim, aes(x=month, y=value, col=var))+
   geom_point()+
   geom_line()+
   facet_wrap(~factor(Provenance))
+
+png("figures/prov_temp_precip.png", width=8,height=8, res=300, units="in")
+ggplot()+
+  geom_bar(data=monthly_clim_wide, aes(x=as.numeric(month), y=PPT), stat="identity", fill="grey")+
+  geom_line(data=monthly_clim_wide, aes(x=as.numeric(month), y=Tave*10), col="black", lwd=1)+
+  scale_y_continuous(
+    "PPT (mm)", 
+    sec.axis = sec_axis(~ . / 10, name = "Temp (C)"), limits=c(-150,350))+
+  scale_x_continuous(breaks=seq(1,12,1), labels=seq(1,12,1), name="Month")+
+  facet_wrap(~factor(Provenance, levels=c(provs_bylat$Provenance,"Plantation")))+
+  theme_bw()+
+  theme(panel.grid.minor=element_blank())
+dev.off()
 
 ggplot(monthly_clim %>% filter(var=="Tave") %>% filter(!Provenance=="Plantation"), aes(x=month, y=value))+
   geom_point(size=2)+
@@ -526,6 +543,8 @@ left_join(tmean_summed,tmax_summed) %>%
 
 ```
 ##FDSI calculation
+
+High FDSI value = less droughty
 
 ```{r}
 all_climate <- left_join(ppt_comb_plantation,tmax_comb_plantation) %>% 
@@ -991,11 +1010,11 @@ map <- ggplot()+
   geom_spatvector_text(data=adjusted_provs %>% left_join(prov_names)%>% filter(!Provenance == "Plantation"), aes(label=code), hjust=c(1.2,-.2,-.2,1.1,-.2,-.2,1,.1,0,1.2,-0.2,1.0, 1.1,1.0,0,1,-0.2,1.2,1,1.2), vjust=c(.4,0,0,0,0,0,1.3,1.4,1.3,rep(0,5),1.3,0,-.2,0,0,0), size=2.5)+
     geom_spatvector_text(data=adjusted_provs %>% left_join(prov_names)%>% filter(Provenance == "Plantation"), aes(label="Plantation"), hjust = 1, vjust=-0.4, col="black", size=2.5)+
   theme(panel.grid = element_blank(), legend.position = "none", axis.title=element_blank(), axis.text = element_text(color="black", size=6))+
-  ggspatial::annotation_scale(
-    location = "bl",
-    bar_cols = c("black", "white"),
-      height = unit(0.1, "cm"),
-    text_cex = 0.5) +
+  # ggspatial::annotation_scale(
+  #   location = "bl",
+  #   bar_cols = c("black", "white"),
+  #     height = unit(0.1, "cm"),
+  #   text_cex = 0.5) +
   ggspatial::annotation_north_arrow(
     location = "bl", which_north = "true",
     pad_x = unit(0.1, "in"), pad_y = unit(0.2, "in"),
@@ -1007,50 +1026,12 @@ map <- ggplot()+
  map
 # dev.off()
 
-pcaplot <- autoplot(clim_pca,x=1,y=2,colour=NA,loadings.colour="gray80", loadings=T, loadings.label=T, loadings.label.colour="darkgrey", scale=0, loadings.label.size=2.5, loadings.label.hjust=1, loadings.label.vjust=1)+
+pcaplot <- autoplot(clim_pca,x=1,y=2,colour=NA,loadings.colour="gray80", loadings=T, loadings.label=T, loadings.label.colour="darkgrey", scale=0, loadings.label.size=1.5, loadings.label.hjust=1, loadings.label.vjust=1)+
   geom_point(data=prov_pcapts_onlyprovs, aes(x=PC1, y=PC2, fill=factor(Provenance, levels=provs_bylat$Provenance)), size=1.5, shape=24)+
   scale_fill_manual(values=unname(stepped()), name="Provenance")+
   geom_text(data=prov_pcapts_onlyprovs, aes(x=PC1, y=PC2, label=code), size=2,
-            hjust = c(1.2,
-                      0.5,
-                      .5,
-                      0.5,
-                      0.5,
-                      1.2,
-                      0.7,
-                      .2,
-                      1,
-                      1,
-                      0,
-                      1,
-                      1,
-                      -.2,
-                      1.2,
-                      0.5,
-                      0,
-                      -.4,
-                      0.5,
-                      -.2),
-            vjust = c(0,
-                      -1,
-                      1.4,
-                      1.4,
-                      -1,
-                      0,
-                      1.4,
-                      1.4,
-                      0,
-                      1.4,
-                      -1,
-                      1.4,
-                      1.4,
-                      0,
-                      0,
-                      1.4,
-                      1.4,
-                      .2,
-                      -1,
-                      0))+
+            vjust = c(rep(-1,5),1.4,-1,-1,0, 1.4, rep(-1,7),1.4,1.4,-1),
+            hjust = c(rep(0,8),-.3,rep(0,11)))+
   theme(text=element_text(size=14, color="black"))+
   geom_point(data=prov_pcapts %>% filter(Provenance=="Plantation"), aes(x=PC1, y=PC2), col="black", size=1.5)+
   geom_text(data=prov_pcapts %>% filter(Provenance=="Plantation"), aes(x=PC1, y=PC2, label=Provenance), size=2, hjust=1, vjust=-1)+
@@ -1061,58 +1042,26 @@ pcaplot <- autoplot(clim_pca,x=1,y=2,colour=NA,loadings.colour="gray80", loading
  pcaplot
 # dev.off()
  
- pcaplot2 <- autoplot(clim_pca,x=1,y=3,colour=NA,loadings.colour="gray80", loadings=T, loadings.label=T, loadings.label.colour="darkgrey", scale=0, loadings.label.size=2.5, loadings.label.hjust=1, loadings.label.vjust=1)+
+ pcaplot2 <- autoplot(clim_pca,x=1,y=3,colour=NA,loadings.colour="gray80", loadings=T, loadings.label=T, loadings.label.colour="darkgrey", scale=0, loadings.label.size=1.5, loadings.label.hjust=0, loadings.label.vjust=-1)+
   geom_point(data=prov_pcapts_onlyprovs, aes(x=PC1, y=PC3, fill=factor(Provenance, levels=provs_bylat$Provenance)), size=1.5, shape=24)+
   scale_fill_manual(values=unname(stepped()), name="Provenance")+
   geom_text(data=prov_pcapts_onlyprovs, aes(x=PC1, y=PC3, label=code), size=2,
-            hjust = c(1.2,
-                      0.5,
-                      .5,
-                      0.5,
-                      0.5,
-                      1.2,
-                      0.7,
-                      .2,
-                      1,
-                      1,
-                      0,
-                      1,
-                      1,
-                      -.2,
-                      1.2,
-                      0.5,
-                      0,
-                      -.4,
-                      0.5,
-                      -.2),
-            vjust = c(0,
-                      -1,
-                      1.4,
-                      1.4,
-                      -1,
-                      0,
-                      1.4,
-                      1.4,
-                      0,
-                      1.4,
-                      -1,
-                      1.4,
-                      1.4,
-                      0,
-                      0,
-                      1.4,
-                      1.4,
-                      .2,
-                      -1,
-                      0))+
+            hjust = 0,
+            vjust = c(rep(-1,5),1.4,-1,1.4,1.4,-1,1.4,rep(-1,6),1.4,-1,-1))+
   theme(text=element_text(size=14, color="black"))+
   geom_point(data=prov_pcapts %>% filter(Provenance=="Plantation"), aes(x=PC1, y=PC3), col="black", size=1.5)+
-  geom_text(data=prov_pcapts %>% filter(Provenance=="Plantation"), aes(x=PC1, y=PC3, label=Provenance), size=2, hjust=1, vjust=-1)+
+  geom_text(data=prov_pcapts %>% filter(Provenance=="Plantation"), aes(x=PC1, y=PC3, label=Provenance), size=2, hjust=1, vjust=1)+
   theme_bw()+
   theme(legend.position = "none", axis.text = element_text(color="black", size=6), axis.title = element_text(size=8))
 
 pcaplot2
 
+png("figures/map_and_pca.png", width=6, height=3.5, res=300, units = "in")
+ggarrange(map,ggarrange(pcaplot, pcaplot2, nrow=2, ncol=1, labels=c("B)","C)")), labels=c("A)",""))
+dev.off()
+
+##PC3 vs. latitude 
+prov_pcapts %>% dplyr::select(PC3, y) %>% cor()
 
 require(raster)
 require(geosphere)
@@ -1479,6 +1428,13 @@ summary(mod_dbh_dist)
 options(na.action="na.fail")
 dredge(mod_dbh_dist)
 
+mod_dbh_dist_nog <- lmer(DBH ~ scale(geo.dist.to.plant.km)*scale(dist.to.plant.3d) + (1|Provenance), data=dbh_num14_alldist_noG)
+plot(mod_dbh_dist_nog)
+qqmath(mod_dbh_dist_nog)
+summary(mod_dbh_dist_nog)
+dredge(mod_dbh_dist_nog)
+
+
 mod_dbh_dist2 <- lmer(DBH ~ scale(geo.dist.to.plant.km)+scale(dist.to.plant.3d) + (1|Provenance), data=dbh_num14_alldist)
 plot(mod_dbh_dist2)
 qqmath(mod_dbh_dist2)
@@ -1497,10 +1453,10 @@ ggplot(dbh_num14_alldist, aes(x=dist.to.plant.3d, y=DBH, col=Provenance))+
   geom_smooth(method="lm")
 
 ##predict model
-mod_dbh_dist2_lm <- lm(DBH ~ scale(geo.dist.to.plant.km)+scale(dist.to.plant), data=dbh_num14_alldist)
+mod_dbh_dist2_lm <- lm(DBH ~ scale(geo.dist.to.plant.km)+scale(dist.to.plant.3d), data=dbh_num14_alldist)
 
 dbh_dist_newdata <- with(dbh_num14_alldist, data.frame(geo.dist.to.plant.km = seq(min(geo.dist.to.plant.km),max(geo.dist.to.plant.km),length.out=100), 
-                                                       dist.to.plant = mean(dist.to.plant)))
+                                                       dist.to.plant.3d = mean(dist.to.plant.3d)))
 dbh_dist_predict <- predict(mod_dbh_dist2_lm, newdata=dbh_dist_newdata, interval="confidence")
 
 dbh_dist_pred_data <- cbind(dbh_dist_newdata,dbh_dist_predict)
@@ -1937,9 +1893,38 @@ ggplot(data=ht_data_clim14_nog, aes(x=dist.to.plant.3d, y=value))+
   geom_point()+
   geom_smooth(method="lm")
 
-ht_dist_plot<- interact_plot(ht_dist_mod_nog, pred=dist.to.plant.3d, modx=geo.dist.to.plant.km, plot.points = TRUE, interval = TRUE, int.width = 0.95, colors="blue2", data=ht_data_clim14)+
-  xlab("Climatic distance to plantation")+
-  ylab("Height (m)")+
+##predict model
+mod_ht_dist_lm <- lm(value ~ scale(geo.dist.to.plant.km)+scale(dist.to.plant.3d), data=ht_data_clim14_nog)
+
+ht_dist_newdata <- with(ht_data_clim14_nog, data.frame(geo.dist.to.plant.km = seq(min(geo.dist.to.plant.km),max(geo.dist.to.plant.km),length.out=100), 
+                                                       dist.to.plant.3d = mean(dist.to.plant.3d)))
+ht_dist_predict <- predict(mod_ht_dist_lm, newdata=ht_dist_newdata, interval="confidence")
+
+ht_dist_pred_data <- cbind(ht_dist_newdata,ht_dist_predict)
+
+
+ggplot()+
+  geom_point(data=ht_data_clim14, aes(x=geo.dist.to.plant.km, y=value, col=factor(Provenance, levels=factor(provs_bylat$Provenance))))+
+  geom_ribbon(data=ht_dist_pred_data, aes(x=geo.dist.to.plant.km, ymin=lwr, ymax=upr), fill="black", alpha=0.2)+
+  geom_line(data=ht_dist_pred_data, aes(x=geo.dist.to.plant.km,y=fit), color="black")+
+    geom_point(data=dbh_num14_alldist, aes(x=geo.dist.to.plant.km, y=DBH, col=factor(Provenance, levels=factor(provs_bylat$Provenance))), shape=24)+
+  geom_ribbon(data=dbh_dist_pred_data, aes(x=geo.dist.to.plant.km, ymin=lwr, ymax=upr), fill="gray", alpha=0.2)+
+  geom_line(data=dbh_dist_pred_data, aes(x=geo.dist.to.plant.km,y=fit), color="gray")+
+  scale_y_continuous(
+    "DBH", 
+    sec.axis = sec_axis(~ . , name = "Height"))+
+  xlab("Geographic distance to plantation (km)")+
+  scale_color_manual(values=unname(stepped()),name="Provenance")+
+  theme_bw()+
+  theme(legend.position = "none")
+
+
+ ggplot()+
+  geom_point(data=dbh_num14_alldist, aes(x=geo.dist.to.plant.km, y=DBH, col=factor(Provenance, levels=factor(provs_bylat$Provenance))))+
+  geom_ribbon(data=dbh_dist_pred_data, aes(x=geo.dist.to.plant.km, ymin=lwr, ymax=upr), fill="black", alpha=0.2)+
+  geom_line(data=dbh_dist_pred_data, aes(x=geo.dist.to.plant.km,y=fit), color="black")+
+  xlab("Geographic distance to plantation (km)")+
+  scale_color_manual(values=unname(stepped()),name="Provenance")+
   theme_bw()+
   theme(legend.position = "none")
 
@@ -2729,7 +2714,7 @@ cone_mods_quad %>% arrange(pvalue2_nog) ##none significant
 ```
 
 ####plots
-```{r}
+```{r, eval=FALSE}
 cone_sig_clim_data<- bind_rows(
 conesmrpb_nog_newdata3 %>% 
   mutate(var = "smrpb"),
@@ -7162,297 +7147,65 @@ ggplot(data=left_join(correlation_strength_results %>%
 
 ```
 
-
 ```{r}
-#ppt_wt x MSP
-ggplot(data=cor_provclim_long %>% filter(climvar=="ppt_wt"& name=="MSP"), aes(x=value, y=cor))+
-  geom_point()+
-  geom_smooth(method="lm")+
-  xlab("mean summer precip (mm)")+
-  ggtitle("ppt_wt")
+##pick 4 most representative plots to make figure
 
-ppt_wt_MSP<- cor_provclim_long %>% filter(climvar=="ppt_wt" & name=="MSP") 
-
-ppt_wt_MSP_mod <- lmer(cor ~ value + (1|Provenance), data=ppt_wt_MSP)
-plot(ppt_wt_MSP_mod)
-qqmath(ppt_wt_MSP_mod)
-summary(ppt_wt_MSP_mod)
-
-#vpdmax_sm x PC1
-ggplot(data=cor_provclim_long %>% filter(climvar=="vpdmax_sm"& name=="PC1"), aes(x=value, y=cor))+
-  geom_point()+
-  geom_smooth(method="lm")+
-  xlab("PC1")+
-  ggtitle("vpdmax_sm")
-
-vpdmax_sm_PC1<- cor_provclim_long %>% filter(climvar=="vpdmax_sm" & name=="PC1") 
-
-vpdmax_sm_PC1_mod <- lmer(cor ~ value + (1|Provenance), data=vpdmax_sm_PC1)
-plot(vpdmax_sm_PC1_mod)
-qqmath(vpdmax_sm_PC1_mod)
-summary(vpdmax_sm_PC1_mod)
-
-vpdmax_sm_PC1_mod_noG <- lmer(cor ~ value + (1|Provenance), data=vpdmax_sm_PC1 %>% filter(!Provenance=="Gila NF"))
-plot(vpdmax_sm_PC1_mod_noG)
-qqmath(vpdmax_sm_PC1_mod_noG)
-summary(vpdmax_sm_PC1_mod_noG) #still significant without Gila
+corplots4 <- ggarrange(
+ggplot()+
+    geom_hline(yintercept=0, col="black")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  geom_point(data=left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("cwd_wy") & prov_climvar=="PPTwt")  , aes(x=value, y=cor, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_smooth(data= left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("cwd_wy") & prov_climvar=="PPTwt"), aes(x=value, y=cor), method="lm", col="darkgrey")+
+  xlab("Winter Precipitation (mm)")+ ylab("Correlation")+
+  ggtitle("A) water year CWD X RWI")+
+  theme_bw(),
 
 
-#vpdmax_wt x smrpb
-ggplot(data=cor_provclim_long %>% filter(climvar=="vpdmax_wt"& name=="smrpb"), aes(x=value, y=cor))+
-  geom_point()+
-  geom_smooth(method="lm")+
-  xlab("smrpb")+
-  ggtitle("vpdmax_wt")
+ggplot()+
+    geom_hline(yintercept=0, col="black")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  geom_point(data=left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("vpdmax_sm") & prov_climvar=="MCMT")  , aes(x=value, y=cor, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_smooth(data=left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("vpdmax_sm") & prov_climvar=="MCMT")  , aes(x=value, y=cor), method="lm", col="darkgrey")+
+  xlab("Provenance MCMT")+ ylab("Correlation")+
+  ggtitle("B) summer max VPD x RWI")+
+  theme_bw(),
 
-vpdmax_wt_smrpb<- cor_provclim_long %>% filter(climvar=="vpdmax_wt" & name=="smrpb") 
+ggplot()+
+    geom_hline(yintercept=0, col="black")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  geom_point(data=left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("prior_aet_sum") & prov_climvar=="EMT")  , aes(x=value, y=cor, col=factor(Provenance, levels= provs_bylat$Provenance)))+
+  geom_smooth(data=left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("prior_aet_sum") & prov_climvar=="EMT")  , aes(x=value, y=cor), method="lm", color="darkgrey")+
+  xlab("Provenance Extreme minimum temperature (C)")+ ylab("Correlation")+
+  ggtitle("C) prior year AET X RWI")+
+  theme_bw(),
 
-vpdmax_wt_smrpb_mod <- lmer(cor ~ value + (1|Provenance), data=vpdmax_wt_smrpb)
-plot(vpdmax_wt_smrpb_mod)
-qqmath(vpdmax_wt_smrpb_mod)
-summary(vpdmax_wt_smrpb_mod)
+ggplot()+
+    geom_hline(yintercept=0, col="black")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  geom_point(data=left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("prior_value_sp_tmin") & prov_climvar=="PC1")  , aes(x=value, y=cor, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_smooth(data=left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("prior_value_sp_tmin") & prov_climvar=="PC1")  , aes(x=value, y=cor), method="lm", col="darkgrey")+
+  xlab("Provenance PC1")+ ylab("Correlation")+
+  ggtitle("D) prior spring tmin x RWI")+
+  theme_bw(), common.legend=TRUE)
 
-vpdmax_wt_smrpb_mod_noG <- lmer(cor ~ value + (1|Provenance), data=vpdmax_wt_smrpb %>% filter(!Provenance=="Gila NF"))
-plot(vpdmax_wt_smrpb_mod_noG)
-qqmath(vpdmax_wt_smrpb_mod_noG)
-summary(vpdmax_wt_smrpb_mod_noG) #not significant when Gila is taken out (probably not a real trend)
-
-#FDSI x cmd
-fdsi_cwd_plot<- ggplot(data=cor_provclim_long %>% filter(climvar=="FDSI"& name=="cmd"), aes(x=value, y=cor))+
-  geom_point()+
-  geom_smooth(method="lm", col="royalblue", fill="royalblue", alpha=0.2)+
-  xlab("Provenance Climatic Water Deficit")+
-  ylab("Correlation")+
-  ggtitle("FDSI x RWI")+
-  theme_bw()
-
-fdsi_cmd<- cor_provclim_long %>% filter(climvar=="FDSI" & name=="cmd") 
-
-fdsi_cmd_mod <- lmer(cor ~ value + (1|Provenance), data=fdsi_cmd)
-plot(fdsi_cmd_mod)
-qqmath(fdsi_cmd_mod)
-summary(fdsi_cmd_mod)
-
-#FDSI x pas
-fdsi_pas_plot <- ggplot(data=cor_provclim_long %>% filter(climvar=="FDSI"& name=="pas"), aes(x=value, y=cor))+
-  geom_point()+
-  geom_smooth(method="lm", col="royalblue", fill="royalblue", alpha=0.2)+
-  xlab("Provenance Precip as Snow (mm)")+
-  ylab("Correlation")+
-  ggtitle("FDSI x RWI")+
-  theme_bw()
-
-fdsi_pas<- cor_provclim_long %>% filter(climvar=="FDSI" & name=="pas") 
-
-fdsi_pas_mod <- lmer(cor ~ value + (1|Provenance), data=fdsi_pas)
-plot(fdsi_pas_mod)
-qqmath(fdsi_pas_mod)
-summary(fdsi_pas_mod)
-
-fdsi_pas_mod_noO <- lmer(cor ~ value + (1|Provenance), data=fdsi_pas %>% filter(!Provenance=="Okanogan NF"))
-plot(fdsi_pas_mod_noO)
-qqmath(fdsi_pas_mod_noO)
-summary(fdsi_pas_mod_noO) #still significant without Okanogan
-
-#prior_value_fa_tmin x bFFP
-ggplot(data=cor_provclim_long %>% filter(climvar=="prior_value_fa_tmin"& name=="bFFP"), aes(x=value, y=cor))+
-  geom_point()+
-  geom_smooth(method="lm")+
-  xlab("bFFP")+
-  ggtitle("prior_value_fa_tmin")
-
-prifatmin_bffp<- cor_provclim_long %>% filter(climvar=="prior_value_fa_tmin" & name=="bFFP") 
-
-prifatmin_bffp_mod <- lmer(cor ~ value + (1|Provenance), data=prifatmin_bffp)
-plot(prifatmin_bffp_mod)
-qqmath(prifatmin_bffp_mod)
-summary(prifatmin_bffp_mod) #significant
-
-#prior_value_fa_tmin x EMT
-ggplot(data=cor_provclim_long %>% filter(climvar=="prior_value_fa_tmin"& name=="EMT"), aes(x=value, y=cor))+
-  geom_point()+
-  geom_smooth(method="lm")+
-  xlab("EMT")+
-  ggtitle("prior_value_fa_tmin")
-
-prifatmin_EMT<- cor_provclim_long %>% filter(climvar=="prior_value_fa_tmin" & name=="EMT") 
-
-prifatmin_EMT_mod <- lmer(cor ~ value + (1|Provenance), data=prifatmin_EMT)
-plot(prifatmin_EMT_mod)
-qqmath(prifatmin_EMT_mod)
-summary(prifatmin_EMT_mod) ##warmer places benefit from prior fall being hotter. 
-
-#prior_value_wt_tmean x map
-ggplot(data=cor_provclim_long %>% filter(climvar=="prior_value_wt_tmean"& name=="map"), aes(x=value, y=cor))+
-  geom_point()+
-  geom_smooth(method="lm")+
-  xlab("MAP")+
-  ggtitle("prior_value_wt_tmean")
-
-priwttmean_map<- cor_provclim_long %>% filter(climvar=="prior_value_wt_tmean" & name=="map") 
-
-priwttmean_map_mod <- lmer(cor ~ value + (1|Provenance), data=priwttmean_map)
-plot(priwttmean_map_mod)
-qqmath(priwttmean_map_mod)
-summary(priwttmean_map_mod) #significant
-
-priwttmean_map_mod_noO <- lmer(cor ~ value + (1|Provenance), data=priwttmean_map %>% filter(!Provenance=="Okanogan NF"))
-plot(priwttmean_map_mod_noO)
-qqmath(priwttmean_map_mod_noO)
-summary(priwttmean_map_mod_noO) #still significant without Okanogan
+png("figures/corplots4.png", width = 8.5, height=7.5, units="in", res=300)
+corplots4
+dev.off()
 
 
-#prior_value_wt_tmin x map
-ggplot(data=cor_provclim_long %>% filter(climvar=="prior_value_wt_tmin"& name=="map"), aes(x=value, y=cor))+
-  geom_point()+
-  geom_smooth(method="lm")+
-  xlab("MAP")+
-  ggtitle("prior_value_wt_tmin cor")
-
-priwttmin_map<- cor_provclim_long %>% filter(climvar=="prior_value_wt_tmin" & name=="map") 
-
-priwttmin_map_mod <- lmer(cor ~ value + (1|Provenance), data=priwttmin_map)
-plot(priwttmin_map_mod)
-qqmath(priwttmin_map_mod)
-summary(priwttmin_map_mod) #significant
-
-priwttmin_map_mod_noO <- lmer(cor ~ value + (1|Provenance), data=priwttmin_map %>% filter(!Provenance == "Okanogan NF"))
-plot(priwttmin_map_mod_noO)
-qqmath(priwttmin_map_mod_noO)
-summary(priwttmin_map_mod_noO) #not significant when Okanogan is taken out
-
-#prior_value_sp_tmax x PC1
-ggplot(data=cor_provclim_long %>% filter(climvar=="prior_value_sp_tmax"& name=="PC1"), aes(x=value, y=cor))+
-  geom_point()+
-  geom_smooth(method="lm")+
-  xlab("PC1")+
-  ggtitle("prior_value_sp_tmax cor")
-
-prisptmax_PC1<- cor_provclim_long %>% filter(climvar=="prior_value_sp_tmax" & name=="PC1") 
-
-prisptmax_PC1_mod <- lmer(cor ~ value + (1|Provenance), data=prisptmax_PC1)
-plot(prisptmax_PC1_mod)
-qqmath(prisptmax_PC1_mod)
-summary(prisptmax_PC1_mod) #significant
-
-prisptmax_PC1_mod_noG <- lmer(cor ~ value + (1|Provenance), data=prisptmax_PC1 %>% filter(!Provenance == "Gila NF"))
-plot(prisptmax_PC1_mod_noG)
-qqmath(prisptmax_PC1_mod_noG)
-summary(prisptmax_PC1_mod_noG) #not significant when Gila is taken out
-
-#prior_value_sp_tmean x PC1
-ggplot(data=cor_provclim_long %>% filter(climvar=="prior_value_sp_tmean"& name=="PC1"), aes(x=value, y=cor))+
-  geom_point()+
-  geom_smooth(method="lm")+
-  xlab("PC1")+
-  ggtitle("prior_value_sp_tmean")
-
-prisptmean_PC1<- cor_provclim_long %>% filter(climvar=="prior_value_sp_tmean" & name=="PC1") 
-
-prisptmean_PC1_mod <- lmer(cor ~ value + (1|Provenance), data=prisptmean_PC1)
-plot(prisptmean_PC1_mod)
-qqmath(prisptmean_PC1_mod)
-summary(prisptmean_PC1_mod) #significant
-
-prisptmean_PC1_mod_noG <- lmer(cor ~ value + (1|Provenance), data=prisptmean_PC1 %>% filter(!Provenance=="Gila NF"))
-plot(prisptmean_PC1_mod_noG)
-qqmath(prisptmean_PC1_mod_noG)
-summary(prisptmean_PC1_mod_noG) #still significant when Gila is removed
-
-
-#prior_value_sp_tmin x PC1
-ggplot(data=cor_provclim_long %>% filter(climvar=="prior_value_sp_tmin"& name=="PC1"), aes(x=value, y=cor))+
-  geom_point()+
-  geom_smooth(method="lm")+
-  xlab("PC1")+
-  ggtitle("prior_value_sp_tmin")
-
-prisptmin_PC1<- cor_provclim_long %>% filter(climvar=="prior_value_sp_tmin" & name=="PC1") 
-
-prisptmin_PC1_mod <- lmer(cor ~ value + (1|Provenance), data=prisptmin_PC1)
-plot(prisptmin_PC1_mod)
-qqmath(prisptmin_PC1_mod)
-summary(prisptmin_PC1_mod) #significant
-
-prisptmin_PC1_mod_noG <- lmer(cor ~ value + (1|Provenance), data=prisptmin_PC1 %>% filter(!Provenance == "Gila NF"))
-plot(prisptmin_PC1_mod_noG)
-qqmath(prisptmin_PC1_mod_noG)
-summary(prisptmin_PC1_mod_noG) #still significant when Gila is removed
-
-
-#prior_vpdmax_sp x map
-ggplot(data=cor_provclim_long %>% filter(climvar=="prior_vpdmax_sp"& name=="map"), aes(x=value, y=cor))+
-  geom_point()+
-  geom_smooth(method="lm")+
-  xlab("MAP")+
-  ggtitle("prior_vpdmax_sp")
-
-prior_vpdmax_sp_map<- cor_provclim_long %>% filter(climvar=="prior_vpdmax_sp" & name=="map") 
-
-prior_vpdmax_sp_map_mod <- lmer(cor ~ value + (1|Provenance), data=prior_vpdmax_sp_map)
-plot(prior_vpdmax_sp_map_mod)
-qqmath(prior_vpdmax_sp_map_mod)
-summary(prior_vpdmax_sp_map_mod)
-
-prior_vpdmax_sp_map_mod_noO <- lmer(cor ~ value + (1|Provenance), data=prior_vpdmax_sp_map %>% filter(!Provenance == "Okanogan NF"))
-plot(prior_vpdmax_sp_map_mod_noO)
-qqmath(prior_vpdmax_sp_map_mod_noO)
-summary(prior_vpdmax_sp_map_mod_noO) #still significant when Okanogan is removed
-
-#prior_vpdmax_sp x pas
-ggplot(data=cor_provclim_long %>% filter(climvar=="prior_vpdmax_sp"& name=="pas"), aes(x=value, y=cor))+
-  geom_point()+
-  geom_smooth(method="lm")+
-  xlab("precip as snow")+
-  ggtitle("prior_vpdmax_sp")
-
-prior_vpdmax_sp_pas<- cor_provclim_long %>% filter(climvar=="prior_vpdmax_sp" & name=="pas") 
-
-prior_vpdmax_sp_pas_mod <- lmer(cor ~ value + (1|Provenance), data=prior_vpdmax_sp_pas)
-plot(prior_vpdmax_sp_pas_mod)
-qqmath(prior_vpdmax_sp_pas_mod)
-summary(prior_vpdmax_sp_pas_mod)
-
-#prior_aet_sum x EMT
-aet_emt_plot <- ggplot(data=cor_provclim_long %>% filter(climvar=="prior_aet_sum"& name=="EMT"), aes(x=value/10, y=cor))+
-  geom_point()+
-  geom_smooth(method="lm", col="royalblue", fill="royalblue", alpha=0.2)+
-  xlab("Provenance Extreme Min Temp")+
-  ylab("Correlation")+
-  ggtitle("Prior Year AET x RWI")+
-  theme_bw()
-
-prior_aet_sum_EMT<- cor_provclim_long %>% filter(climvar=="prior_aet_sum" & name=="EMT") 
-
-prior_aet_sum_EMT_mod <- lmer(cor ~ value + (1|Provenance), data=prior_aet_sum_EMT)
-plot(prior_aet_sum_EMT_mod)
-qqmath(prior_aet_sum_EMT_mod)
-summary(prior_aet_sum_EMT_mod)
-
-#prior_cwd_wy x TD
-cwd_td_plot<- ggplot(data=cor_provclim_long %>% filter(climvar=="prior_cwd_wy"& name=="TD"), aes(x=value/10, y=cor))+
-  geom_point()+
-  geom_smooth(method="lm", col="royalblue", fill="royalblue", alpha=0.2)+
-  xlab("Provenance Temperature Differential")+
-  ylab("Correlation")+
-  ggtitle("Prior Water Year CWD x RWI")+
-  theme_bw()
-
-prior_cwd_wy_TD<- cor_provclim_long %>% filter(climvar=="prior_cwd_wy" & name=="TD") 
-
-prior_cwd_wy_TD_mod <- lmer(cor ~ value + (1|Provenance), data=prior_cwd_wy_TD)
-plot(prior_cwd_wy_TD_mod)
-qqmath(prior_cwd_wy_TD_mod)
-summary(prior_cwd_wy_TD_mod)
 ```
+
 
 ```{r}
 ##plot with just bioclimate variables
-ggplot(data=cor_provclim_long %>% filter(climvar %in% c("FDSI","prior_aet_sum","prior_cwd_wy") & name=="MSP"), aes(x=value, y=cor))+
-  geom_point()+
-  geom_smooth(method="lm")+
-  xlab("mean summer precip (mm)")+
-  ggtitle("ppt_wt")
 
 ##bioclim individual relationship plots
 # png("figures/clim_cor_plot.png", width=6.5, height = 6, units="in", res=500)
