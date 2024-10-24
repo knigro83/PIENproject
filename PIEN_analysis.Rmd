@@ -1418,8 +1418,11 @@ dbh_num14_alldist <- dbh_num14_pcadist %>%
 
 dbh_num14_alldist %>% dplyr::select(PC1,PC2,dist.to.plant,geo.dist.to.plant.km,x,y) %>% cor()
 
-dbh_num14_alldist_noG <- dbh_num14_alldist %>% 
+dbh_num14_alldist_noG3 <- dbh_num14_alldist %>% 
   filter(!Provenance%in% c("Gila NF","Wenatchee NF","Okanogan NF"))
+
+dbh_num14_alldist_noG <- dbh_num14_alldist %>% 
+  filter(!Provenance%in% c("Gila NF"))
 
 mod_dbh_dist <- lmer(DBH ~ scale(geo.dist.to.plant.km)*scale(dist.to.plant.3d) + (1|Provenance), data=dbh_num14_alldist)
 plot(mod_dbh_dist)
@@ -1448,7 +1451,7 @@ plot(mod_dbh_dist2)
 qqmath(mod_dbh_dist2)
 summary(mod_dbh_dist2)
 
-mod_dbh_dist2_noG <- lmer(DBH ~ scale(geo.dist.to.plant.km) + (1|Provenance), data=dbh_num14_alldist_noG)
+mod_dbh_dist2_noG <- lmer(DBH ~ scale(geo.dist.to.plant.km) + scale(dist.to.plant.3d) + (1|Provenance), data=dbh_num14_alldist_noG)
 plot(mod_dbh_dist2_noG)
 qqmath(mod_dbh_dist2_noG)
 summary(mod_dbh_dist2_noG)
@@ -1495,16 +1498,7 @@ bestmod_dbh_pca_x <- lmer(DBH ~ scale(x) + (1|Provenance), data=dbh_num14_alldis
 
 summary(bestmod_dbh_pca_x)
 
-mod_dbh_pca_x_nog <- lmer(DBH ~ PC1*PC2 + PC1*scale(x) + PC2*scale(x) + I(PC1^2) + I(PC2^2) + I(scale(x)^2) + (1|Provenance), data=dbh_num14_alldist_noG)
-plot(mod_dbh_pca_x_nog)
-qqmath(mod_dbh_pca_x_nog)
-summary(mod_dbh_pca_x_nog)
-dredge(mod_dbh_pca_x_nog)
-
-bestmod_dbh_pca_x_nog <- lmer(DBH ~ scale(x) + (1|Provenance), data=dbh_num14_alldist_noG)
-summary(bestmod_dbh_pca_x_nog) #null model was better than this though so not a strong effect. 
-
-ggplot(dbh_num14_alldist_noG, aes(x=x, y=DBH))+
+ggplot(dbh_num14_alldist, aes(x=x, y=DBH))+
   geom_point()+
   geom_smooth(method="lm")
 
@@ -1515,14 +1509,23 @@ qqmath(mod_dbh_pca_y)
 summary(mod_dbh_pca_y)
 dredge(mod_dbh_pca_y)
 
-AICc(mod_dbh_pca_x, mod_dbh_pca_y)
+AICc(mod_dbh_pca_x, mod_dbh_pca_y) #lat is better
 
-bestmod_dbh_pca_y <- lmer(DBH ~ PC2 + I(PC2^2) + scale(y) + I(scale(y)^2) + (1|Provenance), data=dbh_num14_alldist)
+bestmod_dbh_pca_y <- lmer(DBH ~ PC2*scale(y) + I(PC2^2) + I(scale(y)^2) + (1|Provenance), data=dbh_num14_alldist)
 summary(bestmod_dbh_pca_y)
 
 ggplot(dbh_num14_alldist, aes(x=PC2, y=DBH))+
   geom_point()+
   geom_smooth(method="glm")
+
+ggplot(dbh_num14_alldist, aes(x=y, y=DBH))+
+  geom_point()+
+  geom_smooth(method="glm")
+
+interact_plot(bestmod_dbh_pca_y, pred=y, modx=PC2, plot.points = TRUE, interval = TRUE, int.width = 0.95, colors="blue2", data=dbh_num14_alldist)
+
+dbh_num14_alldist_noG <- dbh_num14_alldist %>% 
+  filter(!Provenance%in% c("Gila NF"))
 
 mod_dbh_pca_y_nog <- lmer(DBH ~ PC1*PC2 + PC1*scale(y) + PC2*scale(y) + I(PC1^2) + I(PC2^2) + I(scale(y)^2) + (1|Provenance), data=dbh_num14_alldist_noG)
 plot(mod_dbh_pca_y_nog)
@@ -1532,6 +1535,30 @@ dredge(mod_dbh_pca_y_nog)
 
 bestmod_dbh_pca_y_nog <- lmer(DBH ~ scale(y) + I(scale(y)^2) + (1|Provenance), data=dbh_num14_alldist_noG)
 summary(bestmod_dbh_pca_y_nog) #quadratic y effect is significant when you take out Gila
+
+dbh_num14_alldist_noO <- dbh_num14_alldist %>% 
+  filter(!Provenance%in% c("Okanogan NF"))
+
+mod_dbh_pca_y_noO <- lmer(DBH ~ PC1*PC2 + PC1*scale(y) + PC2*scale(y) + I(PC1^2) + I(PC2^2) + I(scale(y)^2) + (1|Provenance), data=dbh_num14_alldist_noO)
+plot(mod_dbh_pca_y_noO)
+qqmath(mod_dbh_pca_y_noO)
+summary(mod_dbh_pca_y_noO)
+dredge(mod_dbh_pca_y_noO)
+
+bestmod_dbh_pca_y_noO <- lmer(DBH ~ PC2 + I(PC2^2) + scale(y) + I(scale(y)^2) + (1|Provenance), data=dbh_num14_alldist_noO)
+summary(bestmod_dbh_pca_y_noO)
+
+dbh_num14_alldist_noGO <- dbh_num14_alldist %>% 
+  filter(!Provenance%in% c("Okanogan NF", "Gila NF"))
+
+mod_dbh_pca_y_noGO <- lmer(DBH ~ PC1*PC2 + PC1*scale(y) + PC2*scale(y) + I(PC1^2) + I(PC2^2) + I(scale(y)^2) + (1|Provenance), data=dbh_num14_alldist_noGO)
+plot(mod_dbh_pca_y_noGO)
+qqmath(mod_dbh_pca_y_noGO)
+summary(mod_dbh_pca_y_noGO)
+dredge(mod_dbh_pca_y_noGO)
+
+bestmod_dbh_pca_y_noGO <- lmer(DBH ~ PC2  + scale(y) + I(scale(y)^2) + (1|Provenance), data=dbh_num14_alldist_noGO)
+summary(bestmod_dbh_pca_y_noGO)
 
 ###make plot
 bestmod_dbh_pca_y_nog_lm <- lm(DBH ~ scale(y) + I(scale(y)^2), data=dbh_num14_alldist_noG)
@@ -1953,7 +1980,7 @@ dredge(mod_ht_pca_x)
 bestmod_ht_pca_x <- lmer(value ~ PC1 + PC2 + I(PC2^2) + scale(x) + (1|Provenance), data=ht_data_clim14)
 summary(bestmod_ht_pca_x)
 
-ggplot(data=ht_data_clim14, aes(x=PC2, y=value))+
+ggplot(data=ht_data_clim14, aes(x=x, y=value))+
   geom_point()
 
 mod_ht_pca_x_nog <- lmer(value ~ PC1*PC2 + PC1*x + PC2*x + I(PC1^2) + I(PC2^2) + I(scale(x)^2) + (1|Provenance), data=ht_data_clim14_nog)
@@ -1977,7 +2004,7 @@ summary(bestmod_ht_pca_y)
 
 ggplot(ht_data_clim14, aes(x=y, y=value))+
   geom_point()
-ggplot(ht_data_clim14, aes(x=PC2, y=value))+
+ggplot(ht_data_clim14, aes(x=PC2, y=value, col=Provenance))+
   geom_point()
 
 mod_ht_pca_y_nog <- lmer(value ~ PC1*PC2 + PC1*y + PC2*y + I(PC1^2) + I(PC2^2) + I(scale(y)^2) + (1|Provenance), data=ht_data_clim14_nog)
@@ -2934,6 +2961,9 @@ dredge_survmod_pcy
 bestsurvmod_pcy <- glmer(Stat14 ~ PC1*scale(y) + I(PC1^2) + PC2 + I(PC2^2)+ I(scale(y)^2) + (1|Provenance), data=moniger_survival, family="binomial")
 summary(bestsurvmod_pcy)
 
+interact_plot(bestsurvmod_pcy, pred=y, modx=PC1, plot.points = TRUE, interval = TRUE, int.width = 0.95, colors="blue2", data=moniger_survival)
+
+
 moniger_survival_nog <- moniger_survival %>% filter(!Provenance=="Gila NF")
 
 survmod_pcy_nog<- glmer(Stat14 ~ PC1*PC2 + scale(y)*PC1 + scale(y)*PC2 + I(PC1^2) + I(PC2^2) + scale(y) + I(scale(y)^2) + (1|Provenance), data=moniger_survival_nog, family="binomial")
@@ -2946,6 +2976,8 @@ dredge_survmod_pcy_nog
 
 bestsurvmod_pcy_nog <- glmer(Stat14 ~ PC1*scale(y) + I(PC1^2) + PC2 + I(PC2^2)+ I(scale(y)^2) + (1|Provenance), data=moniger_survival_nog, family="binomial")
 summary(bestsurvmod_pcy_nog)
+
+interact_plot(bestsurvmod_pcy_nog, pred=y, modx=PC1, plot.points = TRUE, interval = TRUE, int.width = 0.95, colors="blue2", data=moniger_survival_nog)
 
 bestsurvmod_pcy_nog_glm <- glm(Stat14 ~ PC1*scale(y) + I(PC1^2) + PC2 + I(PC2^2)+ I(scale(y)^2), data=moniger_survival_nog, family="binomial")
 
@@ -3010,7 +3042,13 @@ surv_pcadist_data <- moniger_survival %>%
 
 survmod_dist<- glmer(Stat14 ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=surv_pcadist_data, family = "binomial")
 plot(survmod_dist)
-summary(survmod_dist) #significant
+summary(survmod_dist) 
+dredge(survmod_dist)
+
+bestmod_survmod_dist <- glmer(Stat14 ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=surv_pcadist_data, family = "binomial")
+summary(bestmod_survmod_dist)
+
+interact_plot(bestmod_survmod_dist, pred=dist.to.plant.3d, modx=geo.dist.to.plant.km, plot.points = TRUE, interval = TRUE, int.width = 0.95, colors="blue2", data=surv_pcadist_data)
 
 survmod_dist_glm<- glm(Stat14 ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km), data=surv_pcadist_data, family = "binomial")
 
@@ -3043,7 +3081,11 @@ surv_pcadist_data_nog <- surv_pcadist_data %>% filter(!Provenance=="Gila NF")
 
 survmod_dist_nog<- glmer(Stat14 ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=surv_pcadist_data_nog, family = "binomial")
 plot(survmod_dist_nog)
-summary(survmod_dist_nog) 
+summary(survmod_dist_nog)
+dredge(survmod_dist_nog)
+
+best_survmod_dist_nog<- glmer(Stat14 ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km) + (1|Provenance), data=surv_pcadist_data_nog, family = "binomial")
+summary(best_survmod_dist_nog)
 
 survmod_dist_glm_nog<- glm(Stat14 ~ scale(dist.to.plant.3d)*scale(geo.dist.to.plant.km), data=surv_pcadist_data_nog, family = "binomial")
 
