@@ -187,7 +187,7 @@ ggplot(monthly_clim, aes(x=month, y=value, col=var))+
   geom_line()+
   facet_wrap(~factor(Provenance))
 
-png("figures/prov_temp_precip.png", width=8,height=8, res=300, units="in")
+#png("figures/prov_temp_precip.png", width=8,height=8, res=300, units="in")
 ggplot()+
   geom_bar(data=monthly_clim_wide, aes(x=as.numeric(month), y=PPT), stat="identity", fill="grey")+
   geom_line(data=monthly_clim_wide, aes(x=as.numeric(month), y=Tave*10), col="black", lwd=1)+
@@ -195,10 +195,10 @@ ggplot()+
     "PPT (mm)", 
     sec.axis = sec_axis(~ . / 10, name = "Temp (C)"), limits=c(-150,350))+
   scale_x_continuous(breaks=seq(1,12,1), labels=seq(1,12,1), name="Month")+
-  facet_wrap(~factor(Provenance, levels=c(provs_bylat$Provenance,"Plantation")))+
+  facet_wrap(~factor(Provenance))+
   theme_bw()+
   theme(panel.grid.minor=element_blank())
-dev.off()
+#dev.off()
 
 ggplot(monthly_clim %>% filter(var=="Tave") %>% filter(!Provenance=="Plantation"), aes(x=month, y=value))+
   geom_point(size=2)+
@@ -1419,7 +1419,7 @@ dbh_num14_alldist <- dbh_num14_pcadist %>%
 dbh_num14_alldist %>% dplyr::select(PC1,PC2,dist.to.plant,geo.dist.to.plant.km,x,y) %>% cor()
 
 dbh_num14_alldist_noG <- dbh_num14_alldist %>% 
-  filter(!Provenance=="Gila NF")
+  filter(!Provenance%in% c("Gila NF","Wenatchee NF","Okanogan NF"))
 
 mod_dbh_dist <- lmer(DBH ~ scale(geo.dist.to.plant.km)*scale(dist.to.plant.3d) + (1|Provenance), data=dbh_num14_alldist)
 plot(mod_dbh_dist)
@@ -1427,6 +1427,15 @@ qqmath(mod_dbh_dist)
 summary(mod_dbh_dist)
 options(na.action="na.fail")
 dredge(mod_dbh_dist)
+# install.packages("influence.ME")
+# infl_mod_dbh_dist<- influence(mod_dbh_dist, obs=TRUE)
+# dbh_dist_cooks<- data.frame(cooks=cooks.distance(mod_dbh_dist), obs=seq(1,length(cooks.distance(mod_dbh_dist)),1)) %>% 
+#   cbind(dbh_num14_alldist)
+# 
+# ggplot(dbh_dist_cooks, aes(x=factor(obs), y=cooks, col=Provenance))+
+#   geom_point()
+#   
+# (2*3 +2)/655
 
 mod_dbh_dist_nog <- lmer(DBH ~ scale(geo.dist.to.plant.km)*scale(dist.to.plant.3d) + (1|Provenance), data=dbh_num14_alldist_noG)
 plot(mod_dbh_dist_nog)
@@ -1434,13 +1443,12 @@ qqmath(mod_dbh_dist_nog)
 summary(mod_dbh_dist_nog)
 dredge(mod_dbh_dist_nog)
 
-
-mod_dbh_dist2 <- lmer(DBH ~ scale(geo.dist.to.plant.km)+scale(dist.to.plant.3d) + (1|Provenance), data=dbh_num14_alldist)
+mod_dbh_dist2 <- lmer(DBH ~ scale(geo.dist.to.plant.km) + scale(dist.to.plant.3d) + (1|Provenance), data=dbh_num14_alldist)
 plot(mod_dbh_dist2)
 qqmath(mod_dbh_dist2)
 summary(mod_dbh_dist2)
 
-mod_dbh_dist2_noG <- lmer(DBH ~ scale(geo.dist.to.plant.km)+scale(dist.to.plant.3d) + (1|Provenance), data=dbh_num14_alldist_noG)
+mod_dbh_dist2_noG <- lmer(DBH ~ scale(geo.dist.to.plant.km) + (1|Provenance), data=dbh_num14_alldist_noG)
 plot(mod_dbh_dist2_noG)
 qqmath(mod_dbh_dist2_noG)
 summary(mod_dbh_dist2_noG)
@@ -1454,6 +1462,7 @@ ggplot(dbh_num14_alldist, aes(x=dist.to.plant.3d, y=DBH, col=Provenance))+
 
 ##predict model
 mod_dbh_dist2_lm <- lm(DBH ~ scale(geo.dist.to.plant.km)+scale(dist.to.plant.3d), data=dbh_num14_alldist)
+leveragePlots(mod_dbh_dist2_lm)
 
 dbh_dist_newdata <- with(dbh_num14_alldist, data.frame(geo.dist.to.plant.km = seq(min(geo.dist.to.plant.km),max(geo.dist.to.plant.km),length.out=100), 
                                                        dist.to.plant.3d = mean(dist.to.plant.3d)))
@@ -2013,7 +2022,7 @@ geo.legend <- get_legend(interact_plot(ht_dist_mod_nog, pred=dist.to.plant, modx
 library(cowplot)
 
 #png("figures/dbh_height_fig.png", width=9,height=7, units="in", res=500)
-grid.arrange(grid.arrange(dbh_dist_plot,dbh_lat_plot,ht_dist_plot,ht_lat_plot),grid.arrange(prov.legend,geo.legend, nrow=2, heights=c(1,0.4)),widths=c(1,0.4))
+#grid.arrange(grid.arrange(dbh_dist_plot,dbh_lat_plot,ht_dist_plot,ht_lat_plot),grid.arrange(prov.legend,geo.legend, nrow=2, heights=c(1,0.4)),widths=c(1,0.4))
 #dev.off()
 
 ```
