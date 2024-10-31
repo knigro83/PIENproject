@@ -678,6 +678,105 @@ tmin_comb_all<- read.csv("tmin_comb_all.csv")
 tmean_comb_all<- read.csv("tmean_comb_all.csv")
 vpdmax_comb_all<- read.csv("vpdmax_comb_all.csv")
 vpdmin_comb_all<- read.csv("vpdmin_comb_all.csv")
+
+##add in 1969 to plantation data
+ months<- c("01","02","03","04","05","06","07","08","09","10","11","12")
+# 
+# # set location of climate data
+climdir <- "C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/PRISM"
+# 
+ppt_data_1969<-vector()
+for(j in 1:length(months)){
+  raster<-paste(climdir,'/annual/PRISM_ppt_stable_4kmM3_198101_202305_bil/PRISM_ppt_stable_4kmM2_',"1969",months[j],'_bil.bil',sep="")
+  rast <- rast(raster)
+  ext.poly <- terra::extract(rast, adjusted_provs, fun = mean, na.rm=TRUE, df=TRUE)
+  ppt<-ext.poly[,2]
+  CN<-adjusted_provs$Provenance
+  year <- rep("1969",length(ext.poly[,2]))
+  month <- rep(months[j],length(ext.poly[,2]))
+  ppt_CN<-cbind(CN,ppt,year,month)
+  ppt_data_1969<-rbind(ppt_data_1969,ppt_CN)}
+
+tmin_data_1969<-vector()
+for(j in 1:length(months)){
+  raster<-paste(climdir,'/annual/PRISM_tmin_stable_4kmM3_198101_202305_bil/PRISM_tmin_stable_4kmM3_',"1969",months[j],'_bil.bil',sep="")
+  rast <- rast(raster)
+  ext.poly <- terra::extract(rast, adjusted_provs, fun = mean, na.rm=TRUE, df=TRUE)
+  tmin<-ext.poly[,2]
+  CN<-adjusted_provs$Provenance
+  year <- rep("1969",length(ext.poly[,2]))
+  month <- rep(months[j],length(ext.poly[,2]))
+  tmin_CN<-cbind(CN,tmin,year,month)
+  tmin_data_1969<-rbind(tmin_data_1969,tmin_CN)}
+
+tmax_data_1969<-vector()
+for(j in 1:length(months)){
+  raster<-paste(climdir,'/annual/PRISM_tmax_stable_4kmM3_198101_202305_bil/PRISM_tmax_stable_4kmM3_',"1969",months[j],'_bil.bil',sep="")
+  rast <- rast(raster)
+  ext.poly <- terra::extract(rast, adjusted_provs, fun = mean, na.rm=TRUE, df=TRUE)
+  tmax<-ext.poly[,2]
+  CN<-adjusted_provs$Provenance
+  year <- rep("1969",length(ext.poly[,2]))
+  month <- rep(months[j],length(ext.poly[,2]))
+  tmax_CN<-cbind(CN,tmax,year,month)
+  tmax_data_1969<-rbind(tmax_data_1969,tmax_CN)}
+
+tmean_data_1969<-vector()
+for(j in 1:length(months)){
+  raster<-paste(climdir,'/annual/PRISM_tmean_stable_4kmM3_198101_202305_bil/PRISM_tmean_stable_4kmM3_',"1969",months[j],'_bil.bil',sep="")
+  rast <- rast(raster)
+  ext.poly <- terra::extract(rast, adjusted_provs, fun = mean, na.rm=TRUE, df=TRUE)
+  tmean<-ext.poly[,2]
+  CN<-adjusted_provs$Provenance
+  year <- rep("1969",length(ext.poly[,2]))
+  month <- rep(months[j],length(ext.poly[,2]))
+  tmean_CN<-cbind(CN,tmean,year,month)
+  tmean_data_1969<-rbind(tmean_data_1969,tmean_CN)}
+
+vpdmax_data_1969<-vector()
+for(j in 1:length(months)){
+  raster<-paste(climdir,'/annual/PRISM_vpdmax_stable_4kmM3_198101_202305_bil/PRISM_vpdmax_stable_4kmM3_',"1969",months[j],'_bil.bil',sep="")
+  rast <- rast(raster)
+  ext.poly <- terra::extract(rast, adjusted_provs, fun = mean, na.rm=TRUE, df=TRUE)
+  vpdmax<-ext.poly[,2]
+  CN<-adjusted_provs$Provenance
+  year <- rep("1969",length(ext.poly[,2]))
+  month <- rep(months[j],length(ext.poly[,2]))
+  vpdmax_CN<-cbind(CN,vpdmax,year,month)
+  vpdmax_data_1969<-rbind(vpdmax_data_1969,vpdmax_CN)}
+
+vpdmin_data_1969<-vector()
+for(j in 1:length(months)){
+  raster<-paste(climdir,'/annual/PRISM_vpdmin_stable_4kmM3_198101_202305_bil/PRISM_vpdmin_stable_4kmM3_',"1969",months[j],'_bil.bil',sep="")
+  rast <- rast(raster)
+  ext.poly <- terra::extract(rast, adjusted_provs, fun = mean, na.rm=TRUE, df=TRUE)
+  vpdmin<-ext.poly[,2]
+  CN<-adjusted_provs$Provenance
+  year <- rep("1969",length(ext.poly[,2]))
+  month <- rep(months[j],length(ext.poly[,2]))
+  vpdmin_CN<-cbind(CN,vpdmin,year,month)
+  vpdmin_data_1969<-rbind(vpdmin_data_1969,vpdmin_CN)}
+
+
+##append 1969
+ppt_comb_plantation <- bind_rows(as.data.frame(ppt_data_1969) %>% filter(CN == "Plantation") %>%
+  mutate(date=as.character(as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")), ppt=as.numeric(ppt), year=as.integer(year), month=as.integer(month)), ppt_comb_plantation %>% dplyr::select(-c(X.1, X))) 
+
+tmax_comb_plantation <- bind_rows(as.data.frame(tmax_data_1969) %>% filter(CN == "Plantation") %>%
+  mutate(date=as.character(as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")), tmax=as.numeric(tmax), year=as.integer(year), month=as.integer(month)), tmax_comb_plantation %>% dplyr::select(-X))
+
+tmean_comb_plantation <- bind_rows(as.data.frame(tmean_data_1969) %>% filter(CN == "Plantation") %>%
+  mutate(date=as.character(as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")), tmean=as.numeric(tmean), year=as.integer(year), month=as.integer(month)), tmean_comb_plantation %>% dplyr::select(-X)) 
+
+tmin_comb_plantation <- bind_rows(as.data.frame(tmin_data_1969) %>% filter(CN == "Plantation") %>%
+  mutate(date=as.character(as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")), tmin=as.numeric(tmin), year=as.integer(year), month=as.integer(month)), tmin_comb_plantation%>% dplyr::select(-X)) 
+
+vpdmax_comb_plantation <- bind_rows(as.data.frame(vpdmax_data_1969) %>% filter(CN == "Plantation") %>%
+  mutate(date=as.character(as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")), vpdmax=as.numeric(vpdmax), year=as.integer(year), month=as.integer(month)), vpdmax_comb_plantation%>% dplyr::select(-X)) 
+
+vpdmin_comb_plantation <- bind_rows(as.data.frame(vpdmin_data_1969) %>% filter(CN == "Plantation") %>%
+  mutate(date=as.character(as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")), vpdmin=as.numeric(vpdmin), year=as.integer(year), month=as.integer(month)), vpdmin_comb_plantation%>% dplyr::select(-X))
+
 ```
 
 
@@ -842,7 +941,7 @@ vpdmax_seasonal <- as.data.frame(vpdmax_comb_plantation) %>%
 ##FDSI calculation
 
 ```{r}
-all_climate <- left_join(ppt_comb_plantation,tmax_comb_plantation) %>% 
+all_climate <- left_join(ppt_comb_plantation,tmax_comb_plantation, by=c("CN","year","month","date")) %>% 
   left_join(tmin_comb_plantation) %>% 
   left_join(tmean_comb_plantation) %>% 
   left_join(vpdmax_comb_plantation) %>% 
@@ -853,7 +952,6 @@ nrow(all_climate)
 nrow(tmin_comb_plantation)
 
 all_climate_long <- all_climate %>% 
- dplyr::select(-X) %>% 
   pivot_longer(c("ppt","tmax","tmin","tmean","vpdmax","vpdmin","vpdmean"), names_to="climvar", values_to = "value") %>% 
   mutate(monthvar = paste(climvar,month,sep=""))
 
