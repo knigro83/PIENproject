@@ -51,6 +51,7 @@ library(climwin)
 library(lubridate)
 library(dichromat)
 library(prism)
+library(multcomp)
 ```
 
 ##Plot locations
@@ -232,6 +233,12 @@ ggplot(prov_vars, aes(x=factor(Provenance, levels=order), y=value, col=factor(Pr
   theme(axis.text.x = element_text(angle=45,hjust=1, size=10), legend.position = 'none', strip.text=element_text(size=12), axis.title.x = element_blank())
 # dev.off()
 
+ggplot(prov_vars %>% filter(!Provenance=="Gila NF"), aes(x=factor(Provenance, levels=order), y=value, col=factor(Provenance, levels=order)))+
+  geom_point(size=4)+
+  geom_hline(data=prov_vars %>% filter(Provenance=="Plantation"),aes(yintercept = value, group=var), col=unname(stepped())[9])+
+  facet_wrap(~var, scales="free_y")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  theme(axis.text.x = element_text(angle=45,hjust=1, size=10), legend.position = 'none', strip.text=element_text(size=12), axis.title.x = element_blank())
 ```
 
 ###future climate
@@ -277,7 +284,7 @@ prov_futures_long
 
 ```{r}
 #read in files
-ppt_comb_plantation<- read.csv("ppt_comb_plantation.csv") %>% dplyr::select(-X) %>% rename(X = X.1)
+ppt_comb_plantation<- read.csv("ppt_comb_plantation.csv") 
 tmax_comb_plantation<- read.csv("tmax_comb_plantation.csv")
 tmin_comb_plantation<- read.csv("tmin_comb_plantation.csv")
 tmean_comb_plantation<- read.csv("tmean_comb_plantation.csv")
@@ -660,7 +667,6 @@ nrow(all_climate)
 nrow(tmin_comb_plantation)
 
 all_climate_long <- all_climate %>% 
- dplyr::select(-X) %>% 
   pivot_longer(c("ppt","tmax","tmin","tmean","vpdmax","vpdmin","vpdmean"), names_to="climvar", values_to = "value") %>% 
   mutate(monthvar = paste(climvar,month,sep=""))
 
@@ -1329,7 +1335,8 @@ plot(pien_trim)
 
 clim_pien <- readRDS("clim_pien.RDS")
  
-plantation_only <- prov_pcapts %>% filter(Provenance == "Plantation")
+plantation_only <- prov_pcapts %>% filter(Provenance == "Plantation") %>% 
+  mutate(period="1970s")
 
 ggplot(clim_pien, aes(x=MAT, y=MAP))+
   geom_hex(alpha=0.7)+
@@ -1345,15 +1352,16 @@ ggplot(clim_pien, aes(x=MAT, y=MAP))+
 plantation_future <- prov_futures_long %>% filter(Provenance=="Plantation") %>% 
   pivot_wider(names_from=climvar, values_from=value, id_cols = c(ID,Provenance,carbon,period))
 
+plantation_all<- bind_rows(plantation_only, plantation_future)
+
 carbon.colors<- c("black",brewer.pal(6,"RdBu")[c(6,5,2,1)])
 
 ggplot(clim_pien, aes(x=MAT, y=MAP))+
   geom_hex(alpha=0.7)+
-  scale_fill_gradientn(colors=c("gray","black"))+
-  geom_point(data=plantation_only, aes(x=MAT, y=MAP), size=4, col="gold", shape=18)+
-  geom_point(data=plantation_future, aes(x=MAT, y=MAP, col=carbon, shape=period), size=4)+
-  scale_color_manual(values=carbon.colors[-1])+
-  geom_point(data=prov_pcapts %>% filter(!Provenance=="Plantation"), aes(x=MAT, y=MAP), size=2)+
+  scale_fill_gradientn(colors=c("black","grey"))+
+  geom_point(data=plantation_all, aes(x=MAT, y=MAP, shape=period), col="gold", size=5)+
+  geom_point(data=prov_pcapts %>% filter(!Provenance=="Plantation"), aes(x=MAT, y=MAP, color=factor(Provenance, levels=provs_bylat$Provenance)), size=4)+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
   ggrepel::geom_text_repel(data=prov_pcapts %>% filter(!Provenance=="Plantation"), aes(label=code))+
   theme_bw()+
   theme(text = element_text(size=16, color="black"))
@@ -1444,8 +1452,23 @@ Anova(dbh_aov_noint, type="2") #both year and provenance are significant but do 
 prov_dbh_order<- dbh_numeric %>% 
   filter(year=="DBH14") %>% 
   group_by(Provenance) %>% 
-  summarise(med_DBH = median(DBH, na.rm=T)) %>% 
-  arrange(med_DBH)
+  summarise(mean_DBH = mean(DBH, na.rm=T)) %>% 
+  arrange(mean_DBH)
+dbh_numeric %>% 
+  filter(year=="DBH06") %>% 
+  group_by(Provenance) %>% 
+  summarise(mean_DBH = mean(DBH, na.rm=T)) %>% 
+  arrange(mean_DBH)
+dbh_numeric %>% 
+  filter(year=="DBH96") %>% 
+  group_by(Provenance) %>% 
+  summarise(mean_DBH = mean(DBH, na.rm=T)) %>% 
+  arrange(mean_DBH)
+dbh_numeric %>% 
+  filter(year=="DBH91") %>% 
+  group_by(Provenance) %>% 
+  summarise(mean_DBH = mean(DBH, na.rm=T)) %>% 
+  arrange(mean_DBH)
 
 dbh_early<- ggplot(dbh_numeric %>% filter(!year=="DBH14"), aes(x=factor(year, levels=c("DBH91","DBH96","DBH06"), labels=c(1991,1996,2006)), y=DBH, fill=factor(Provenance, levels=provs_bylat$Provenance)))+
   geom_boxplot()+
@@ -1460,7 +1483,7 @@ dbh_2014<- ggplot(dbh_numeric %>% filter(year=="DBH14"), aes(x=factor(year, leve
 
 ggarrange(dbh_early,dbh_2014, nrow=2, common.legend = TRUE)
 
-dbh_plot<- ggplot(dbh_numeric %>% filter(year=="DBH14"), aes(x=factor(Provenance, levels=provs_bylat$Provenance), y=DBH, fill=factor(Provenance, levels=provs_bylat$Provenance)))+
+dbh_plot<- ggplot(dbh_numeric %>% filter(year=="DBH14"), aes(x=factor(Provenance, levels=prov_dbh_order$Provenance), y=DBH, fill=factor(Provenance, levels=provs_bylat$Provenance)))+
   geom_boxplot()+
   scale_fill_manual(values=unname(stepped()), name="Provenance")+
   #geom_text(data=data.frame(Provenance = c("Gila NF","Dixie NF","Cutting Permit 31"), symbol = c("B","B","A")), aes(x=Provenance, y=25, label=symbol))+
@@ -1471,25 +1494,59 @@ dbh_plot<- ggplot(dbh_numeric %>% filter(year=="DBH14"), aes(x=factor(Provenance
 dbh_aov91 <- aov(DBH ~ Provenance, data = dbh_numeric %>% filter(year=="DBH91"))
 plot(dbh_aov91)
 summary(dbh_aov91)
-TukeyHSD(dbh_aov91)$Provenance %>% 
+pairwise_dbh91 <- TukeyHSD(dbh_aov91)$Provenance %>% 
   as.data.frame() %>% 
-  filter(`p adj` < 0.05)
- 
+  filter(`p adj` < 0.05) %>% 
+  mutate(comp=rownames(TukeyHSD(dbh_aov91)$Provenance %>% 
+  as.data.frame() %>% 
+  filter(`p adj` < 0.05))) %>% 
+  mutate(payette = grepl( "Payette", comp, fixed = TRUE),
+         gila = grepl("Gila", comp, fixed = TRUE)) 
+
+pairwise_dbh91 %>% 
+  filter(payette == TRUE) %>% nrow()
+pairwise_dbh91 %>% 
+  filter(gila == TRUE) %>% nrow()
+
 dbh_aov96 <- aov(DBH ~ Provenance, data = dbh_numeric %>% filter(year=="DBH96"))
 plot(dbh_aov96)
 summary(dbh_aov96)
-TukeyHSD(dbh_aov96)$Provenance %>% 
+pairwise_dbh96 <- TukeyHSD(dbh_aov96)$Provenance %>% 
   as.data.frame() %>% 
-  filter(`p adj` < 0.05)
+  filter(`p adj` < 0.05) %>% 
+  mutate(comp=rownames(TukeyHSD(dbh_aov96)$Provenance %>% 
+  as.data.frame() %>% 
+  filter(`p adj` < 0.05))) %>% 
+  mutate(payette = grepl( "Payette", comp, fixed = TRUE),
+         gila = grepl("Gila", comp, fixed = TRUE)) 
+
+pairwise_dbh96 %>% 
+  filter(payette == TRUE) %>% nrow()
+pairwise_dbh96 %>% 
+  filter(gila == TRUE) %>% nrow()
+
   
 dbh_aov06 <- aov(DBH ~ Provenance, data = dbh_numeric %>% filter(year=="DBH06"))
 plot(dbh_aov06)
 summary(dbh_aov06)
-TukeyHSD(dbh_aov06)$Provenance %>% 
+pairwise_dbh06 <- TukeyHSD(dbh_aov06)$Provenance %>% 
   as.data.frame() %>% 
-  filter(`p adj` < 0.05)
-  
-dbh_aov14 <- aov(DBH ~ Provenance, data = dbh_numeric %>% filter(year=="DBH14"))
+  filter(`p adj` < 0.05) %>% 
+  mutate(comp=rownames(TukeyHSD(dbh_aov06)$Provenance %>% 
+  as.data.frame() %>% 
+  filter(`p adj` < 0.05))) %>% 
+  mutate(payette = grepl( "Payette", comp, fixed = TRUE),
+         gila = grepl("Gila", comp, fixed = TRUE)) 
+
+pairwise_dbh06 %>% 
+  filter(payette == TRUE) %>% nrow()
+pairwise_dbh06 %>% 
+  filter(gila == TRUE) %>% nrow()
+
+dbh_numeric14 <- dbh_numeric %>% filter(year=="DBH14") %>% 
+  mutate(Provenance=as.factor(Provenance))
+
+dbh_aov14 <- aov(DBH ~ Provenance, data =dbh_numeric14 )
 plot(dbh_aov14)
 summary(dbh_aov14)
 pairwise_dbh14 <- TukeyHSD(dbh_aov14)$Provenance %>% 
@@ -1505,6 +1562,21 @@ pairwise_dbh14 %>%
   filter(payette == TRUE) %>% nrow()
 pairwise_dbh14 %>% 
   filter(gila == TRUE) %>% nrow()
+
+dbh14_glht <- glht(dbh_aov14, linfct = mcp(Provenance = "Tukey"))
+dbh14_cld<- cld(dbh14_glht)
+dbh14_letter_df<- as.data.frame(dbh14_cld$mcletters$Letters) %>% 
+  rename(letters = `dbh14_cld$mcletters$Letters`) %>% 
+  mutate(Provenance = rownames(as.data.frame(dbh14_cld$mcletters$Letters)))
+
+dbh_letters_plot<- ggplot(dbh_numeric14, aes(x=factor(Provenance, levels=prov_dbh_order$Provenance), y=DBH, fill=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_boxplot()+
+  geom_text(data=dbh14_letter_df, aes(x=Provenance, y= 30, label=letters), size=5, angle=45, hjust=1)+
+  scale_fill_manual(values=unname(stepped()), name="Provenance")+
+  ylab("DBH (cm)")+
+  theme_bw()+
+  theme(axis.text.x=element_text(angle=45, hjust=1, color="black",size=14), axis.text.y=element_text(color="black",size=14),axis.title.y=element_text(color="black",size=14), axis.title.x=element_blank(),legend.position = "none")
+  
 
 ```
 
@@ -1941,6 +2013,21 @@ ggplot()+
   scale_x_discrete(name="Year")+
   ylab("Total Height (m)")
 
+ggplot(ht_data_year, aes(x=name, y=value, fill=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_boxplot()+
+  scale_fill_manual(values=unname(stepped()), "Provenance")
+
+ggplot(ht_data_aves %>% left_join(provs_bylat), aes(x=y, y=meantotht, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_point(size=3)+
+  facet_wrap(~factor(name, levels=c("HT74","HT79","HT85","HT91","HT96","HT06","HT14")),scales="free")+
+  scale_color_manual(values=unname(stepped()), "Provenance")
+
+ggplot(ht_data_year %>% 
+  left_join(provs_bylat) %>% 
+  mutate(region = ifelse(y>43, "north", "south")), aes(x=factor(name, levels=c("HT74","HT79","HT85","HT91","HT96","HT06","HT14")), y=value, fill=region))+
+  geom_boxplot()+
+  scale_fill_manual(values=c("steelblue","tomato"))+
+  scale_color_manual(values=c("steelblue","tomato"))
 
 #each year separately
 totht_mod74 <- aov(value ~ Provenance, data= ht_data %>% filter(name=="HT74"))
@@ -1985,12 +2072,36 @@ TukeyHSD(totht_mod06)$Provenance %>%
   as.data.frame() %>% 
   filter(`p adj`<0.05)
 
-totht_mod14 <- aov(value ~ Provenance, data= ht_data %>% filter(name=="HT14"))
+ht_data14<- ht_data %>% filter(name=="HT14") %>% 
+  mutate(Provenance=as.factor(Provenance))
+
+totht_mod14 <- aov(value ~ Provenance, data=ht_data14)
 plot(totht_mod14)
 summary(totht_mod14)
 TukeyHSD(totht_mod14)$Provenance %>% 
   as.data.frame() %>% 
   filter(`p adj`<0.05)
+
+totht14_glht <- glht(totht_mod14, linfct = mcp(Provenance="Tukey"))
+totht14_cld<- cld(totht14_glht)
+totht14_letter_df<- as.data.frame(totht14_cld$mcletters$Letters) %>% 
+  rename(letters = `totht14_cld$mcletters$Letters`) %>% 
+  mutate(Provenance = rownames(as.data.frame(totht14_cld$mcletters$Letters)))
+
+prov_ht_order14<- ht_data14 %>% 
+  group_by(Provenance) %>% 
+  summarise(mean_ht = mean(value, na.rm=T)) %>% 
+  arrange(mean_ht)
+
+ht_letters_plot<- ggplot(ht_data14, aes(x=factor(Provenance, levels=prov_ht_order14$Provenance), y=value, fill=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_boxplot()+
+  geom_text(data=totht14_letter_df, aes(x=Provenance, y= 17, label=letters), size=5, angle=45, hjust=1)+
+  scale_fill_manual(values=unname(stepped()), name="Provenance")+
+  theme_bw()+
+  ylab("Height (m)")+
+  theme(axis.text.x=element_text(angle=45, hjust=1, color="black",size=14), axis.text.y=element_text(color="black",size=14),axis.title.y=element_text(color="black",size=14), axis.title.x=element_blank(), legend.position = "none")
+  
+ggarrange(dbh_letters_plot, ht_letters_plot, nrow=2)
 
 ```
 
@@ -2938,37 +3049,6 @@ dev.off()
 
 ##Survival
 
-```{r}
-##survival
-tree.num <- ht_data %>% 
-  filter(!is.na(rel.growth)) %>% 
-  group_by(name, Provenance) %>% 
-  summarise(n=n()) %>% 
-  mutate(year = case_when(
-    name=="HT74" ~ 1974,
-    name=="HT79" ~ 1979,
-    name=="HT85" ~ 1985,
-    name=="HT91" ~ 1991,
-    name=="HT96" ~ 1996,
-    name=="HT06" ~ 2006,
-    name=="HT14" ~ 2014))
-
-trees.died<- tree.num %>% 
-  left_join(tree.num %>% filter(year==1974) %>% ungroup() %>% dplyr::select(Provenance, n) %>% rename(n_74=n)) %>% 
-  mutate(prop = n/n_74)
-
-ggplot()+
-  geom_point(data=tree.num, aes(x=year, y=n, col=Provenance))+
-  geom_line(data=tree.num, aes(x=year, y=n, col=Provenance))+
-  geom_bar(data=plantation_clim, aes(x=year, y=scale(value_sm_tmean)*10), stat = "identity")
-
-plantation_clim
-
-ggplot(trees.died %>% filter(name=="HT14"), aes(x=factor(Provenance, levels=prov_clim_adjusted_bi %>% arrange(y) %>% pull(Provenance)), y=prop))+
-  geom_point()+
-  theme(axis.text.x = element_text(angle=45, hjust=1))
-```
-
 ###models
 
 ####Provenance
@@ -3108,6 +3188,52 @@ summary(survmod06)
 
 survmod14 <- aov(value ~ Provenance, data=moniger_survival_byyr %>% filter(year==2014))
 summary(survmod14)
+
+```
+
+```{r}
+##ranking provenances by dbh, height, survival
+
+head(dbh_num14_alldist)
+head(ht_data_clim14)
+
+aveht14 <- ht_data_clim14 %>% 
+  group_by(Provenance) %>% 
+  summarise(meanht14=mean(value, na.rm=T), n.ht=n())
+
+avedbh14<- dbh_num14_alldist %>% 
+  group_by(Provenance) %>% 
+  summarise(meandbh14 = mean(DBH, na.rm=T), n.dbh=n())
+
+surv14<- left_join(
+moniger_survival_byyr %>% 
+  filter(name=="Stat74") %>% 
+  group_by(Provenance) %>% 
+  summarise(alivetrees74 = sum(value), alltrees74=n()),
+moniger_survival_byyr %>% 
+  filter(name=="Stat14") %>% 
+  group_by(Provenance) %>% 
+  summarise(alivetrees14 = sum(value))) %>% 
+  mutate(prop.surv.74=alivetrees14/alivetrees74,
+         prop.surv.70=alivetrees14/alltrees74)
+
+ranking.table<- as.data.frame(left_join(aveht14, avedbh14) %>% 
+  left_join(surv14))
+
+cor.test(ranking.table$meanht14, ranking.table$meandbh14)
+cor.test(ranking.table$meanht14, ranking.table$prop.surv.70)
+cor.test(ranking.table$meandbh14, ranking.table$prop.surv.70)
+cor.test(ranking.table$meanht14, ranking.table$prop.surv.74)
+cor.test(ranking.table$meandbh14, ranking.table$prop.surv.74)
+
+ranking.table.nog<- ranking.table %>% filter(!Provenance=="Gila NF")
+cor.test(ranking.table.nog$meanht14, ranking.table.nog$meandbh14)
+cor.test(ranking.table.nog$meanht14, ranking.table.nog$prop.surv.70)
+cor.test(ranking.table.nog$meandbh14, ranking.table.nog$prop.surv.70)
+cor.test(ranking.table.nog$meanht14, ranking.table.nog$prop.surv.74)
+cor.test(ranking.table.nog$meandbh14, ranking.table.nog$prop.surv.74)
+
+#write.csv(ranking.table, "ranking.table.csv")
 
 ```
 
@@ -3458,6 +3584,28 @@ ggplot(survsmrpb_newdata3, aes(x = climvar.value, y = PredictedProb)) + geom_rib
 #without Gila is still significant
 surv_smrpb_mod_nog <- glmer(Stat14 ~ scale(climvar.value) + (1|Provenance), data=moniger_survival_long %>% filter(climvar.name=="smrpb") %>% filter(!Provenance=="Gila NF"), family="binomial")
 summary(surv_smrpb_mod_nog)
+
+##take random effect out to make predictions
+surv_smrpb_mod_nog_glm <- glm(Stat14 ~ scale(climvar.value), data=moniger_survival_long %>% filter(climvar.name=="smrpb")%>% filter(!Provenance=="Gila NF"), family="binomial")
+summary(surv_smrpb_mod_nog_glm)
+
+##predictions
+surv_smrpb_data_nog <- moniger_survival_long %>% filter(climvar.name=="smrpb") %>% filter(!Provenance=="Gila NF")
+
+survsmrpb_nog_newdata1 <- with(surv_smrpb_data_nog, data.frame(climvar.value = seq(min(climvar.value),max(climvar.value),length.out=50)))
+
+survsmrpb_nog_newdata2 <- cbind(survsmrpb_nog_newdata1, predict(surv_smrpb_mod_nog_glm, newdata = survsmrpb_nog_newdata1, type = "link", se=TRUE))
+survsmrpb_nog_newdata3 <- within(survsmrpb_nog_newdata2, {
+    PredictedProb <- plogis(fit)
+    LL <- plogis(fit - (1.96 * se.fit))
+    UL <- plogis(fit + (1.96 * se.fit))
+})
+
+ggplot(survsmrpb_nog_newdata3, aes(x = climvar.value, y = PredictedProb)) + geom_ribbon(aes(ymin = LL,
+    ymax = UL), alpha = 0.2) + 
+  geom_line(linewidth = 1)+
+  geom_point(aes(x=climvar.value, y=PredictedProb))+
+  xlab("smrpb")
 #########
 
 ###quadratic
@@ -4340,7 +4488,7 @@ colnames(aet_date_wide)=c("YEAR","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG"
 aet_cwd_list <- list()
 for(i in 1:length(provs_arranged_lat[-9])){
 result <- seascorr(chrono = chron.list[[i]],
-                         climate= list(aet= aet_date_wide[1:46,], cwd = cwd_date_wide[1:46,]),
+                         climate= list(aet= aet_date_wide[2:47,], cwd = cwd_date_wide[2:47,]),
                          timespan = c(1985,2015),
                          complete= 9,
                          season_lengths=seq(4,12,1),
@@ -4455,7 +4603,7 @@ skills(object = aet_cwd_list[[20]],
 aet_spei_list <- list()
 for(i in 1:length(provs_arranged_lat[-9])){
 result <- seascorr(chrono = chron.list[[i]],
-                         climate= list(aet= aet_date_wide[1:46,], spei = spei_date_wide[1:46,]),
+                         climate= list(aet= aet_date_wide[2:47,], spei = spei_date_wide[2:47,]),
                          timespan = c(1985,2015),
                          complete= 9,
                          season_lengths=seq(4,12,1),
@@ -4551,7 +4699,7 @@ cor_analysis_plot_pc1_aet_spei<- ggplot(timeline_aet_spei, aes(y=factor(Provenan
 temp_precip_list <- list()
 for(i in 1:length(provs_arranged_lat[-9])){
 result <- seascorr(chrono = chron.list[[i]],
-                         climate= list(temp= tmean_comb_plantation_wide[1:46,], precip = ppt_comb_plantation_wide[1:46,]),
+                         climate= list(temp= tmean_comb_plantation_wide[2:47,], precip = ppt_comb_plantation_wide[2:47,]),
                          timespan = c(1985,2015),
                          complete= 9,
                          season_lengths=seq(4,12,1),
@@ -4668,7 +4816,7 @@ ggplot(timeline_temp_precip, aes(y=factor(Provenance, levels=prov_pcapts %>% arr
 precip_temp_list <- list()
 for(i in 1:length(provs_arranged_lat[-9])){
 result <- seascorr(chrono = chron.list[[i]],
-                         climate= list(precip = ppt_comb_plantation_wide[1:46,],temp= tmean_comb_plantation_wide[1:46,]),
+                         climate= list(precip = ppt_comb_plantation_wide[2:47,],temp= tmean_comb_plantation_wide[2:47,]),
                          timespan = c(1985,2015),
                          complete= 9,
                          season_lengths=seq(4,12,1),
@@ -6939,12 +7087,13 @@ tmin_all
 plantation_clim_coldxtremes
 plantation_clim_long_qs
 
+moniger_survival_byyr
 
 p.died.byyr<- moniger_survival_byyr %>% 
   group_by(Provenance, year) %>% 
   summarise(n=n(), alive=sum(value)) %>% 
   mutate(dead=n-alive) %>% 
-  mutate(prop.died = dead/n) %>% 
+  mutate(prop.died = dead/n, prop.total=alive/48) %>% 
   mutate(period= case_when(year == 1974 ~ "1970-1974",
                            year == 1979 ~ "1975-1979",
                            year == 1985 ~ "1980-1985",
@@ -6952,6 +7101,11 @@ p.died.byyr<- moniger_survival_byyr %>%
                             year == 1996 ~ "1992-1996",
                             year == 2006 ~ "1997-2006",
                             year == 2014 ~ "2007-2014"))
+
+ggplot(p.died.byyr, aes(x=year, y=prop.total, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  #geom_point(size=3,aes(x=year, y=prop.total, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_line(linewidth=2)+
+  scale_color_manual(values=unname(stepped()), name="Provenance")
 
 p.died.byyr.binom <-moniger_survival_byyr %>% 
     mutate(period= case_when(year == 1974 ~ "1970-1974",
@@ -6965,7 +7119,8 @@ p.died.byyr.binom <-moniger_survival_byyr %>%
 ggplot(p.died.byyr, aes(x=factor(Provenance, levels=provs_bylat$Provenance), y=prop.died, fill=factor(Provenance, levels=provs_bylat$Provenance)))+
   geom_bar(stat = 'identity', position='dodge')+
   scale_fill_manual(values=unname(stepped()), name="Provenance")+
-  facet_wrap(~period)
+  facet_wrap(~period)+
+  theme(axis.text.x=element_text(angle=45, hjust=1))
 
 plantation_clim_periods<- plantation_clim_long %>% 
   mutate(period = case_when(year < 1975 ~ "1970-1974",
@@ -6985,12 +7140,44 @@ plantation_clim_periods_wide <- plantation_clim_periods %>%
 
 survival_period_data<- plantation_clim_periods_wide %>%  left_join(p.died.byyr.binom)
 
-mod1 <- glmer(value ~ cwd_sum + (1|Provenance), data=survival_period_data, family="binomial") 
-summary(mod1) ##can't really do this because survival will obviously go down with time, while temps get hotter with time
+surv_period_pvalues <- data.frame()
+for(i in 1:length(unique(plantation_clim_periods$name))){
+var <- unique(plantation_clim_periods$name)[i]
+mod <- glmer(survival_period_data %>% pull(value) ~ survival_period_data %>% pull(var) + (1|Provenance) + (1|period), data=survival_period_data, family="binomial") 
+summary<- as.data.frame(summary(mod)$coefficients) 
+pvalue <- summary %>% slice(2) %>% pull(`Pr(>|z|)`)
+surv_period_pvalues <- bind_rows(surv_period_pvalues, data.frame(var=var, pvalue=pvalue))
+}
+
+surv_period_pvalues %>% 
+  arrange(pvalue)
+
+wtvpd_surv_mod <- glmer(value ~ vpdmax_wt + (1|Provenance) + (1|period), data=survival_period_data, family="binomial") 
+summary(wtvpd_surv_mod)
+
+
+wtvpd_surv_mod_glm<- glm(value ~ vpdmax_wt, data=survival_period_data, family = "binomial")
+
+###make plot for distance model
+vpd_surv_newdata1 <- with(survival_period_data, data.frame(vpdmax_wt = seq(min(vpdmax_wt),max(vpdmax_wt), length.out=50)))
+
+vpd_surv_newdata2 <- cbind(vpd_surv_newdata1, predict(wtvpd_surv_mod_glm, newdata = vpd_surv_newdata1, type = "link", se=TRUE))
+vpd_surv_newdata3 <- within(vpd_surv_newdata2, {
+    PredictedProb <- plogis(fit)
+    LL <- plogis(fit - (1.96 * se.fit))
+    UL <- plogis(fit + (1.96 * se.fit))
+})
+
+ggplot(vpd_surv_newdata3, aes(x = vpdmax_wt, y=PredictedProb))+
+  geom_ribbon(aes(ymin = LL, ymax = UL), alpha=0.5) + 
+  geom_line()+
+  xlab("Winter VPD max")+
+  ylab("Predicted Probability of Survival")+
+  theme_bw()+
+  theme(legend.position = "bottom")
+
+
 ```
-
-
-
 ##Correlations
 
 ###climate x climate cors
@@ -7032,7 +7219,7 @@ ggcorrplot(plantation_clim_cor_yrof, type="lower", insig = "blank", lab=TRUE)
 ##calculate correlations between detrended growth and climate at plantation
 growth_climate_df <- growth.detrended.df %>% 
   left_join(plantation_clim) %>% 
- dplyr::select(c(CN:year,PPTsm:PPTsp, vpdmax_sm:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum)) %>% 
+ dplyr::select(c(CN:year,PPTsm:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum)) %>% 
   left_join(plantation_clim_minus1, by=c("year" = "prior_year", "CN" = "prior_CN")) %>% 
   ungroup() %>% 
   filter(year>1970) %>% 
@@ -7058,14 +7245,16 @@ gc_cor_df %>%
   group_by(V1) %>% 
   summarise(n=n()) %>% 
   arrange(n) %>% 
-  print(n=40) #number of trees with significant correlations between growth and each climate var
+  print(n=55) #number of trees with significant correlations between growth and each climate var
 
 gc_cor_df %>% 
   group_by(V2) %>% 
   summarise(maxcor = max(rw_spline, na.rm=T)) %>% 
   left_join(gc_cor_df, by=c("maxcor"="rw_spline", "V2")) %>% 
   group_by(V1) %>% 
-  summarise(n=n()) %>% print(n=50) #number of trees whose maximum correlation value is with each climate var 
+  summarise(n=n()) %>%
+  arrange(n) %>%
+  print(n=55) #number of trees whose maximum correlation value is with each climate var 
 
 cor_clean <- gc_cor_df %>% 
   rename(climvar=V1, tree=V2, cor=rw_spline) %>%
@@ -7170,19 +7359,19 @@ ttestdata %>% filter(pvalue < 0.05) %>%
   group_by(climvar) %>% 
   summarise(n=n()) %>% 
 arrange(n) %>% 
-  print(n=39)
+  print(n=52)
 
 sig.cors.byprov <- cor_clean %>% left_join(ttestdata %>% filter(pvalue < 0.05)) %>% 
   mutate(sig = case_when(!is.na(pvalue) ~ "*",
                          .default = "")) %>% 
-  filter(climvar %in% c("aet_sum" , "cwd_wy" , "PPTsm", "vpdmax_wt", "prior_aet_sum", "prior_cwd_wy", "prior_PPTsm" , "prior_vpdmax_wt")) %>% 
+  filter(climvar %in% c("aet_sum" , "vpdmax_wt", "value_wt_tmean", "prior_aet_sum","prior_PPTsm", "prior_value_wt_tmean")) %>% 
   filter(!is.na(pvalue)) %>% 
   left_join(name_conversion, by=c("Provenance"="oldname"))
 
 nonsig.provs <- cor_clean %>% left_join(ttestdata %>% filter(pvalue < 0.05)) %>% 
   mutate(sig = case_when(!is.na(pvalue) ~ "*",
                          .default = "")) %>% 
-  filter(climvar %in% c("aet_sum" , "cwd_wy" , "PPTsm", "vpdmax_wt", "prior_aet_sum", "prior_cwd_wy", "prior_PPTsm" , "prior_vpdmax_wt")) %>% 
+  filter(climvar %in% c("aet_sum" , "vpdmax_wt", "value_wt_tmean", "prior_aet_sum","prior_PPTsm", "prior_value_wt_tmean")) %>% 
   dplyr::select(climvar, Provenance, pvalue) %>% 
   unique() %>%
   group_by(Provenance) %>% 
@@ -7190,11 +7379,9 @@ nonsig.provs <- cor_clean %>% left_join(ttestdata %>% filter(pvalue < 0.05)) %>%
   filter(sum==0)%>% 
   left_join(name_conversion, by=c("Provenance"="oldname"))
 
-nonsig_data<- data.frame(climvar=rep(unique(sig.cors.byprov$climvar),1),newname=rep(nonsig.provs$newname, each=7), Provenance = rep(nonsig.provs$Provenance, each=7))
+selected_climvars <-  c("vpdmax_wt","value_wt_tmean", "aet_sum")
 
-selected_climvars <- c("aet_sum","prior_aet_sum","cwd_wy" ,"prior_cwd_wy","PPTsm",  "prior_PPTsm","vpdmax_wt","prior_vpdmax_wt")
-
-correlation_plot<- ggplot(data=sig.cors.byprov %>% bind_rows(nonsig_data) %>% left_join(prov_names, by=c("newname"="Provenance")), aes(x=factor(code, levels=provs_bylat$code), y=estimate))+
+correlation_plot<- ggplot(data=sig.cors.byprov %>% filter(climvar %in% selected_climvars) %>% left_join(prov_names, by=c("newname"="Provenance")), aes(x=factor(code, levels=provs_bylat$code), y=estimate))+
     geom_jitter(data= cor_clean %>% filter(climvar %in% selected_climvars) %>% left_join(name_conversion, by=c("Provenance"="oldname")) %>% dplyr::select(-Provenance) %>% left_join(prov_names, by=c("newname"="Provenance")), aes(x=factor(code, levels=provs_bylat$code), y=cor), fill="gray", color="black", size=2, height=0, width=0.1, alpha=0.2)+
   geom_errorbar(aes(x=factor(code, levels=provs_bylat$code), ymin=lwr, ymax=upr, color = factor(code, levels=provs_bylat$code)),width=0.8, linewidth=1)+
     geom_errorbar(aes(x=factor(code, levels=provs_bylat$code), ymin=lwr, ymax=upr),width=0.8, color="black", linewidth=0.5)+
@@ -7202,7 +7389,7 @@ correlation_plot<- ggplot(data=sig.cors.byprov %>% bind_rows(nonsig_data) %>% le
   scale_color_manual(values=unname(stepped()), name="Provenance")+
   scale_fill_manual(values=unname(stepped()), name="Provenance")+
   geom_hline(yintercept=0, col="black")+
-  facet_wrap(~factor(climvar, levels=selected_climvars),ncol=2)+
+  facet_wrap(~factor(climvar, levels=selected_climvars),ncol=1)+
   xlab("")+
   theme_bw()+
   theme(axis.text.x = element_text(angle=45, hjust=1, size=8, color="black"),
@@ -7215,6 +7402,81 @@ correlation_plot<- ggplot(data=sig.cors.byprov %>% bind_rows(nonsig_data) %>% le
 # png("figures/correlation_plot.png", width=6.5, height=5, res = 300, units = "in")
  correlation_plot
 # dev.off()
+ 
+##correlation plot for current year variables
+ 
+sig.cors.byprov.all <- cor_clean %>% left_join(ttestdata %>% filter(pvalue < 0.05)) %>% 
+  mutate(sig = case_when(!is.na(pvalue) ~ "*",
+                         .default = "")) %>% 
+  filter(!is.na(pvalue)) %>% 
+  left_join(name_conversion, by=c("Provenance"="oldname"))
+
+nonsig.provs.all <- cor_clean %>% left_join(ttestdata %>% filter(pvalue < 0.05)) %>% 
+  mutate(sig = case_when(!is.na(pvalue) ~ "*",
+                         .default = "")) %>% 
+  dplyr::select(climvar, Provenance, pvalue) %>% 
+  unique() %>%
+  group_by(Provenance) %>% 
+  summarise(sum = sum(pvalue, na.rm=T)) %>% 
+  filter(sum==0)%>% 
+  left_join(name_conversion, by=c("Provenance"="oldname"))
+
+
+current_climvars <- unique(cor_clean$climvar)[1:26]
+current_climvars_order1 <- ttestdata %>% filter(pvalue < 0.05) %>% 
+  group_by(climvar) %>% 
+  summarise(n=n()) %>% 
+  filter(climvar %in% current_climvars)
+current_climvars_order<- current_climvars_order1 %>% 
+  bind_rows(data.frame(climvar=current_climvars, n=0) %>% 
+   filter(! climvar %in% current_climvars_order1$climvar)) %>% 
+  arrange(n)
+
+ggplot(data=sig.cors.byprov.all%>% filter(climvar %in% current_climvars) %>% left_join(prov_names, by=c("newname"="Provenance")), aes(x=factor(code, levels=provs_bylat$code), y=estimate))+
+    geom_jitter(data= cor_clean %>% filter(climvar %in% current_climvars) %>% left_join(name_conversion, by=c("Provenance"="oldname")) %>% dplyr::select(-Provenance) %>% left_join(prov_names, by=c("newname"="Provenance")), aes(x=factor(code, levels=provs_bylat$code), y=cor), fill="gray", color="black", size=2, height=0, width=0.1, alpha=0.2)+
+  geom_errorbar(aes(x=factor(code, levels=provs_bylat$code), ymin=lwr, ymax=upr, color = factor(code, levels=provs_bylat$code)),width=0.8, linewidth=1)+
+    geom_errorbar(aes(x=factor(code, levels=provs_bylat$code), ymin=lwr, ymax=upr),width=0.8, color="black", linewidth=0.5)+
+  geom_point(size=2, shape=21, aes(fill=factor(code, levels=provs_bylat$code)))+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  scale_fill_manual(values=unname(stepped()), name="Provenance")+
+  geom_hline(yintercept=0, col="black")+
+  facet_wrap(~factor(climvar, levels=current_climvars_order$climvar))+
+  xlab("")+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle=45, hjust=1, size=8, color="black"),
+        axis.text.y = element_text(size=10, color="black"),
+        axis.title = element_text(size=10, color="black"),
+        legend.position = "none",
+        strip.text = element_text(color="black", size=10),
+        panel.grid = element_blank())
+
+prior_climvars <- unique(cor_clean$climvar)[27:52]
+prior_climvars_order1 <- ttestdata %>% filter(pvalue < 0.05) %>% 
+  group_by(climvar) %>% 
+  summarise(n=n()) %>% 
+  filter(climvar %in% prior_climvars)
+prior_climvars_order<- prior_climvars_order1 %>% 
+  bind_rows(data.frame(climvar=prior_climvars, n=0) %>% 
+   filter(! climvar %in% prior_climvars_order1$climvar)) %>% 
+  arrange(n)
+
+ggplot(data=sig.cors.byprov.all%>% filter(climvar %in% prior_climvars) %>% left_join(prov_names, by=c("newname"="Provenance")), aes(x=factor(code, levels=provs_bylat$code), y=estimate))+
+    geom_jitter(data= cor_clean %>% filter(climvar %in% prior_climvars) %>% left_join(name_conversion, by=c("Provenance"="oldname")) %>% dplyr::select(-Provenance) %>% left_join(prov_names, by=c("newname"="Provenance")), aes(x=factor(code, levels=provs_bylat$code), y=cor), fill="gray", color="black", size=2, height=0, width=0.1, alpha=0.2)+
+  geom_errorbar(aes(x=factor(code, levels=provs_bylat$code), ymin=lwr, ymax=upr, color = factor(code, levels=provs_bylat$code)),width=0.8, linewidth=1)+
+    geom_errorbar(aes(x=factor(code, levels=provs_bylat$code), ymin=lwr, ymax=upr),width=0.8, color="black", linewidth=0.5)+
+  geom_point(size=2, shape=21, aes(fill=factor(code, levels=provs_bylat$code)))+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  scale_fill_manual(values=unname(stepped()), name="Provenance")+
+  geom_hline(yintercept=0, col="black")+
+  facet_wrap(~factor(climvar, levels=prior_climvars_order$climvar))+
+  xlab("")+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle=45, hjust=1, size=8, color="black"),
+        axis.text.y = element_text(size=10, color="black"),
+        axis.title = element_text(size=10, color="black"),
+        legend.position = "none",
+        strip.text = element_text(color="black", size=10),
+        panel.grid = element_blank())
 ```
 
 ###linear models G x C
@@ -7255,57 +7517,6 @@ qqmath(climmod_cor)
 summary(climmod_cor)
 vif(climmod_cor)
 
-##now model with all composite variables
-
-climmod_cor_composite <- lmer(rw_spline ~ scale(aet_sum) + I(scale(aet_sum)^2) + scale(cwd_wy) + I(scale(cwd_wy)^2) + scale(spei_sum) + I(scale(spei_sum)^2)+ scale(prior_FDSI) + I(scale(prior_FDSI)^2) + scale(prior_aet_sum) + I(scale(prior_aet_sum)^2) + scale(prior_cwd_wy) + I(scale(prior_cwd_wy)^2) + scale(prior_spei_sum) + I(scale(prior_spei_sum)^2) + (1|Provenance), data=growth_climate_df)
-plot(climmod_cor_composite)
-qqmath(climmod_cor_composite)
-summary(climmod_cor_composite)
-vif(climmod_cor_composite)
-#dredge.composite <- dredge(climmod_cor_composite) takes a long time ~30 min
-#dredge.composite ##best model by far has aet_sum + aet_sum^2 + cwd_wy + cwd_wy^2 + prior_aet_sum + prior_aet_sum^2 + prior_FDSI + prior_spei_sum + prior_spei_sum^2 + spei_sum + spei_sum^2
-best.model.comp <- lm(rw_spline ~ scale(aet_sum) + I(scale(aet_sum)^2) + scale(cwd_wy) + I(scale(cwd_wy)^2) + scale(prior_aet_sum) + I(scale(prior_aet_sum)^2) + scale(prior_FDSI) + scale(prior_spei_sum) + I(scale(prior_spei_sum)^2) + scale(spei_sum) + I(scale(spei_sum)^2), data=growth_climate_df)
-par(mfrow=c(2,2))
-plot(best.model.comp)
-par(mfrow=c(1,1))
-summary(best.model.comp)
-vif(best.model.comp)
-
-plantation_clim %>% 
-  left_join(plantation_clim_minus1, by=c("year" = "prior_year", "CN" = "prior_CN")) %>% 
-  filter(! year %in% c(1971)) %>% 
-  ungroup() %>% 
-  filter(year>1970) %>% 
-  dplyr::select(c("aet_sum" , "cwd_wy" , "prior_aet_sum", "prior_FDSI" , "prior_spei_sum", "spei_sum")) %>% 
-  cor()
-
-growth_climate_df %>% dplyr::select(aet_sum, prior_aet_sum, prior_FDSI) %>% summary()
-
-growth_climate_df_forplot <- growth_climate_df %>% 
-  mutate(aet_sum_cat = case_when(aet_sum < 295.4 ~ "low",
-                                 aet_sum > 295.4 & aet_sum < 319.4 ~ "mid",
-                                 aet_sum > 319.4 ~ "high"),
-         prior_aet_sum_cat = case_when(prior_aet_sum < 306 ~ "low",
-                                 #prior_aet_sum > 295.4 & prior_aet_sum < 319.4 ~ "mid",
-                                 prior_aet_sum > 306 ~ "high"),
-         prior_FDSI_cat = case_when(prior_FDSI < 0 ~ "low",
-                                 #prior_FDSI > -0.54 & prior_FDSI < 0.59 ~ "mid",
-                                 prior_FDSI > 0 ~ "high"))
-
-ggplot(growth_climate_df_forplot, aes(x=aet_sum, y=rw_spline))+
-  geom_point()+
-  geom_smooth(method="lm")+
-  facet_grid(prior_aet_sum_cat ~ prior_FDSI_cat)+
-  scale_y_continuous(sec.axis = sec_axis(~ . , name = "prior AET", breaks = NULL, labels = NULL)) +
-  scale_x_continuous(sec.axis = sec_axis(~ . , name = "prior FDSI", breaks = NULL, labels = NULL))
-
-ggplot(growth_climate_df_forplot, aes(x=aet_sum, y=rw_spline, col=prior_aet_sum_cat))+
-  geom_point()+
-  geom_smooth(method="lm")
-
-ggplot(growth_climate_df_forplot, aes(x=aet_sum, y=rw_spline, col=prior_FDSI_cat))+
-  geom_point()+
-  geom_smooth(method="lm")
 ```
 
 ###provenance climate affect on Gx C correlation 
@@ -7379,68 +7590,17 @@ lmerdata_pcs <- bind_rows(lmerdata_pcs, data.frame(climvar=climvars[i], pc1value
 lmerdata_pcs %>% 
   filter((pc1value.lmer < 0.05 | pc2value.lmer < 0.05 | pc1pc2value.lmer<0.05))
 
-#vpdmax_wt x smrpb
-ggplot(data=cor_provclim_long %>% filter(climvar=="vpdmax_wt"& name=="smrpb"), aes(x=value, y=cor))+
-  geom_point()+
-  geom_smooth(method="lm")+
-  xlab("smrpb")+
-  ggtitle("vpdmax_wt")
+pc1_spT_mod <- lmer(cor ~ PC1*PC2 + (1|Provenance), data=cor_provclim %>% filter(climvar=="prior_value_sp_tmean"))
+plot(pc1_spT_mod)
+qqmath(pc1_spT_mod)
+summary(pc1_spT_mod) #strength of correlation with prior spring temperature increases towards hotter and drier provenances (higher PC1)
 
-vpdmax_wt_smrpb<- cor_provclim_long %>% filter(climvar=="vpdmax_wt" & name=="smrpb") 
-
-vpdmax_wt_smrpb_mod <- lmer(cor ~ value + (1|Provenance), data=vpdmax_wt_smrpb)
-plot(vpdmax_wt_smrpb_mod)
-qqmath(vpdmax_wt_smrpb_mod)
-summary(vpdmax_wt_smrpb_mod)
-
-vpdmax_wt_smrpb_mod_nog <- lmer(cor ~ value + (1|Provenance), data=vpdmax_wt_smrpb %>% filter(!Provenance=="Gila NF"))
-plot(vpdmax_wt_smrpb_mod_nog)
-qqmath(vpdmax_wt_smrpb_mod_nog)
-summary(vpdmax_wt_smrpb_mod_nog) #not significant without Gila
-
-#FDSI x CMD
-ggplot(data=cor_provclim_long %>% filter(climvar=="FDSI"& name=="CMD"), aes(x=value, y=cor))+
-  geom_point()+
-  geom_smooth(method="lm")+
-  xlab("CMD")+
-  ggtitle("FDSI")
-
-FDSI_CMD<- cor_provclim_long %>% filter(climvar=="FDSI" & name=="CMD") 
-
-FDSI_CMD_mod <- lmer(cor ~ value + (1|Provenance), data=FDSI_CMD)
-plot(FDSI_CMD_mod)
-qqmath(FDSI_CMD_mod)
-summary(FDSI_CMD_mod)
-
-FDSI_CMD_mod_nog <- lmer(cor ~ value + (1|Provenance), data=FDSI_CMD %>% filter(!Provenance=="Gila NF"))
-plot(FDSI_CMD_mod_nog)
-qqmath(FDSI_CMD_mod_nog)
-summary(FDSI_CMD_mod_nog) #significant
-
-#cwd_wy x PPTwt
-ggplot(data=cor_provclim_long %>% filter(climvar=="cwd_wy"& name=="PPTwt"), aes(x=value, y=cor))+
-  geom_point()+
-  geom_smooth(method="lm")+
-  xlab("PPTwt")+
-  ggtitle("cwd_wy")
-
-cwd_wy_PPTwt<- cor_provclim_long %>% filter(climvar=="cwd_wy" & name=="PPTwt") 
-
-cwd_wy_PPTwt_mod <- lmer(cor ~ value + (1|Provenance), data=cwd_wy_PPTwt)
-plot(cwd_wy_PPTwt_mod)
-qqmath(cwd_wy_PPTwt_mod)
-summary(cwd_wy_PPTwt_mod)
-
-cwd_wy_PPTwt_mod_nog <- lmer(cor ~ value + (1|Provenance), data=cwd_wy_PPTwt %>% filter(!Provenance=="Gila NF"))
-plot(cwd_wy_PPTwt_mod_nog)
-qqmath(cwd_wy_PPTwt_mod_nog)
-summary(cwd_wy_PPTwt_mod_nog) #still significant
 ```
 
 ```{r}
 
-annual_climvar <- lmerdata %>% filter(pvalue.lmer < 0.05) %>% filter(!climvar %in% c("prior_value_wt_tmax","prior_value_wt_tmin","prior_value_sp_tmax","prior_value_sp_tmean")) %>% pull(climvar)
-prov_climvar <- lmerdata %>% filter(pvalue.lmer < 0.05) %>% filter(!climvar %in% c("prior_value_wt_tmax","prior_value_wt_tmin","prior_value_sp_tmax","prior_value_sp_tmean")) %>% pull(name)
+annual_climvar <- lmerdata %>% filter(pvalue.lmer < 0.05) %>% filter(!climvar %in% c("value_wt_tmax","value_wt_tmin","value_sp_tmax","value_sp_tmean","prior_value_wt_tmax","prior_value_wt_tmin","prior_value_sp_tmax","prior_value_sp_tmean")) %>% pull(climvar)
+prov_climvar <- lmerdata %>% filter(pvalue.lmer < 0.05) %>% filter(!climvar %in% c("value_wt_tmax","value_wt_tmin","value_sp_tmax","value_sp_tmean","prior_value_wt_tmax","prior_value_wt_tmin","prior_value_sp_tmax","prior_value_sp_tmean"))%>% pull(name)
 
 correlation_strength_results <- data.frame()
 for(i in 1:length(annual_climvar)){
@@ -7449,6 +7609,8 @@ for(i in 1:length(annual_climvar)){
     
     correlation_strength_results <- bind_rows(correlation_strength_results, data.frame(annual_climvar = annual_climvar[i], prov_climvar = prov_climvar[i], pvalue_all = as.data.frame(summary(mod)$coefficients)[2,] %>% pull(`Pr(>|t|)`), pvalue_nog = as.data.frame(summary(mod_nog)$coefficients)[2,] %>% pull(`Pr(>|t|)`)))
 }
+correlation_strength_results %>% 
+  filter(pvalue_nog<0.05)
 
 write.csv(correlation_strength_results %>% 
   filter(pvalue_nog<0.05), "sig_correlations.csv")
@@ -7474,7 +7636,7 @@ ggplot()+
   filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("cwd_wy") & prov_climvar=="PPTwt")  , aes(x=value, y=cor, col=factor(Provenance, levels=provs_bylat$Provenance)))+
   geom_smooth(data= left_join(correlation_strength_results %>% 
   filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("cwd_wy") & prov_climvar=="PPTwt"), aes(x=value, y=cor), method="lm", col="darkgrey")+
-  xlab("Winter Precipitation (mm)")+ ylab("Correlation")+
+  xlab("Provenance Winter Precip (mm)")+ ylab("Correlation")+
   ggtitle("A) water year CWD X RWI")+
   theme_bw(),
 
@@ -7486,7 +7648,7 @@ ggplot()+
   filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("vpdmax_sm") & prov_climvar=="MCMT")  , aes(x=value, y=cor, col=factor(Provenance, levels=provs_bylat$Provenance)))+
   geom_smooth(data=left_join(correlation_strength_results %>% 
   filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("vpdmax_sm") & prov_climvar=="MCMT")  , aes(x=value, y=cor), method="lm", col="darkgrey")+
-  xlab("Provenance MCMT")+ ylab("Correlation")+
+  xlab("Provenance MCMT (C)")+ ylab("Correlation")+
   ggtitle("B) summer max VPD x RWI")+
   theme_bw(),
 
@@ -7494,23 +7656,24 @@ ggplot()+
     geom_hline(yintercept=0, col="black")+
   scale_color_manual(values=unname(stepped()), name="Provenance")+
   geom_point(data=left_join(correlation_strength_results %>% 
-  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("prior_aet_sum") & prov_climvar=="EMT")  , aes(x=value, y=cor, col=factor(Provenance, levels= provs_bylat$Provenance)))+
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("value_wt_tmean") & prov_climvar=="CMD")  , aes(x=value, y=cor, col=factor(Provenance, levels= provs_bylat$Provenance)))+
   geom_smooth(data=left_join(correlation_strength_results %>% 
-  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("prior_aet_sum") & prov_climvar=="EMT")  , aes(x=value, y=cor), method="lm", color="darkgrey")+
-  xlab("Provenance Extreme minimum temperature (C)")+ ylab("Correlation")+
-  ggtitle("C) prior year AET X RWI")+
-  theme_bw(),
-
-ggplot()+
-    geom_hline(yintercept=0, col="black")+
-  scale_color_manual(values=unname(stepped()), name="Provenance")+
-  geom_point(data=left_join(correlation_strength_results %>% 
-  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("prior_value_sp_tmin") & prov_climvar=="PC1")  , aes(x=value, y=cor, col=factor(Provenance, levels=provs_bylat$Provenance)))+
-  geom_smooth(data=left_join(correlation_strength_results %>% 
-  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("prior_value_sp_tmin") & prov_climvar=="PC1")  , aes(x=value, y=cor), method="lm", col="darkgrey")+
-  xlab("Provenance PC1")+ ylab("Correlation")+
-  ggtitle("D) prior spring tmin x RWI")+
-  theme_bw(), common.legend=TRUE)
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("value_wt_tmean") & prov_climvar=="CMD")  , aes(x=value, y=cor), method="lm", color="darkgrey")+
+  xlab("Provenance CWD")+ ylab("Correlation")+
+  ggtitle("C) winter tmean X RWI")+
+  theme_bw()
+# 
+# ggplot()+
+#     geom_hline(yintercept=0, col="black")+
+#   scale_color_manual(values=unname(stepped()), name="Provenance")+
+#   geom_point(data=left_join(correlation_strength_results %>% 
+#   filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("prior_value_sp_tmin") & prov_climvar=="PC1")  , aes(x=value, y=cor, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+#   geom_smooth(data=left_join(correlation_strength_results %>% 
+#   filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("prior_value_sp_tmin") & prov_climvar=="PC1")  , aes(x=value, y=cor), method="lm", col="darkgrey")+
+#   xlab("Provenance PC1")+ ylab("Correlation")+
+#   ggtitle("D) prior spring tmin x RWI")+
+#   theme_bw()
+, common.legend=TRUE, nrow=1)
 
 png("figures/corplots4.png", width = 8.5, height=7.5, units="in", res=300)
 corplots4
