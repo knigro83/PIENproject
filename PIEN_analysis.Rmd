@@ -1828,7 +1828,7 @@ dbh_mods <- bind_rows(dbh_mods, data.frame(var=provenance_climvars[i], pvalue = 
 
 }
 
-dbh_mods %>% arrange(pvalue)
+dbh_mods %>% arrange(pvalue_nog)
 
 ###quadratic
 
@@ -1845,7 +1845,38 @@ dbh_mods_quad <- bind_rows(dbh_mods_quad, data.frame(var=provenance_climvars[i],
 
 }
 
+ggplot(dbh_num14_long %>% filter(!Provenance=="Gila NF"), aes(x=value, y=DBH, col=name))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~name, scales="free")
+
 dbh_mods_quad %>% arrange(pvalue2_nog) #nothing significant
+```
+
+```{r}
+#look at DBH in other years
+
+dbh_numeric91 <- dbh_numeric %>% filter(year=="DBH91") %>% 
+  mutate(Provenance=as.factor(Provenance))
+
+dbh_num91_long <- dbh_numeric91 %>% 
+  pivot_longer(c(AHM:SHM, smrpb, monsoonality))
+
+dbh_mods91<- data.frame()
+dbh_num91_nog <- dbh_numeric91 %>% filter(!Provenance=="Gila NF")
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(DBH ~ value + (1|Provenance), data=dbh_num91_long %>% filter(name==provenance_climvars[i]))
+pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
+
+mod_nog <- lmer(DBH ~ value + (1|Provenance), data=dbh_num91_long %>% filter(name==provenance_climvars[i]) %>% filter(!Provenance=="Gila NF"))
+pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|t|)`
+
+dbh_mods91 <- bind_rows(dbh_mods91, data.frame(var=provenance_climvars[i], pvalue = pvalue, pvalue_nog = pvalue_nog))
+
+}
+
+dbh_mods91 %>% arrange(pvalue)
+
 ```
 
 ##Height Growth
@@ -1908,6 +1939,36 @@ ggplot()+
   scale_color_discrete(name="Provenance")+
   scale_x_discrete(name="Year")+
   ylab("Average relative growth ratio")
+ 
+nursery_ht_clim <- ht_data_clim %>% 
+  dplyr::select(c(Provenance, nursery_ht_m, PC1,PC2, AHM:SHM, smrpb)) %>% 
+  unique() %>% 
+  pivot_longer(PC1:smrpb)
+  
+ggplot(nursery_ht_clim %>% filter(name %in% c("MAT","MCMT","NFFD","smrpb")), aes(x=value, y=nursery_ht_m))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~name, scales="free")
+
+nursery_climvars <- unique(nursery_ht_clim$name)
+nursery_lms <- data.frame()
+for(i in 1:length(nursery_climvars)){
+  mod <- lm(nursery_ht_m ~ value, data=nursery_ht_clim %>% filter(name == nursery_climvars[i]))
+  pvalue <- as.data.frame(summary(mod)$coefficients)$`Pr(>|t|)`[2]
+  mod_nog <- lm(nursery_ht_m ~ value, data=nursery_ht_clim %>% filter(name == nursery_climvars[i]) %>% filter(!Provenance == "Gila NF"))
+  pvalue_nog <- as.data.frame(summary(mod_nog)$coefficients)$`Pr(>|t|)`[2]
+  nursery_lms <- bind_rows(nursery_lms, data.frame(nursery_climvars=nursery_climvars[i],pvalue,pvalue_nog))
+}
+nursery_lms %>% arrange(pvalue)  
+
+
+nursery_lms_nog <- data.frame()
+for(i in 1:length(nursery_climvars)){
+  mod <- lm(nursery_ht_m ~ value, data=nursery_ht_clim %>% filter(name == nursery_climvars[i]))
+  pvalue <- as.data.frame(summary(mod)$coefficients)$`Pr(>|t|)`[2]
+  nursery_lms <- bind_rows(nursery_lms, data.frame(nursery_climvars=nursery_climvars[i],pvalue))
+}
+nursery_lms %>% arrange(pvalue)
 
 ##initial height effect on height growth -- looks like there isn't really one
 ggplot(data=ht_data_aves, aes(x=nursery_ht_m, y=meangrowth))+
@@ -2393,6 +2454,38 @@ ht_mods_quad <- bind_rows(ht_mods_quad, data.frame(var=provenance_climvars[i], p
 }
 
 ht_mods_quad %>% arrange(pvalue2_nog) #nothing significant when Gila is taken out
+```
+
+
+```{r}
+##try heights in other years
+
+ht_data_clim91 <- ht_data_clim %>% 
+  filter(name=="HT91") %>% 
+  left_join(pca_dist_df %>% dplyr::select(code, dist.to.plant,dist.to.plant.3d)) %>% 
+  left_join(geo.dist.df)
+
+ht_data_clim91_long <- ht_data_clim91 %>% 
+  pivot_longer(c(AHM:SHM, smrpb, monsoonality), names_to="climvar.name", values_to = "climvar.value")
+
+ht_mods91<- data.frame()
+
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(value ~ climvar.value + (1|Provenance), data=ht_data_clim91_long %>% filter(climvar.name==provenance_climvars[i]))
+pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
+
+mod_nog <- lmer(value ~ climvar.value + (1|Provenance), data=ht_data_clim91_long %>% filter(climvar.name==provenance_climvars[i]) %>% filter(!Provenance=="Gila NF"))
+pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|t|)`
+
+ht_mods91 <- bind_rows(ht_mods91, data.frame(var=provenance_climvars[i], pvalue = pvalue, pvalue_nog = pvalue_nog))
+
+}
+
+ht_mods91 %>% arrange(pvalue_nog) ##lots significant with Gila, but when it's taken out, nothing is significant
+
+ggplot(ht_data_clim85_long %>% filter(climvar.name=="RH"), aes(x=climvar.value, y=value))+
+  geom_point()+
+  geom_smooth(method="lm")
 ```
 
 ####Southern Region
