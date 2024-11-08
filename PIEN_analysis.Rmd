@@ -934,7 +934,29 @@ ggplot(xtreme_c_byyr, aes(x=year, y=n, fill=n))+
   geom_bar(stat='identity')+
   scale_fill_gradientn(colors=c("lightblue","navy"))
 
+plantation_clim_wetextremes<- plantation_clim_long_qs %>% 
+  mutate(extreme = ifelse(name %in% c("PPTsm","ppt_gs","ppt_wt","PPT_at","PPTsp","ppt","FDSI","aet_sum","spei_sum") & value > out.hi, "yes", "no" 
+  )) %>% 
+  filter(extreme=="yes")
 
+plantation_clim_wetextremes %>% 
+  group_by(year) %>% 
+  summarise(n=n())
+
+ggplot(plantation_clim_long_qs %>% 
+  filter(name %in% c("PPTsm","ppt_gs","ppt_wt","PPT_at","PPTsp","ppt","FDSI","aet_sum","spei_sum")), aes(x=year, y=value, color=name))+
+  geom_point()+
+  geom_line()+
+  facet_wrap(~name, scales="free")+
+  geom_line(data=plantation_clim_long_qs %>% 
+  filter(name %in% c("PPTsm","ppt_gs","ppt_wt","PPT_at","PPTsp","ppt","FDSI","aet_sum","spei_sum")), aes(x=year, y=out.low), col="black")+
+  geom_line(data=plantation_clim_long_qs %>% 
+  filter(name %in% c("PPTsm","ppt_gs","ppt_wt","PPT_at","PPTsp","ppt","FDSI","aet_sum","spei_sum")), aes(x=year, y=out.hi), col="black")+
+  geom_hline(yintercept=0)
+
+plantation_clim_long_qs %>% 
+  filter(name=="FDSI") %>% 
+  print(n=60)
 ```
 
 
