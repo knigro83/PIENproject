@@ -2483,7 +2483,7 @@ ht_mods91 <- bind_rows(ht_mods91, data.frame(var=provenance_climvars[i], pvalue 
 
 ht_mods91 %>% arrange(pvalue_nog) ##lots significant with Gila, but when it's taken out, nothing is significant
 
-ggplot(ht_data_clim85_long %>% filter(climvar.name=="RH"), aes(x=climvar.value, y=value))+
+ggplot(ht_data_clim91_long %>% filter(climvar.name=="RH"), aes(x=climvar.value, y=value))+
   geom_point()+
   geom_smooth(method="lm")
 ```
