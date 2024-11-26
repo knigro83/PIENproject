@@ -450,19 +450,25 @@ prov_clim_adjusted_bi %>%
 # get_prism_dailys(type="tmin", minDate = "2013-07-01", maxDate = "2013-08-31", keepZip=FALSE)
 # get_prism_dailys(type="tmin", minDate = "2014-07-01", maxDate = "2014-08-31", keepZip=FALSE)
 
-# prism_set_dl_dir("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/PIENproject/prismtmp")
-# 
-# years <- seq(1981,2014,1)
-# 
+#  prism_set_dl_dir("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/PIENproject/prismtmp")
+# # 
+# # years <- seq(1981,2014,1)
+#  years <- c(2015)
+# # 
 # for(k in 1:length(years)){
 #       get_prism_dailys(type="tmin", minDate = paste(years[k],"-05-15",sep=""), maxDate = paste(years[k],"-10-13",sep=""), keepZip=FALSE)
 #     }
   
+# get_prism_dailys(type="tmin", minDate = paste(2015,"-10-14",sep=""), maxDate = paste(2015,"-10-31",sep=""), keepZip=FALSE)
+# 
+# get_prism_dailys(type="tmin", minDate = paste(2009,"-05-01",sep=""), maxDate = paste(2009,"-05-14",sep=""), keepZip=FALSE)
+
+
 dates_31 <- c("01","02","03","04","05","06","07","08","09",seq(10,31,1))
 dates_30 <- c("01","02","03","04","05","06","07","08","09",seq(10,30,1))
 months_31 <- c("07","08")
 months_30 <- c("06","09")
-years <- seq(1981,2014,1)
+#years <- seq(1981,2014,1)
 dates_may<- seq(15,31,1)
 dates_oct<-  c("01","02","03","04","05","06","07","08","09",seq(10,13,1))
 
@@ -501,6 +507,59 @@ dates_oct<-  c("01","02","03","04","05","06","07","08","09",seq(10,13,1))
 # tmindata_30 <- bind_rows(tmindata_30,data.frame(year=years[k], month=months_30[j], day = dates_30[i], tmin = tmin[,2]))}}}
 # 
 # write.csv(tmindata_30, "tmindata_30.csv")
+
+######adding 2015
+#first for partial May
+# tmindata_31_2015<- data.frame()
+# for(k in 1:length(years)){
+#     for(i in 1:length(dates_may)){
+# raster<- rast(paste("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/PIENproject/prismtmp/PRISM_tmin_stable_4kmD2_",years[k],"05",dates_may[i],"_bil","/PRISM_tmin_stable_4kmD2_",years[k],"05",dates_may[i],"_bil.bil",sep=""))
+# tmin <- terra::extract(raster, adjusted_provs %>% filter(Provenance=="Plantation"), method="simple")
+# tmindata_31_2015 <- bind_rows(tmindata_31_2015,data.frame(year=years[k], month="05", day = dates_may[i], tmin = tmin[,2]))}}
+# 
+# for(k in 1:length(years)){
+#   for(j in 1:length(months_31)){
+#     for(i in 1:length(dates_31)){
+# raster<- rast(paste("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/PIENproject/prismtmp/PRISM_tmin_stable_4kmD2_",years[k],months_31[j],dates_31[i],"_bil","/PRISM_tmin_stable_4kmD2_",years[k],months_31[j],dates_31[i],"_bil.bil",sep=""))
+# tmin <- terra::extract(raster, adjusted_provs %>% filter(Provenance=="Plantation"), method="simple")
+# tmindata_31_2015 <- bind_rows(tmindata_31_2015,data.frame(year=years[k], month=months_31[j], day = as.numeric(dates_31[i]), tmin = tmin[,2]))}}}
+# 
+# for(k in 1:length(years)){
+#     for(i in 1:length(dates_oct)){
+# raster<- rast(paste("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/PIENproject/prismtmp/PRISM_tmin_stable_4kmD2_",years[k],"10",dates_oct[i],"_bil","/PRISM_tmin_stable_4kmD2_",years[k],"10",dates_oct[i],"_bil.bil",sep=""))
+# tmin <- terra::extract(raster, adjusted_provs %>% filter(Provenance=="Plantation"), method="simple")
+# tmindata_31_2015 <- bind_rows(tmindata_31_2015,data.frame(year=years[k], month="10", day = as.numeric(dates_oct[i]), tmin = tmin[,2]))}}
+# 
+# 
+# head(tmindata_31_2015)
+# tail(tmindata_31_2015)
+# 
+# tmindata_31 <- read.csv("tmindata_31.csv")
+# tmindata_31 <- bind_rows(tmindata_31,tmindata_31_2015 %>% mutate(year=as.integer(year),month=as.integer(month),day=as.integer(day)))
+# 
+# write.csv(tmindata_31,"tmindata_31.csv")
+# 
+# tmindata_30_2015<- data.frame()
+# for(k in 1:length(years)){
+#   for(j in 1:length(months_30)){
+#     for(i in 1:length(dates_30)){
+# raster<- rast(paste("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/PIENproject/prismtmp/PRISM_tmin_stable_4kmD2_",years[k],months_30[j],dates_30[i],"_bil","/PRISM_tmin_stable_4kmD2_",years[k],months_30[j],dates_30[i],"_bil.bil",sep=""))
+# tmin <- terra::extract(raster, adjusted_provs %>% filter(Provenance=="Plantation"), method="simple")
+# tmindata_30_2015 <- bind_rows(tmindata_30_2015,data.frame(year=years[k], month=months_30[j], day = dates_30[i], tmin = tmin[,2]))}}}
+# 
+# tmindata_30 <- read.csv("tmindata_30.csv")
+# tmindata_30 <- bind_rows(tmindata_30,tmindata_30_2015 %>% mutate(year=as.integer(year),month=as.integer(month),day=as.integer(day)))
+# 
+# write.csv(tmindata_30,"tmindata_30.csv")
+
+
+# raster<- rast(paste("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/PIENproject/prismtmp/PRISM_tmin_stable_4kmD2_",2015,10,14,"_bil","/PRISM_tmin_stable_4kmD2_",2015,10,14,"_bil.bil",sep=""))
+# terra::extract(raster, adjusted_provs %>% filter(Provenance=="Plantation"), method="simple")
+# ##first fall frost in 2015 is on 10-14
+
+# raster<- rast(paste("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/PIENproject/prismtmp/PRISM_tmin_stable_4kmD2_",2009,05,14,"_bil","/PRISM_tmin_stable_4kmD2_",2009,05,14,"_bil.bil",sep=""))
+# terra::extract(raster, adjusted_provs %>% filter(Provenance=="Plantation"), method="simple")
+# ##05-14-2009 was the last spring frost
 
 ```
 
@@ -1280,6 +1339,25 @@ tmin_aves<- tmin_all %>%
   summarise(ave_tmin=mean(tmin), se=sd(tmin)/sqrt(n()), n=n()) %>% 
   mutate(doy = ymd(paste("2000",month,day,sep="-")))
 
+tmin_all_spring <- tmin_all %>% 
+  filter(month %in% c(5,6,7)) %>% 
+  filter(tmin<0) %>% 
+  group_by(year) %>% 
+  summarise(last_spring_frost = max(date)) %>% 
+  bind_rows(data.frame(year=2009, last_spring_frost=as.Date("2009-05-14"))) %>% 
+  mutate(day_of_last_spring_frost = as.numeric(yday(last_spring_frost)))
+
+tmin_all_fall <- tmin_all %>% 
+  filter(month %in% c(8,9,10)) %>% 
+  filter(tmin<0) %>% 
+  group_by(year) %>% 
+  summarise(first_fall_frost = min(date)) %>%
+  bind_rows(data.frame(year=2015, first_fall_frost=as.Date("2015-10-14"))) %>% 
+  mutate(day_of_first_fall_frost = as.numeric(yday(first_fall_frost)))
+
+plantation_frost <- left_join(tmin_all_spring, tmin_all_fall) %>% 
+  dplyr::select(year, day_of_first_fall_frost, day_of_last_spring_frost) %>% 
+  mutate(CN="Plantation")
 
 vlines<- prov_clim_adjusted_bi %>% 
   dplyr::select(Provenance,bFFP,eFFP) %>% 
@@ -7397,10 +7475,17 @@ ggplot(plantation_clim_long %>% filter(year > 1969 & year < 2015) %>% filter(nam
 
 ```{r}
 ##calculate correlations between detrended growth and climate at plantation
+
+plantation_frost_minus1<- plantation_frost %>% mutate(year = year+1) 
+
+colnames(plantation_frost_minus1)<- paste("prior_",colnames(plantation_frost_minus1),sep="")
+
 growth_climate_df <- growth.detrended.df %>% 
   left_join(plantation_clim) %>% 
- dplyr::select(c(CN:year,PPTsm:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum)) %>% 
+  left_join(plantation_frost) %>% 
+ dplyr::select(c(CN:year,PPTsm:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum, day_of_last_spring_frost, day_of_first_fall_frost)) %>% 
   left_join(plantation_clim_minus1, by=c("year" = "prior_year", "CN" = "prior_CN")) %>% 
+  left_join(plantation_frost_minus1, by=c("year" = "prior_year", "CN" = "prior_CN")) %>% 
   ungroup() %>% 
   filter(year>1970) %>% 
   filter(!is.na(rw_spline))
@@ -7539,7 +7624,7 @@ ttestdata %>% filter(pvalue < 0.05) %>%
   group_by(climvar) %>% 
   summarise(n=n()) %>% 
 arrange(n) %>% 
-  print(n=52)
+  print(n=56)
 
 sig.cors.byprov <- cor_clean %>% left_join(ttestdata %>% filter(pvalue < 0.05)) %>% 
   mutate(sig = case_when(!is.na(pvalue) ~ "*",
@@ -7559,7 +7644,7 @@ nonsig.provs <- cor_clean %>% left_join(ttestdata %>% filter(pvalue < 0.05)) %>%
   filter(sum==0)%>% 
   left_join(name_conversion, by=c("Provenance"="oldname"))
 
-selected_climvars <-  c("vpdmax_wt","value_wt_tmean", "aet_sum")
+selected_climvars <-  c("vpdmax_wt","value_wt_tmean", "aet_sum","prior_PPTsm")
 
 correlation_plot<- ggplot(data=sig.cors.byprov %>% filter(climvar %in% selected_climvars) %>% left_join(prov_names, by=c("newname"="Provenance")), aes(x=factor(code, levels=provs_bylat$code), y=estimate))+
     geom_jitter(data= cor_clean %>% filter(climvar %in% selected_climvars) %>% left_join(name_conversion, by=c("Provenance"="oldname")) %>% dplyr::select(-Provenance) %>% left_join(prov_names, by=c("newname"="Provenance")), aes(x=factor(code, levels=provs_bylat$code), y=cor), fill="gray", color="black", size=2, height=0, width=0.1, alpha=0.2)+
@@ -7602,7 +7687,7 @@ nonsig.provs.all <- cor_clean %>% left_join(ttestdata %>% filter(pvalue < 0.05))
   left_join(name_conversion, by=c("Provenance"="oldname"))
 
 
-current_climvars <- unique(cor_clean$climvar)[1:26]
+current_climvars <- unique(cor_clean$climvar)[1:28]
 current_climvars_order1 <- ttestdata %>% filter(pvalue < 0.05) %>% 
   group_by(climvar) %>% 
   summarise(n=n()) %>% 
@@ -7630,7 +7715,25 @@ ggplot(data=sig.cors.byprov.all%>% filter(climvar %in% current_climvars) %>% lef
         strip.text = element_text(color="black", size=10),
         panel.grid = element_blank())
 
-prior_climvars <- unique(cor_clean$climvar)[27:52]
+ggplot(data=sig.cors.byprov.all%>% filter(climvar %in% current_climvars) %>% left_join(prov_names, by=c("newname"="Provenance")), aes(x=factor(climvar), y=estimate))+
+    geom_jitter(data= cor_clean %>% filter(climvar %in% current_climvars) %>% left_join(name_conversion, by=c("Provenance"="oldname")) %>% dplyr::select(-Provenance) %>% left_join(prov_names, by=c("newname"="Provenance")), aes(x=factor(climvar), y=cor), fill="gray", color="black", size=2, height=0, width=0.1, alpha=0.2)+
+  geom_errorbar(aes(x=factor(climvar), ymin=lwr, ymax=upr, color = factor(code, levels=provs_bylat$code)),width=0.8, linewidth=1)+
+    geom_errorbar(aes(x=factor(climvar), ymin=lwr, ymax=upr),width=0.8, color="black", linewidth=0.5)+
+  geom_point(size=2, shape=21, aes(fill=factor(code, levels=provs_bylat$code)))+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  scale_fill_manual(values=unname(stepped()), name="Provenance")+
+  geom_hline(yintercept=0, col="black")+
+  facet_wrap(~factor(code, levels=provs_bylat$code))+
+  xlab("")+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle=45, hjust=1, size=8, color="black"),
+        axis.text.y = element_text(size=10, color="black"),
+        axis.title = element_text(size=10, color="black"),
+        legend.position = "none",
+        strip.text = element_text(color="black", size=10),
+        panel.grid = element_blank())
+
+prior_climvars <- unique(cor_clean$climvar)[29:56]
 prior_climvars_order1 <- ttestdata %>% filter(pvalue < 0.05) %>% 
   group_by(climvar) %>% 
   summarise(n=n()) %>% 
@@ -7677,13 +7780,42 @@ all_lms %>%
 
 plantation_clim %>% 
   left_join(plantation_clim_minus1, by=c("year" = "prior_year", "CN" = "prior_CN")) %>% 
-  filter(! year %in% c(1971)) %>% 
+  filter(year>1984&year<2016) %>% 
   ungroup() %>% 
-  filter(year>1970) %>% 
+  filter(year>1984&year<2016) %>% 
   dplyr::select(c(all_lms %>% 
   filter(pvalue<0.05) %>% 
+    filter(!var %in% c("day_of_last_spring_frost","prior_day_of_last_spring_frost","day_of_first_fall_frost","prior_day_of_first_fall_frost")) %>% 
   pull(var) )) %>% 
   dplyr::select(-c("PPTsm","PPTsp","PPT_at","prior_PPTsm","prior_ppt","prior_value_fa_tmax","prior_value_fa_tmean","prior_value_wt_tmax","prior_value_wt_tmean")) %>% 
+  cor() %>% 
+  ggcorrplot()
+
+##getting rid of correlated variables
+climcors<- plantation_clim %>% 
+  left_join(plantation_clim_minus1, by=c("year" = "prior_year", "CN" = "prior_CN")) %>% 
+  filter(year>1984&year<2016) %>% 
+  ungroup() %>% 
+  filter(year>1984&year<2016) %>% 
+  dplyr::select(c(all_lms %>% 
+  filter(pvalue<0.05) %>% 
+    filter(!var %in% c("day_of_last_spring_frost","prior_day_of_last_spring_frost","day_of_first_fall_frost","prior_day_of_first_fall_frost")) %>% 
+  pull(var) )) %>% 
+  dplyr::select(-c("PPTsm","PPTsp","PPT_at","prior_PPTsm","prior_ppt","prior_value_fa_tmax","prior_value_fa_tmean","prior_value_wt_tmax","prior_value_wt_tmean","value_fa_tmean","value_fa_tmax","value_wt_tmean","value_wt_tmax","value_sp_tmean","value_sp_tmax","spei_sum","prior_value_fa_tmean","prior_value_fa_tmax","prior_value_wt_tmean","prior_value_wt_tmax","prior_spei_sum","prior_FDSI","value_sm_tmin","value_wt_tmin","value_sp_tmin","prior_value_fa_tmin","prior_value_wt_tmin","prior_value_sm_tmin")) %>% 
+  cor() 
+
+climcors>0.6
+
+
+plantation_clim %>% 
+  left_join(plantation_frost) %>% 
+  filter(year > 1981 & year < 2016) %>% 
+  ungroup() %>% 
+  filter(year > 1981 & year < 2016) %>% 
+  dplyr::select(c(all_lms %>% 
+  filter(pvalue<0.05) %>% 
+  pull(var))[1:25]) %>% 
+  dplyr::select(-c("PPTsm","PPTsp","PPT_at")) %>% 
   cor() %>% 
   ggcorrplot()
 
@@ -7691,11 +7823,28 @@ all_lms %>%
   filter(pvalue<0.05) %>% 
   filter(! var %in% c("PPTsm","PPTsp","PPT_at","prior_PPTsm","prior_ppt","prior_value_fa_tmax","prior_value_fa_tmean","prior_value_wt_tmax","prior_value_wt_tmean"))
 
-climmod_cor <- lmer(log(rw_spline) ~ ppt_gs + ppt_wt + vpdmax_sm + vpdmax_fa + vpdmax_wt + vpdmax_sp + prior_ppt_gs + prior_ppt_wt + prior_value_sm_tmin + prior_value_fa_tmin + prior_value_wt_tmin + prior_vpdmax_sm + prior_vpdmax_fa + prior_vpdmax_wt + prior_vpdmax_sp + (1|Provenance), data=growth_climate_df)
+
+climmod_vars <-colnames(climcors)
+
+climmod_cor <- lmer(log(rw_spline) ~ ppt_gs + ppt_wt + ppt  + value_fa_tmin  + vpdmax_sm + vpdmax_fa + vpdmax_wt + vpdmax_sp + aet_sum + cwd_wy + prior_ppt_gs + prior_ppt_wt   + prior_vpdmax_sm + prior_vpdmax_fa + prior_vpdmax_wt + prior_vpdmax_sp + prior_aet_sum + prior_cwd_wy + (1|Provenance), data=growth_climate_df)
 plot(climmod_cor)
 qqmath(climmod_cor)
 summary(climmod_cor)
 vif(climmod_cor)
+
+##took out ppt here too
+climmod_cor_current <- lmer(log(rw_spline) ~ ppt_gs + ppt_wt  + value_sm_tmin + value_fa_tmin + value_wt_tmin + value_sp_tmin + vpdmax_sm + vpdmax_fa + vpdmax_wt + vpdmax_sp + aet_sum + cwd_wy + (1|Provenance), data=growth_climate_df)
+plot(climmod_cor_current)
+qqmath(climmod_cor_current)
+summary(climmod_cor_current)
+vif(climmod_cor_current)
+
+climmod_cor_prior <- lmer(log(rw_spline) ~ prior_ppt_gs + prior_ppt_wt + prior_value_sm_tmin + prior_value_fa_tmin + prior_value_wt_tmin + prior_vpdmax_sm + prior_vpdmax_fa + prior_vpdmax_wt + prior_vpdmax_sp + prior_aet_sum + prior_cwd_wy + (1|Provenance), data=growth_climate_df)
+plot(climmod_cor_prior)
+qqmath(climmod_cor_prior)
+summary(climmod_cor_prior)
+vif(climmod_cor_prior)
+
 
 ```
 
@@ -7836,6 +7985,16 @@ ggplot()+
     geom_hline(yintercept=0, col="black")+
   scale_color_manual(values=unname(stepped()), name="Provenance")+
   geom_point(data=left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("vpdmax_sm") & prov_climvar=="MCMT")  , aes(x=value, y=cor, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_smooth(data=left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("vpdmax_sm") & prov_climvar=="MCMT")  , aes(x=value, y=cor), method="lm", col="darkgrey")+
+  xlab("Provenance MCMT (C)")+ ylab("Correlation")+
+  ggtitle("B) summer max VPD x RWI")+
+  theme_bw(),
+ggplot()+
+    geom_hline(yintercept=0, col="black")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  geom_point(data=left_join(correlation_strength_results %>% 
   filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("value_wt_tmean") & prov_climvar=="CMD")  , aes(x=value, y=cor, col=factor(Provenance, levels= provs_bylat$Provenance)))+
   geom_smooth(data=left_join(correlation_strength_results %>% 
   filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("value_wt_tmean") & prov_climvar=="CMD")  , aes(x=value, y=cor), method="lm", color="darkgrey")+
@@ -7862,6 +8021,220 @@ dev.off()
 
 ```
 
+```{r}
+##more plots
+ggarrange(
+ggplot()+
+    geom_hline(yintercept=0, col="black")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  geom_point(data=left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("cwd_wy") & prov_climvar=="PPTwt")  , aes(x=value, y=cor, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_smooth(data= left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("cwd_wy") & prov_climvar=="PPTwt"), aes(x=value, y=cor), method="lm", col="darkgrey")+
+  xlab("Provenance Winter Precip (mm)")+ ylab("Correlation")+
+  ggtitle("A) water year CWD X RWI")+
+  theme_bw(),
+
+ggplot()+
+    geom_hline(yintercept=0, col="black")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  geom_point(data=left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("day_of_first_fall_frost") & prov_climvar=="TD")  , aes(x=value, y=cor, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_smooth(data= left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("day_of_first_fall_frost") & prov_climvar=="TD"), aes(x=value, y=cor), method="lm", col="darkgrey")+
+  xlab("Provenance TD")+ ylab("Correlation")+
+  ggtitle("B) First Fall Frost Date X RWI")+
+  theme_bw(),
+
+ggplot()+
+    geom_hline(yintercept=0, col="black")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  geom_point(data=left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("value_wt_tmean") & prov_climvar=="CMD")  , aes(x=value, y=cor, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_smooth(data= left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("value_wt_tmean") & prov_climvar=="CMD"), aes(x=value, y=cor), method="lm", col="darkgrey")+
+  xlab("Provenance CMD")+ ylab("Correlation")+
+  ggtitle("C) Winter Tmean X RWI")+
+  theme_bw(),
+
+ggplot()+
+    geom_hline(yintercept=0, col="black")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  geom_point(data=left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("prior_cwd_wy") & prov_climvar=="TD")  , aes(x=value, y=cor, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_smooth(data= left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("prior_cwd_wy") & prov_climvar=="TD"), aes(x=value, y=cor), method="lm", col="darkgrey")+
+  xlab("Provenance TD")+ ylab("Correlation")+
+  ggtitle("D) Prior water year CWD X RWI")+
+  theme_bw(),
+
+ggplot()+
+    geom_hline(yintercept=0, col="black")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  geom_point(data=left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("prior_day_of_first_fall_frost") & prov_climvar=="TD")  , aes(x=value, y=cor, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_smooth(data= left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("prior_day_of_first_fall_frost") & prov_climvar=="TD"), aes(x=value, y=cor), method="lm", col="darkgrey")+
+  xlab("Provenance TD")+ ylab("Correlation")+
+  ggtitle("E) Prior Year First Fall Frost Date X RWI")+
+  theme_bw(),
+
+ggplot()+
+    geom_hline(yintercept=0, col="black")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  geom_point(data=left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("prior_value_wt_tmean") & prov_climvar=="PAS")  , aes(x=value, y=cor, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_smooth(data= left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("prior_value_wt_tmean") & prov_climvar=="PAS"), aes(x=value, y=cor), method="lm", col="darkgrey")+
+  xlab("Provenance PAS")+ ylab("Correlation")+
+  ggtitle("F) Prior Winter Tmean X RWI")+
+  theme_bw(),
+common.legend=TRUE, nrow=2,ncol=3)
+```
+
+```{r}
+ggarrange(
+  
+ggplot()+
+    geom_hline(yintercept=0, col="black")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  geom_point(data=left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("prior_value_sp_tmin") & prov_climvar=="PC1")  , aes(x=value, y=cor, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_smooth(data= left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("prior_value_sp_tmin") & prov_climvar=="PC1"), aes(x=value, y=cor), method="lm", col="darkgrey")+
+  xlab("Provenance PC1")+ ylab("Correlation")+
+  ggtitle("A) Prior Spring Tmin X RWI")+
+  theme_bw(),
+
+ggplot()+
+    geom_hline(yintercept=0, col="black")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  geom_point(data=left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("prior_value_sm_tmin") & prov_climvar=="RH")  , aes(x=value, y=cor, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_smooth(data= left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("prior_value_sm_tmin") & prov_climvar=="RH"), aes(x=value, y=cor), method="lm", col="darkgrey")+
+  xlab("Provenance RH")+ ylab("Correlation")+
+  ggtitle("B) Prior Summer Tmin X RWI")+
+  theme_bw(),
+
+ggplot()+
+    geom_hline(yintercept=0, col="black")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  geom_point(data=left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("prior_value_wt_tmean") & prov_climvar=="PAS")  , aes(x=value, y=cor, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_smooth(data= left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("prior_value_wt_tmean") & prov_climvar=="PAS"), aes(x=value, y=cor), method="lm", col="darkgrey")+
+  xlab("Provenance PAS")+ ylab("Correlation")+
+  ggtitle("C) Prior Winter Tmean X RWI")+
+  theme_bw(),
+
+ggplot()+
+    geom_hline(yintercept=0, col="black")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  geom_point(data=left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("prior_aet_sum") & prov_climvar=="EMT")  , aes(x=value, y=cor, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_smooth(data= left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("prior_aet_sum") & prov_climvar=="EMT"), aes(x=value, y=cor), method="lm", col="darkgrey")+
+  xlab("Provenance EMT")+ ylab("Correlation")+
+  ggtitle("D) Prior Year AET X RWI")+
+  theme_bw(),
+
+ggplot()+
+    geom_hline(yintercept=0, col="black")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  geom_point(data=left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("prior_cwd_wy") & prov_climvar=="TD")  , aes(x=value, y=cor, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_smooth(data= left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("prior_cwd_wy") & prov_climvar=="TD"), aes(x=value, y=cor), method="lm", col="darkgrey")+
+  xlab("Provenance TD")+ ylab("Correlation")+
+  ggtitle("E) Prior water year CWD X RWI")+
+  theme_bw(),
+
+ggplot()+
+    geom_hline(yintercept=0, col="black")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  geom_point(data=left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("prior_day_of_first_fall_frost") & prov_climvar=="TD")  , aes(x=value, y=cor, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_smooth(data= left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("prior_day_of_first_fall_frost") & prov_climvar=="TD"), aes(x=value, y=cor), method="lm", col="darkgrey")+
+  xlab("Provenance TD")+ ylab("Correlation")+
+  ggtitle("F) Prior Year First Fall Frost Date X RWI")+
+  theme_bw(),
+
+common.legend=TRUE, nrow=2,ncol=3)
+
+```
+
+```{r}
+ggarrange(
+  ggplot()+
+    geom_hline(yintercept=0, col="black")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  geom_point(data=left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("cwd_wy") & prov_climvar=="PPTwt")  , aes(x=value, y=cor, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_smooth(data= left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("cwd_wy") & prov_climvar=="PPTwt"), aes(x=value, y=cor), method="lm", col="darkgrey")+
+  xlab("Provenance Winter Precip (mm)")+ ylab("Correlation")+
+  ggtitle("A) Water year CWD X RWI")+
+  theme_bw(),
+
+ggplot()+
+    geom_hline(yintercept=0, col="black")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  geom_point(data=left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("day_of_first_fall_frost") & prov_climvar=="TD")  , aes(x=value, y=cor, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_smooth(data= left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("day_of_first_fall_frost") & prov_climvar=="TD"), aes(x=value, y=cor), method="lm", col="darkgrey")+
+  xlab("Provenance TD")+ ylab("Correlation")+
+  ggtitle("B) First Fall Frost Date X RWI")+
+  theme_bw(),
+
+ggplot()+
+    geom_hline(yintercept=0, col="black")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  geom_point(data=left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("value_wt_tmean") & prov_climvar=="CMD")  , aes(x=value, y=cor, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_smooth(data= left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("value_wt_tmean") & prov_climvar=="CMD"), aes(x=value, y=cor), method="lm", col="darkgrey")+
+  xlab("Provenance CMD")+ ylab("Correlation")+
+  ggtitle("C) Winter Tmean X RWI")+
+  theme_bw(),
+
+ggplot()+
+    geom_hline(yintercept=0, col="black")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  geom_point(data=left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("vpdmax_sm") & prov_climvar=="MCMT")  , aes(x=value, y=cor, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_smooth(data= left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("vpdmax_sm") & prov_climvar=="MCMT"), aes(x=value, y=cor), method="lm", col="darkgrey")+
+  xlab("Provenance MCMT")+ ylab("Correlation")+
+  ggtitle("D) Summer VPD max X RWI")+
+  theme_bw(),
+
+ggplot()+
+    geom_hline(yintercept=0, col="black")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  geom_point(data=left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("day_of_last_spring_frost") & prov_climvar=="bFFP")  , aes(x=value, y=cor, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_smooth(data= left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("day_of_last_spring_frost") & prov_climvar=="bFFP"), aes(x=value, y=cor), method="lm", col="darkgrey")+
+  xlab("Provenance bFFP")+ ylab("Correlation")+
+  ggtitle("E) Last Spring Frost Date X RWI")+
+  theme_bw(),
+
+ggplot()+
+    geom_hline(yintercept=0, col="black")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  geom_point(data=left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("FDSI") & prov_climvar=="CMD")  , aes(x=value, y=cor, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_smooth(data= left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("FDSI") & prov_climvar=="CMD"), aes(x=value, y=cor), method="lm", col="darkgrey")+
+  xlab("Provenance CMD")+ ylab("Correlation")+
+  ggtitle("F) FDSI X RWI")+
+  theme_bw(),
+
+common.legend=TRUE, nrow=2,ncol=3)
+```
 
 ```{r}
 ##plot with just bioclimate variables
