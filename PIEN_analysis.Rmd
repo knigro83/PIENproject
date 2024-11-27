@@ -400,6 +400,28 @@ vpdmin_comb_plantation <- bind_rows(as.data.frame(vpdmin_data_1969) %>% filter(C
 ```
 
 ```{r}
+###site climate summary
+ppt_plantation_yearly <- ppt_comb_plantation %>% 
+  filter(year >1969 & year < 2016) %>% 
+  group_by(year) %>% 
+  summarise(ppt_sum = sum(ppt))
+
+mean(ppt_plantation_yearly$ppt_sum)
+sd(ppt_plantation_yearly$ppt_sum)
+
+tmin_plantation_dailyave <- tmin_comb_plantation %>% 
+  filter(year >1969 & year < 2016) %>% 
+  group_by(year) %>% 
+  summarise(tmin_ave=mean(tmin))
+mean(tmin_plantation_dailyave$tmin_ave)
+
+mean(tmin_comb_plantation %>% 
+  filter(year >1969 & year < 2016) %>% pull(tmin))
+mean(tmax_comb_plantation %>% 
+  filter(year >1969 & year < 2016) %>% pull(tmax))
+mean(tmean_comb_plantation %>% 
+  filter(year >1969 & year < 2016) %>% pull(tmean))
+
 ##plotting site climate over time
 
 
@@ -441,6 +463,30 @@ summary(tmean_mod)
 
 0.015728*45
 
+tmin_mod <- lm(tmin ~ year, data=tmin_comb_plantation %>% filter(year >1969 & year < 2016) %>% group_by(year) %>% summarise(tmin=mean(tmin)))
+par(mfrow=c(2,2))
+plot(tmin_mod)
+summary(tmin_mod)
+
+tmax_mod <- lm(tmax ~ year, data=tmax_comb_plantation %>% filter(year >1969 & year < 2016) %>% group_by(year) %>% summarise(tmax=mean(tmax)))
+par(mfrow=c(2,2))
+plot(tmax_mod)
+summary(tmax_mod)
+
+ppt_mod <- lm(ppt ~ year, data=ppt_comb_plantation %>%  filter(year >1969 & year < 2016) %>% group_by(year) %>% summarise(ppt=sum(ppt)))
+par(mfrow=c(2,2))
+plot(ppt_mod)
+summary(ppt_mod)
+
+0.021181*46
+
+##making provenance climate table for paper
+prov_clim_table<- prov_clim_adjusted_bi %>% 
+  left_join(prov_names %>% dplyr::select(Provenance, code)) %>% 
+  dplyr::select(Provenance, y, x, elev, MAT, MAP, NFFD) %>% 
+  arrange(desc(y))
+
+#write.csv(prov_clim_table,"prov_clim_table.csv")  
 
 ```
 
@@ -1746,7 +1792,7 @@ dbh_aves <- dbh_numeric %>%
 dbh_means_fig <- ggplot(dbh_aves, aes(x=factor(year,levels=c(1974,1979,1985,1991,1996,2006,2014), labels=c(1974,1979,1985,1991,1996,2006,2014)), y=meanDBH, col=factor(Provenance, levels=provs_bylat$Provenance),group=factor(Provenance, levels=provs_bylat$Provenance)))+
   geom_errorbar(aes(x=factor(year,levels=c(1974,1979,1985,1991,1996,2006,2014), labels=c(1974,1979,1985,1991,1996,2006,2014)),ymin=meanDBH-se_DBH, ymax=meanDBH+se_DBH, group=factor(Provenance, levels=provs_bylat$Provenance)),position = position_dodge(width=0.8), width=0.2)+
   geom_point(size=3, position = position_dodge(width=0.8))+
-  scale_color_manual(values=unname(stepped()), "Provenance")+
+  scale_color_manual(values=unname(stepped()), "")+
   theme_bw()+
   xlab("Year")+
   ylab("Mean DBH (cm)")
@@ -2297,7 +2343,7 @@ ht_data_aves_forfig <- ht_data_aves %>%
 ht_means_fig <- ggplot(ht_data_aves_forfig, aes(x=factor(name,levels=c("HT74","HT79","HT85","HT91","HT96","HT06","HT14"), labels=c(1974,1979,1985,1991,1996,2006,2014)), y=meantotht, col=factor(Provenance, levels=provs_bylat$Provenance),group=factor(Provenance, levels=provs_bylat$Provenance)))+
   geom_errorbar(aes(x=factor(name,levels=c("HT74","HT79","HT85","HT91","HT96","HT06","HT14"), labels=c(1974,1979,1985,1991,1996,2006,2014)),ymin=meantotht-seTH, ymax=meantotht+seTH, group=factor(Provenance, levels=provs_bylat$Provenance)),position = position_dodge(width=0.8), width=0.2)+
   geom_point(size=3, position = position_dodge(width=0.8))+
-  scale_color_manual(values=unname(stepped()), "Provenance")+
+  scale_color_manual(values=unname(stepped()), "")+
   theme_bw()+
   xlab("Year")+
   ylab("Mean Height (m)")
@@ -2993,6 +3039,18 @@ ggplot(cone_sum, aes(x=year, y=prop.w.cones, col=Provenance))+
   geom_point()+
   geom_line()
 
+cone_sum_forfig<- cone_sum %>% 
+  bind_rows(data.frame(Provenance="Gila NF", year=c(1974,1979,2014), prop.w.cones=NA))
+
+cone_means_fig <- ggplot(cone_sum_forfig, aes(x=factor(year,levels=c(1974,1979,1985,1991,1996,2006,2014), labels=c(1974,1979,1985,1991,1996,2006,2014)), y=prop.w.cones*100, col=factor(Provenance, levels=provs_bylat$Provenance),group=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_point(size=3, position = position_dodge(width=0.8))+
+  #geom_line(position = position_dodge(width=0.8))+
+  scale_color_manual(values=unname(stepped()), "")+
+  theme_bw()+
+  xlab("Year")+
+  ylab("Trees with Cones (%)")
+
+
 ```
 
 ###models
@@ -3527,15 +3585,15 @@ moniger_survival_byyr %>%
 
 survival_means_fig <- ggplot(survival_means, aes(x=factor(year,levels=c(1974,1979,1985,1991,1996,2006,2014), labels=c(1974,1979,1985,1991,1996,2006,2014)), y=prop.surv.since.1970*100, col=factor(Provenance, levels=provs_bylat$Provenance),group=factor(Provenance, levels=provs_bylat$Provenance)))+
   geom_point(size=3, position = position_dodge(width=0.8))+
-  geom_line(position = position_dodge(width=0.8))+
-  scale_color_manual(values=unname(stepped()), "Provenance")+
+  #geom_line(position = position_dodge(width=0.8))+
+  scale_color_manual(values=unname(stepped()), "")+
   theme_bw()+
   xlab("Year")+
   ylab("Survival (%)")
 
-
-ggarrange(dbh_means_fig, ht_means_fig, survival_means_fig, ncol=1, nrow=3, common.legend = TRUE)
-
+png("figure_summary.png", width=190, height=225, unit="mm", res=600)
+ggarrange(dbh_means_fig, ht_means_fig, survival_means_fig, cone_means_fig, ncol=1, nrow=4, common.legend = TRUE)
+dev.off()
 ```
 
 ```{r}
@@ -4317,7 +4375,7 @@ ggplot(growth.detrended.sum, aes(x=year, y=meanrwi))+
   geom_point()+
   geom_errorbar(aes(x=year, ymin=meanrwi-se, ymax=meanrwi+se), col="red")+
   geom_line()+
-  geom_bar(data=plantation_clim, aes(x=year, y=FDSI), stat="identity")+
+  geom_bar(data=plantation_clim, aes(x=year, y=aet_sum), stat="identity")+
   geom_hline(yintercept=1, linetype=2)
 
 growth.detrended.byprov <- growth.detrended.df %>% 
@@ -4333,6 +4391,27 @@ ggplot(growth.detrended.byprov, aes(x=year, y=meanrwi-1))+
   geom_hline(yintercept=0, linetype=2)+
   theme_bw()+
   theme(axis.text = element_text(color="black",size=10), axis.title = element_text(color="black", size=12), panel.grid = element_blank())
+
+plantation_clim_cut <- plantation_clim %>% 
+  filter(year>1984 & year < 2016) %>% 
+  mutate(aet_scale=scale(aet_sum)) %>% 
+  mutate(aet_scale_1 = 2*((plantation_clim_cut$aet_sum  - min(plantation_clim_cut$aet_sum )) / (max(plantation_clim_cut$aet_sum) - min(plantation_clim_cut$aet_sum))) - 1)
+
+
+
+ggplot(growth.detrended.byprov, aes(x=year, y=meanrwi-1))+
+  geom_bar(data=plantation_clim_cut, aes(x=year, y=aet_scale_1), stat="identity")+
+  geom_point(aes( col=Provenance), size=2)+
+  geom_ribbon(aes(x=year, ymin=meanrwi-se-1, ymax=meanrwi+se-1, fill=Provenance), alpha=0.3)+
+  scale_y_continuous(name="AET (scaled)", sec.axis = sec_axis(~.+1, name="RWI"))+
+  #geom_errorbar(width=0.2,aes(x=year, ymin=meanrwi-se-1, ymax=meanrwi+se-1, col=Provenance), linewidth=1)+
+  scale_color_manual(values=unname(stepped()))+
+  scale_fill_manual(values=unname(stepped()))+
+  geom_line(aes( col=Provenance), linewidth=1)+
+  geom_hline(yintercept=0, linetype=2)+
+  theme_bw()+
+  theme(axis.text = element_text(color="black",size=10), axis.title = element_text(color="black", size=12), panel.grid = element_blank())
+
 
 ##look at whole time series
 growth.detrended.all.byprov <- growth.detrended.df.all %>% 
