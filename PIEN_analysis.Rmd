@@ -400,6 +400,51 @@ vpdmin_comb_plantation <- bind_rows(as.data.frame(vpdmin_data_1969) %>% filter(C
 ```
 
 ```{r}
+##plotting site climate over time
+
+
+tmean_sum<- tmean_comb_plantation %>% 
+  filter(year>1969) %>% 
+  mutate(decade = case_when(year < 1980 ~ "70s",
+                            year > 1979 & year < 1990 ~ "80s",
+                            year > 1989 & year < 2000 ~ "90s",
+                            year > 1999 & year < 2010 ~ "00s",
+                            year > 2009 & year < 2020 ~ "10s",
+                            year > 2019 ~ "20s"
+                            )) %>% 
+  group_by(decade) %>% 
+  summarise(MAT = mean(tmean), se_MAT=sd(tmean)/sqrt(n()))
+
+ppt_sum <- ppt_comb_plantation %>% 
+  filter(year > 1969) %>% 
+    mutate(decade = case_when(year < 1980 ~ "70s",
+                            year > 1979 & year < 1990 ~ "80s",
+                            year > 1989 & year < 2000 ~ "90s",
+                            year > 1999 & year < 2010 ~ "00s",
+                            year > 2009 & year < 2020 ~ "10s",
+                            year > 2019 ~ "20s"
+                            )) %>% 
+  group_by(year,decade) %>% 
+  summarise(MAP=sum(ppt)) %>% 
+  group_by(decade) %>% 
+  summarise(MAP_ave = mean(MAP), se_MAP=sd(MAP)/sqrt(n()))
+
+plantation_2dclim <- left_join(tmean_sum, ppt_sum)
+
+ggplot(plantation_2dclim, aes(x=MAT, y=MAP_ave, col=decade))+
+         geom_point()
+
+tmean_mod <- lm(tmean ~ year, data=tmean_comb_plantation %>% group_by(year) %>% summarise(tmean=mean(tmean)))
+par(mfrow=c(2,2))
+plot(tmean_mod)
+summary(tmean_mod)
+
+0.015728*45
+
+
+```
+
+```{r}
 ##looking for anomolous frosts
 
 prov_clim_adjusted_bi %>% 
@@ -1456,12 +1501,23 @@ plantation_all<- bind_rows(plantation_only, plantation_future)
 
 carbon.colors<- c("black",brewer.pal(6,"RdBu")[c(6,5,2,1)])
 
+library(colorspace)
+
+plantation_2dclim_groups<- plantation_2dclim %>% 
+  mutate(group=case_when(decade%in%c("70s","80s","90s") ~ "80s",
+                         decade %in% c("00s","10s","20s") ~ "10s")) %>% 
+  group_by(group) %>% 
+  summarise(MAT=mean(MAT),MAP_ave=mean(MAP_ave))
+
 ggplot(clim_pien, aes(x=MAT, y=MAP))+
   geom_hex(alpha=0.7)+
   scale_fill_gradientn(colors=c("black","grey"))+
   geom_point(data=plantation_all, aes(x=MAT, y=MAP, shape=period), col="gold", size=5)+
   geom_point(data=prov_pcapts %>% filter(!Provenance=="Plantation"), aes(x=MAT, y=MAP, color=factor(Provenance, levels=provs_bylat$Provenance)), size=4)+
-  scale_color_manual(values=unname(stepped()), name="Provenance")+
+    scale_color_manual(values=unname(stepped()), name="Provenance")+
+  ggnewscale::new_scale_fill()+
+  geom_point(data=plantation_2dclim_groups, aes(x=MAT, y=MAP_ave, fill=factor(group, levels=c("80s","10s"))), shape=23, col="black", size=3)+
+  scale_fill_manual(values=hcl.colors(n=2, palette="Batlow"))+
   ggrepel::geom_text_repel(data=prov_pcapts %>% filter(!Provenance=="Plantation"), aes(label=code))+
   theme_bw()+
   theme(text = element_text(size=16, color="black"))
@@ -1678,6 +1734,24 @@ dbh_letters_plot<- ggplot(dbh_numeric14, aes(x=factor(Provenance, levels=prov_db
   theme(axis.text.x=element_text(angle=45, hjust=1, color="black",size=14), axis.text.y=element_text(color="black",size=14),axis.title.y=element_text(color="black",size=14), axis.title.x=element_blank(),legend.position = "none")
   
 
+dbh_aves <- dbh_numeric %>% 
+  group_by(Provenance,year) %>% 
+  summarise(meanDBH=mean(DBH),se_DBH=sd(DBH)/sqrt(n())) %>% 
+  mutate(year= case_when(year == "DBH06" ~ 2006,
+                         year == "DBH14" ~ 2014,
+                         year == "DBH91" ~ 1991,
+                         year == "DBH96" ~ 1996)) %>% 
+  bind_rows(data.frame(Provenance="Gila NF", year=c(1974,1979,1985), meanDBH=NA, se_DBH=NA))
+
+dbh_means_fig <- ggplot(dbh_aves, aes(x=factor(year,levels=c(1974,1979,1985,1991,1996,2006,2014), labels=c(1974,1979,1985,1991,1996,2006,2014)), y=meanDBH, col=factor(Provenance, levels=provs_bylat$Provenance),group=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_errorbar(aes(x=factor(year,levels=c(1974,1979,1985,1991,1996,2006,2014), labels=c(1974,1979,1985,1991,1996,2006,2014)),ymin=meanDBH-se_DBH, ymax=meanDBH+se_DBH, group=factor(Provenance, levels=provs_bylat$Provenance)),position = position_dodge(width=0.8), width=0.2)+
+  geom_point(size=3, position = position_dodge(width=0.8))+
+  scale_color_manual(values=unname(stepped()), "Provenance")+
+  theme_bw()+
+  xlab("Year")+
+  ylab("Mean DBH (cm)")
+
+
 ```
 
 ####distance
@@ -1862,6 +1936,38 @@ dbh_lat_plot <- ggplot()+
   theme(legend.position="none")
 
 ggarrange(dbh_dist_plot, dbh_lat_plot, common.legend = TRUE)
+```
+
+#####with year
+```{r}
+
+dbh_numeric_time <- dbh_numeric %>% 
+  mutate(year=case_when(year == "DBH06" ~ 2006,
+                         year == "DBH14" ~ 2014,
+                         year == "DBH91" ~ 1991,
+                         year == "DBH96" ~ 1996))
+
+
+##PCs and x 
+mod_dbh_pca_x_time <- lmer(DBH ~ PC1*PC2 + PC1*scale(x) + PC2*scale(x) + I(PC1^2) + I(PC2^2) + I(scale(x)^2) + scale(year) + scale(year)*PC1 + scale(year)*PC2 + scale(year)*scale(x) + scale(year)*I(PC1^2) + scale(year)*I(PC2^2) + scale(year)*I(scale(x)^2) + (1|Provenance), data=dbh_numeric_time)
+plot(mod_dbh_pca_x_time)
+qqmath(mod_dbh_pca_x_time)
+summary(mod_dbh_pca_x_time)
+mod_dbh_pca_x_time_dredge<- dredge(mod_dbh_pca_x_time)
+mod_dbh_pca_x_time_dredge
+
+bestmod_dbh_pca_x_time <- lmer(DBH ~ year + scale(x) + PC1 + I(PC1^2) + (1|Provenance), data=dbh_numeric_time)
+summary(bestmod_dbh_pca_x_time)
+
+##PCs and y 
+mod_dbh_pca_y_time <- lmer(DBH ~ PC1*PC2 + PC1*scale(y) + PC2*scale(y) + I(PC1^2) + I(PC2^2) + I(scale(y)^2) + scale(year) + scale(year)*PC1 + scale(year)*PC2 + scale(year)*scale(y) + scale(year)*I(PC1^2) + scale(year)*I(PC2^2) + scale(year)*I(scale(y)^2) + (1|Provenance), data=dbh_numeric_time)
+plot(mod_dbh_pca_y_time)
+qqmath(mod_dbh_pca_y_time)
+summary(mod_dbh_pca_y_time)
+mod_dbh_pca_y_time_dredge<- dredge(mod_dbh_pca_y_time)
+
+AICc(mod_dbh_pca_x_time, mod_dbh_pca_y_time) #lat is better
+###to be continued...
 ```
 
 ```{r}
@@ -2120,42 +2226,49 @@ nurse_ht_mod74 <- lmer(value ~ nursery_ht_m + (1|Provenance), data=ht_data %>% f
 plot(nurse_ht_mod74)
 qqmath(nurse_ht_mod74)
 summary(nurse_ht_mod74)  ##significant 
+summary(lmer(value ~ nursery_ht_m + (1|Provenance), data=ht_data %>% filter(name=="HT74") %>% filter(!Provenance=="Gila NF")))
 
 #1979
 nurse_ht_mod79 <- lmer(value ~ nursery_ht_m + (1|Provenance), data=ht_data %>% filter(name=="HT79"))
 plot(nurse_ht_mod79)
 qqmath(nurse_ht_mod79)
 summary(nurse_ht_mod79)  ##no effect of nursery height on total height in 1979 
+summary(lmer(value ~ nursery_ht_m + (1|Provenance), data=ht_data %>% filter(name=="HT79") %>% filter(!Provenance=="Gila NF")))
 
 #1985
 nurse_ht_mod85 <- lmer(value ~ nursery_ht_m + (1|Provenance), data=ht_data %>% filter(name=="HT85"))
 plot(nurse_ht_mod85)
 qqmath(nurse_ht_mod85)
 summary(nurse_ht_mod85)  ##no effect of nursery height on total height in 1985 
+summary(lmer(value ~ nursery_ht_m + (1|Provenance), data=ht_data %>% filter(name=="HT85") %>% filter(!Provenance=="Gila NF")))
 
 #1991
 nurse_ht_mod91 <- lmer(value ~ nursery_ht_m + (1|Provenance), data=ht_data %>% filter(name=="HT91"))
 plot(nurse_ht_mod91)
 qqmath(nurse_ht_mod91)
 summary(nurse_ht_mod91)  ##no effect of nursery height on total height in 1991 
+summary(lmer(value ~ nursery_ht_m + (1|Provenance), data=ht_data %>% filter(name=="HT91") %>% filter(!Provenance=="Gila NF")))
 
 #1996
 nurse_ht_mod96 <- lmer(value ~ nursery_ht_m + (1|Provenance), data=ht_data %>% filter(name=="HT96"))
 plot(nurse_ht_mod96)
 qqmath(nurse_ht_mod96)
 summary(nurse_ht_mod96)  ##no effect of nursery height on total height in 1996 
+summary(lmer(value ~ nursery_ht_m + (1|Provenance), data=ht_data %>% filter(name=="HT96") %>% filter(!Provenance=="Gila NF")))
 
 #2006
-nurse_ht_mod06 <- lmer(value ~ nursery_ht_m + (1|Provenance), data=ht_data %>% filter(name=="HT06"))
+nurse_ht_mod06 <- lmer(value ~ nursery_ht_m + (1|Provenance), data=ht_data %>% filter(name=="HT06") %>% filter(!Provenance=="Gila NF"))
 plot(nurse_ht_mod06)
 qqmath(nurse_ht_mod06)
 summary(nurse_ht_mod06)  ##no effect of nursery height on total height in 2006 
+summary(lmer(value ~ nursery_ht_m + (1|Provenance), data=ht_data %>% filter(name=="HT06") %>% filter(!Provenance=="Gila NF"))) #significant without Gila
 
 #2014
 nurse_ht_mod14 <- lmer(value ~ nursery_ht_m + (1|Provenance), data=ht_data %>% filter(name=="HT14"))
 plot(nurse_ht_mod14)
 qqmath(nurse_ht_mod14)
 summary(nurse_ht_mod14)  ##no effect of nursery height on total height in 2014. 
+summary(lmer(value ~ nursery_ht_m + (1|Provenance), data=ht_data %>% filter(name=="HT14") %>% filter(!Provenance=="Gila NF")))
 
 ##effect of year * provenance
 par(mfrow=c(2,2))
@@ -2164,7 +2277,7 @@ plot(lm(value ~ Provenance*name, data=ht_data))
 totht_mod <- lm(log(value) ~ Provenance*name, data=ht_data)
 par(mfrow=c(2,2))
 plot(totht_mod)
-anova(totht_mod) ##there is a significant year by provenance interaction
+Anova(totht_mod, type="3") ##there is a significant year by provenance interaction
 
 ggplot()+
   geom_line(data=ht_data_aves, aes(x=factor(name, levels=c("HT79","HT85","HT91","HT96","HT06","HT14")), y=meantotht, col=factor(Provenance, levels=ht.order$Provenance),group=factor(Provenance, levels=ht.order$Provenance)))+
@@ -2178,10 +2291,16 @@ ggplot(ht_data_year, aes(x=name, y=value, fill=factor(Provenance, levels=provs_b
   geom_boxplot()+
   scale_fill_manual(values=unname(stepped()), "Provenance")
 
-ggplot(ht_data_aves %>% left_join(provs_bylat), aes(x=y, y=meantotht, col=factor(Provenance, levels=provs_bylat$Provenance)))+
-  geom_point(size=3)+
-  facet_wrap(~factor(name, levels=c("HT74","HT79","HT85","HT91","HT96","HT06","HT14")),scales="free")+
-  scale_color_manual(values=unname(stepped()), "Provenance")
+ht_data_aves_forfig <- ht_data_aves %>% 
+  bind_rows(data.frame(name="HT74",Provenance="Gila NF", meantotht=NA, seTH=NA))
+
+ht_means_fig <- ggplot(ht_data_aves_forfig, aes(x=factor(name,levels=c("HT74","HT79","HT85","HT91","HT96","HT06","HT14"), labels=c(1974,1979,1985,1991,1996,2006,2014)), y=meantotht, col=factor(Provenance, levels=provs_bylat$Provenance),group=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_errorbar(aes(x=factor(name,levels=c("HT74","HT79","HT85","HT91","HT96","HT06","HT14"), labels=c(1974,1979,1985,1991,1996,2006,2014)),ymin=meantotht-seTH, ymax=meantotht+seTH, group=factor(Provenance, levels=provs_bylat$Provenance)),position = position_dodge(width=0.8), width=0.2)+
+  geom_point(size=3, position = position_dodge(width=0.8))+
+  scale_color_manual(values=unname(stepped()), "Provenance")+
+  theme_bw()+
+  xlab("Year")+
+  ylab("Mean Height (m)")
 
 ggplot(ht_data_year %>% 
   left_join(provs_bylat) %>% 
@@ -3381,6 +3500,41 @@ summary(survmod06)
 
 survmod14 <- aov(value ~ Provenance, data=moniger_survival_byyr %>% filter(year==2014))
 summary(survmod14)
+
+
+moniger_survival_byyr %>% 
+  filter(year=="1974") %>% 
+  group_by(Provenance, year) %>% 
+  summarise(num.surv)
+
+survival_means <- left_join(
+moniger_survival_byyr %>% 
+  filter(name=="Stat74") %>% 
+  group_by(Provenance) %>% 
+  summarise(alltrees74=n()),
+moniger_survival_byyr %>% 
+  group_by(Provenance, year) %>% 
+  summarise(n.trees=sum(value)) %>% 
+  pivot_wider(names_from=year, values_from=n.trees), by="Provenance") %>% 
+    mutate("1974" = `1974`/alltrees74, 
+           "1979" = `1979`/alltrees74,
+           "1985" = `1985`/alltrees74,
+           "1991" = `1991`/alltrees74,
+           "1996" = `1996`/alltrees74,
+           "2006" = `2006`/alltrees74,
+           "2014" = `2014`/alltrees74) %>% 
+    pivot_longer(`1974`:`2014`, names_to="year", values_to="prop.surv.since.1970")
+
+survival_means_fig <- ggplot(survival_means, aes(x=factor(year,levels=c(1974,1979,1985,1991,1996,2006,2014), labels=c(1974,1979,1985,1991,1996,2006,2014)), y=prop.surv.since.1970*100, col=factor(Provenance, levels=provs_bylat$Provenance),group=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_point(size=3, position = position_dodge(width=0.8))+
+  geom_line(position = position_dodge(width=0.8))+
+  scale_color_manual(values=unname(stepped()), "Provenance")+
+  theme_bw()+
+  xlab("Year")+
+  ylab("Survival (%)")
+
+
+ggarrange(dbh_means_fig, ht_means_fig, survival_means_fig, ncol=1, nrow=3, common.legend = TRUE)
 
 ```
 
@@ -8166,6 +8320,20 @@ common.legend=TRUE, nrow=2,ncol=3)
 ```
 
 ```{r}
+
+legend<- get_legend(ggplot()+
+    geom_hline(yintercept=0, col="black")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  geom_point(data=left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("day_of_last_spring_frost") & prov_climvar=="bFFP")  , aes(x=value, y=cor, col=factor(Provenance, levels=provs_bylat$Provenance, labels=c(provs_bylat$Provenance[1:5],"Grand Mesa-\nUncompahgre",provs_bylat$Provenance[7:20]))))+
+  geom_smooth(data= left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("day_of_last_spring_frost") & prov_climvar=="bFFP"), aes(x=value, y=cor), method="lm", col="darkgrey")+
+  xlab("Provenance bFFP")+ ylab("Correlation")+
+  ggtitle("E) Last Spring Frost Date X RWI")+
+    guides(color=guide_legend(ncol=2))+
+  theme_bw()+
+    theme(legend.position = "right", legend.title.align=0.5))
+
 ggarrange(
   ggplot()+
     geom_hline(yintercept=0, col="black")+
@@ -8176,7 +8344,8 @@ ggarrange(
   filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("cwd_wy") & prov_climvar=="PPTwt"), aes(x=value, y=cor), method="lm", col="darkgrey")+
   xlab("Provenance Winter Precip (mm)")+ ylab("Correlation")+
   ggtitle("A) Water year CWD X RWI")+
-  theme_bw(),
+  theme_bw()+
+  theme(legend.position = "none"),
 
 ggplot()+
     geom_hline(yintercept=0, col="black")+
@@ -8187,7 +8356,8 @@ ggplot()+
   filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("day_of_first_fall_frost") & prov_climvar=="TD"), aes(x=value, y=cor), method="lm", col="darkgrey")+
   xlab("Provenance TD")+ ylab("Correlation")+
   ggtitle("B) First Fall Frost Date X RWI")+
-  theme_bw(),
+  theme_bw()+
+  theme(legend.position = "none"),
 
 ggplot()+
     geom_hline(yintercept=0, col="black")+
@@ -8198,7 +8368,8 @@ ggplot()+
   filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("value_wt_tmean") & prov_climvar=="CMD"), aes(x=value, y=cor), method="lm", col="darkgrey")+
   xlab("Provenance CMD")+ ylab("Correlation")+
   ggtitle("C) Winter Tmean X RWI")+
-  theme_bw(),
+  theme_bw()+
+  theme(legend.position = "none"),
 
 ggplot()+
     geom_hline(yintercept=0, col="black")+
@@ -8209,7 +8380,8 @@ ggplot()+
   filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("vpdmax_sm") & prov_climvar=="MCMT"), aes(x=value, y=cor), method="lm", col="darkgrey")+
   xlab("Provenance MCMT")+ ylab("Correlation")+
   ggtitle("D) Summer VPD max X RWI")+
-  theme_bw(),
+  theme_bw()+
+  theme(legend.position = "none"),
 
 ggplot()+
     geom_hline(yintercept=0, col="black")+
@@ -8220,7 +8392,12 @@ ggplot()+
   filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) %>% filter(annual_climvar %in% c("day_of_last_spring_frost") & prov_climvar=="bFFP"), aes(x=value, y=cor), method="lm", col="darkgrey")+
   xlab("Provenance bFFP")+ ylab("Correlation")+
   ggtitle("E) Last Spring Frost Date X RWI")+
-  theme_bw(),
+  theme_bw()+
+  theme(legend.position = "none"),
+legend, nrow=2,ncol=3)
+
+
+
 
 ggplot()+
     geom_hline(yintercept=0, col="black")+
@@ -8233,7 +8410,6 @@ ggplot()+
   ggtitle("F) FDSI X RWI")+
   theme_bw(),
 
-common.legend=TRUE, nrow=2,ncol=3)
 ```
 
 ```{r}
