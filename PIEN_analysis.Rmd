@@ -52,6 +52,10 @@ library(lubridate)
 library(dichromat)
 library(prism)
 library(multcomp)
+library(multcompView)
+library(lsmeans)
+library(cowplot)
+library(glmm)
 ```
 
 ##Plot locations
@@ -1643,13 +1647,16 @@ dbh_numeric <- dbh_clim_data %>%
                                 ifelse(year=="DBH06", 16,
                                        ifelse(year=="DBH14", 24, year))))))
 
-dbh_aov <- lm(DBH ~ year*Provenance, data = dbh_numeric)
-par(mfrow=c(2,2))
+dbh_aov <- lmer(DBH ~ year*Provenance + (1|BLK), data = dbh_numeric)
 plot(dbh_aov)
+summary(dbh_aov)
 anova(dbh_aov) #no significant interaction
+rand(dbh_aov)
 Anova(dbh_aov, type="3")
-dbh_aov_noint <- lm(DBH ~ year + Provenance, data = dbh_numeric)
+dbh_aov_noint <- lmer(DBH ~ year + Provenance + (1|BLK), data = dbh_numeric)
 Anova(dbh_aov_noint, type="2") #both year and provenance are significant but do not interact (relatively similar order of provenance DBH in each year measured)
+summary(dbh_aov_noint)
+rand(dbh_aov_noint)
 
 prov_dbh_order<- dbh_numeric %>% 
   filter(year=="DBH14") %>% 
@@ -1693,83 +1700,55 @@ dbh_plot<- ggplot(dbh_numeric %>% filter(year=="DBH14"), aes(x=factor(Provenance
   theme(legend.position = "none", axis.text.x = element_text(angle=45, color="black", size=8, hjust=1), axis.title.x = element_blank(), axis.text.y = element_text(color="black", size=8), axis.title.y = element_text(color="black", size=10))
 
 ###model each year separately
-dbh_aov91 <- aov(DBH ~ Provenance, data = dbh_numeric %>% filter(year=="DBH91"))
+dbh_aov91 <- lmer(DBH ~ Provenance + (1|BLK), data = dbh_numeric %>% filter(year=="DBH91"))
+
 plot(dbh_aov91)
-summary(dbh_aov91)
-pairwise_dbh91 <- TukeyHSD(dbh_aov91)$Provenance %>% 
-  as.data.frame() %>% 
-  filter(`p adj` < 0.05) %>% 
-  mutate(comp=rownames(TukeyHSD(dbh_aov91)$Provenance %>% 
-  as.data.frame() %>% 
-  filter(`p adj` < 0.05))) %>% 
-  mutate(payette = grepl( "Payette", comp, fixed = TRUE),
-         gila = grepl("Gila", comp, fixed = TRUE)) 
+anova(dbh_aov91)
+rand(dbh_aov91)
 
-pairwise_dbh91 %>% 
-  filter(payette == TRUE) %>% nrow()
-pairwise_dbh91 %>% 
-  filter(gila == TRUE) %>% nrow()
+dbh_aov91_marg = lsmeans(dbh_aov91, ~ Provenance)
 
-dbh_aov96 <- aov(DBH ~ Provenance, data = dbh_numeric %>% filter(year=="DBH96"))
+CLD_dbh_aov91 = cld(dbh_aov91_marg,
+          alpha=0.05,
+          Letters=letters)
+CLD_dbh_aov91
+
+dbh_aov96 <- lmer(DBH ~ Provenance + (1|BLK), data = dbh_numeric %>% filter(year=="DBH96"))
 plot(dbh_aov96)
-summary(dbh_aov96)
-pairwise_dbh96 <- TukeyHSD(dbh_aov96)$Provenance %>% 
-  as.data.frame() %>% 
-  filter(`p adj` < 0.05) %>% 
-  mutate(comp=rownames(TukeyHSD(dbh_aov96)$Provenance %>% 
-  as.data.frame() %>% 
-  filter(`p adj` < 0.05))) %>% 
-  mutate(payette = grepl( "Payette", comp, fixed = TRUE),
-         gila = grepl("Gila", comp, fixed = TRUE)) 
+anova(dbh_aov96)
+dbh_aov96_marg = lsmeans(dbh_aov96, ~ Provenance)
 
-pairwise_dbh96 %>% 
-  filter(payette == TRUE) %>% nrow()
-pairwise_dbh96 %>% 
-  filter(gila == TRUE) %>% nrow()
+CLD_dbh_aov96 = cld(dbh_aov96_marg,
+          alpha=0.05,
+          Letters=letters)
+CLD_dbh_aov96
 
   
-dbh_aov06 <- aov(DBH ~ Provenance, data = dbh_numeric %>% filter(year=="DBH06"))
+dbh_aov06 <- lmer(DBH ~ Provenance + (1|BLK), data = dbh_numeric %>% filter(year=="DBH06"))
 plot(dbh_aov06)
-summary(dbh_aov06)
-pairwise_dbh06 <- TukeyHSD(dbh_aov06)$Provenance %>% 
-  as.data.frame() %>% 
-  filter(`p adj` < 0.05) %>% 
-  mutate(comp=rownames(TukeyHSD(dbh_aov06)$Provenance %>% 
-  as.data.frame() %>% 
-  filter(`p adj` < 0.05))) %>% 
-  mutate(payette = grepl( "Payette", comp, fixed = TRUE),
-         gila = grepl("Gila", comp, fixed = TRUE)) 
+anova(dbh_aov06)
+dbh_aov06_marg = lsmeans(dbh_aov06, ~ Provenance)
 
-pairwise_dbh06 %>% 
-  filter(payette == TRUE) %>% nrow()
-pairwise_dbh06 %>% 
-  filter(gila == TRUE) %>% nrow()
+CLD_dbh_aov06 = cld(dbh_aov06_marg,
+          alpha=0.05,
+          Letters=letters)
+CLD_dbh_aov06
 
 dbh_numeric14 <- dbh_numeric %>% filter(year=="DBH14") %>% 
   mutate(Provenance=as.factor(Provenance))
 
-dbh_aov14 <- aov(DBH ~ Provenance, data =dbh_numeric14 )
+dbh_aov14 <- lmer(DBH ~ Provenance + (1|BLK), data =dbh_numeric14)
 plot(dbh_aov14)
-summary(dbh_aov14)
-pairwise_dbh14 <- TukeyHSD(dbh_aov14)$Provenance %>% 
-  as.data.frame() %>% 
-  filter(`p adj` < 0.05) %>% 
-  mutate(comp=rownames(TukeyHSD(dbh_aov14)$Provenance %>% 
-  as.data.frame() %>% 
-  filter(`p adj` < 0.05))) %>% 
-  mutate(payette = grepl( "Payette", comp, fixed = TRUE),
-         gila = grepl("Gila", comp, fixed = TRUE)) 
+anova(dbh_aov14)
+dbh_aov14_marg = lsmeans(dbh_aov14, ~ Provenance)
 
-pairwise_dbh14 %>% 
-  filter(payette == TRUE) %>% nrow()
-pairwise_dbh14 %>% 
-  filter(gila == TRUE) %>% nrow()
+CLD_dbh_aov14 = cld(dbh_aov14_marg,
+          alpha=0.05,
+          Letters=letters)
+CLD_dbh_aov14
 
-dbh14_glht <- glht(dbh_aov14, linfct = mcp(Provenance = "Tukey"))
-dbh14_cld<- cld(dbh14_glht)
-dbh14_letter_df<- as.data.frame(dbh14_cld$mcletters$Letters) %>% 
-  rename(letters = `dbh14_cld$mcletters$Letters`) %>% 
-  mutate(Provenance = rownames(as.data.frame(dbh14_cld$mcletters$Letters)))
+dbh14_letter_df<- as.data.frame(CLD_dbh_aov14) %>% 
+  rename(letters = `.group`)
 
 dbh_letters_plot<- ggplot(dbh_numeric14, aes(x=factor(Provenance, levels=prov_dbh_order$Provenance), y=DBH, fill=factor(Provenance, levels=provs_bylat$Provenance)))+
   geom_boxplot()+
@@ -1824,7 +1803,7 @@ dbh_num14_alldist_noG3 <- dbh_num14_alldist %>%
 dbh_num14_alldist_noG <- dbh_num14_alldist %>% 
   filter(!Provenance%in% c("Gila NF"))
 
-mod_dbh_dist <- lmer(DBH ~ scale(geo.dist.to.plant.km)*scale(dist.to.plant.3d) + (1|Provenance), data=dbh_num14_alldist)
+mod_dbh_dist <- lmer(DBH ~ scale(geo.dist.to.plant.km)*scale(dist.to.plant.3d) + (1|Provenance) + (1|BLK), data=dbh_num14_alldist)
 plot(mod_dbh_dist)
 qqmath(mod_dbh_dist)
 summary(mod_dbh_dist)
@@ -1840,20 +1819,20 @@ dredge(mod_dbh_dist)
 #   
 # (2*3 +2)/655
 
-mod_dbh_dist_nog <- lmer(DBH ~ scale(geo.dist.to.plant.km)*scale(dist.to.plant.3d) + (1|Provenance), data=dbh_num14_alldist_noG)
+mod_dbh_dist_nog <- lmer(DBH ~ scale(geo.dist.to.plant.km)*scale(dist.to.plant.3d) + (1|Provenance) + (1|BLK), data=dbh_num14_alldist_noG)
 plot(mod_dbh_dist_nog)
 qqmath(mod_dbh_dist_nog)
 summary(mod_dbh_dist_nog)
 dredge(mod_dbh_dist_nog)
 
-mod_dbh_dist2 <- lmer(DBH ~ scale(geo.dist.to.plant.km) + scale(dist.to.plant.3d) + (1|Provenance), data=dbh_num14_alldist)
+mod_dbh_dist2 <- lmer(DBH ~ scale(geo.dist.to.plant.km) * scale(dist.to.plant.3d) + (1|Provenance) + (1|BLK), data=dbh_num14_alldist)
 plot(mod_dbh_dist2)
 qqmath(mod_dbh_dist2)
 summary(mod_dbh_dist2)
 
 dbh_int_plot <- interact_plot(mod_dbh_dist2, pred=geo.dist.to.plant.km, modx=dist.to.plant.3d, plot.points=TRUE, interval = TRUE, int.type = "confidence", int.width=0.95, data=dbh_num14_alldist, x.label = "Geographic distance to plantation (km)", y.label = "DBH (cm)", legend.main = "Climatic Distance", colors="Greys")
 
-mod_dbh_dist2_noG <- lmer(DBH ~ scale(geo.dist.to.plant.km) + scale(dist.to.plant.3d) + (1|Provenance), data=dbh_num14_alldist_noG)
+mod_dbh_dist2_noG <- lmer(DBH ~ scale(geo.dist.to.plant.km) * scale(dist.to.plant.3d) + (1|Provenance) + (1|BLK), data=dbh_num14_alldist_noG)
 plot(mod_dbh_dist2_noG)
 qqmath(mod_dbh_dist2_noG)
 summary(mod_dbh_dist2_noG)
@@ -1866,7 +1845,7 @@ ggplot(dbh_num14_alldist, aes(x=dist.to.plant.3d, y=DBH, col=Provenance))+
   geom_smooth(method="lm")
 
 ##predict model
-mod_dbh_dist2_lm <- lm(DBH ~ scale(geo.dist.to.plant.km)+scale(dist.to.plant.3d), data=dbh_num14_alldist)
+mod_dbh_dist2_lm <- lm(DBH ~ scale(geo.dist.to.plant.km)*scale(dist.to.plant.3d), data=dbh_num14_alldist)
 leveragePlots(mod_dbh_dist2_lm)
 
 dbh_dist_newdata <- with(dbh_num14_alldist, data.frame(geo.dist.to.plant.km = seq(min(geo.dist.to.plant.km),max(geo.dist.to.plant.km),length.out=100), 
@@ -1890,13 +1869,13 @@ dbh_dist_plot <- ggplot()+
 ####PCA
 ```{r}
 ##PCs and x 
-mod_dbh_pca_x <- lmer(DBH ~ PC1*PC2 + PC1*scale(x) + PC2*scale(x) + + I(PC1^2) + I(PC2^2) + + I(scale(x)^2) + (1|Provenance), data=dbh_num14_alldist)
+mod_dbh_pca_x <- lmer(DBH ~ PC1*PC2 + PC1*scale(x) + PC2*scale(x) + + I(PC1^2) + I(PC2^2) + + I(scale(x)^2) + (1|Provenance) + (1|BLK), data=dbh_num14_alldist)
 plot(mod_dbh_pca_x)
 qqmath(mod_dbh_pca_x)
 summary(mod_dbh_pca_x)
 dredge(mod_dbh_pca_x)
 
-bestmod_dbh_pca_x <- lmer(DBH ~ scale(x) + (1|Provenance), data=dbh_num14_alldist)
+bestmod_dbh_pca_x <- lmer(DBH ~ scale(x) + (1|Provenance) + (1|BLK), data=dbh_num14_alldist)
 
 summary(bestmod_dbh_pca_x)
 
@@ -1905,7 +1884,7 @@ ggplot(dbh_num14_alldist, aes(x=x, y=DBH))+
   geom_smooth(method="lm")
 
 ##PCs and y 
-mod_dbh_pca_y <- lmer(DBH ~ PC1*PC2 + PC1*scale(y) + PC2*scale(y) + I(PC1^2) + I(PC2^2) + I(scale(y)^2) + (1|Provenance), data=dbh_num14_alldist)
+mod_dbh_pca_y <- lmer(DBH ~ PC1*PC2 + PC1*scale(y) + PC2*scale(y) + I(PC1^2) + I(PC2^2) + I(scale(y)^2) + (1|Provenance) + (1|BLK), data=dbh_num14_alldist)
 plot(mod_dbh_pca_y)
 qqmath(mod_dbh_pca_y)
 summary(mod_dbh_pca_y)
@@ -1913,7 +1892,7 @@ dredge(mod_dbh_pca_y)
 
 AICc(mod_dbh_pca_x, mod_dbh_pca_y) #lat is better
 
-bestmod_dbh_pca_y <- lmer(DBH ~ PC2*scale(y) + I(PC2^2) + I(scale(y)^2) + (1|Provenance), data=dbh_num14_alldist)
+bestmod_dbh_pca_y <- lmer(DBH ~ PC2*scale(y) + I(PC2^2) + I(scale(y)^2) + (1|Provenance) + (1|BLK), data=dbh_num14_alldist)
 summary(bestmod_dbh_pca_y)
 
 ggplot(dbh_num14_alldist, aes(x=PC2, y=DBH))+
@@ -1929,7 +1908,7 @@ dbh_pca_int_plot<- interact_plot(bestmod_dbh_pca_y, pred=y, modx=PC2, plot.point
 dbh_num14_alldist_noG <- dbh_num14_alldist %>% 
   filter(!Provenance%in% c("Gila NF"))
 
-mod_dbh_pca_y_nog <- lmer(DBH ~ PC1*PC2 + PC1*scale(y) + PC2*scale(y) + I(PC1^2) + I(PC2^2) + I(scale(y)^2) + (1|Provenance), data=dbh_num14_alldist_noG)
+mod_dbh_pca_y_nog <- lmer(DBH ~ PC1*PC2 + PC1*scale(y) + PC2*scale(y) + I(PC1^2) + I(PC2^2) + I(scale(y)^2) + (1|Provenance) + (1|BLK), data=dbh_num14_alldist_noG)
 plot(mod_dbh_pca_y_nog)
 qqmath(mod_dbh_pca_y_nog)
 summary(mod_dbh_pca_y_nog)
@@ -1937,31 +1916,31 @@ dredge(mod_dbh_pca_y_nog)
 
 interact_plot(mod_dbh_pca_y_nog, pred=y, modx=PC2, plot.points=TRUE, interval = TRUE, int.width = 0.95, data=dbh_num14_alldist_noG)
 
-bestmod_dbh_pca_y_nog <- lmer(DBH ~ scale(y) + I(scale(y)^2) + (1|Provenance), data=dbh_num14_alldist_noG)
+bestmod_dbh_pca_y_nog <- lmer(DBH ~ scale(y) + I(scale(y)^2) + (1|Provenance) + (1|BLK), data=dbh_num14_alldist_noG)
 summary(bestmod_dbh_pca_y_nog) #quadratic y effect is significant when you take out Gila
 
 dbh_num14_alldist_noO <- dbh_num14_alldist %>% 
   filter(!Provenance%in% c("Okanogan NF"))
 
-mod_dbh_pca_y_noO <- lmer(DBH ~ PC1*PC2 + PC1*scale(y) + PC2*scale(y) + I(PC1^2) + I(PC2^2) + I(scale(y)^2) + (1|Provenance), data=dbh_num14_alldist_noO)
+mod_dbh_pca_y_noO <- lmer(DBH ~ PC1*PC2 + PC1*scale(y) + PC2*scale(y) + I(PC1^2) + I(PC2^2) + I(scale(y)^2) + (1|Provenance) + (1|BLK), data=dbh_num14_alldist_noO)
 plot(mod_dbh_pca_y_noO)
 qqmath(mod_dbh_pca_y_noO)
 summary(mod_dbh_pca_y_noO)
 dredge(mod_dbh_pca_y_noO)
 
-bestmod_dbh_pca_y_noO <- lmer(DBH ~ PC2 + I(PC2^2) + scale(y) + I(scale(y)^2) + (1|Provenance), data=dbh_num14_alldist_noO)
+bestmod_dbh_pca_y_noO <- lmer(DBH ~ PC2 + I(PC2^2) + scale(y) + I(scale(y)^2) + (1|Provenance) + (1|BLK), data=dbh_num14_alldist_noO)
 summary(bestmod_dbh_pca_y_noO)
 
 dbh_num14_alldist_noGO <- dbh_num14_alldist %>% 
   filter(!Provenance%in% c("Okanogan NF", "Gila NF"))
 
-mod_dbh_pca_y_noGO <- lmer(DBH ~ PC1*PC2 + PC1*scale(y) + PC2*scale(y) + I(PC1^2) + I(PC2^2) + I(scale(y)^2) + (1|Provenance), data=dbh_num14_alldist_noGO)
+mod_dbh_pca_y_noGO <- lmer(DBH ~ PC1*PC2 + PC1*scale(y) + PC2*scale(y) + I(PC1^2) + I(PC2^2) + I(scale(y)^2) + (1|Provenance) + (1|BLK), data=dbh_num14_alldist_noGO)
 plot(mod_dbh_pca_y_noGO)
 qqmath(mod_dbh_pca_y_noGO)
 summary(mod_dbh_pca_y_noGO)
 dredge(mod_dbh_pca_y_noGO)
 
-bestmod_dbh_pca_y_noGO <- lmer(DBH ~ PC2  + scale(y) + I(scale(y)^2) + (1|Provenance), data=dbh_num14_alldist_noGO)
+bestmod_dbh_pca_y_noGO <- lmer(DBH ~ PC2  + scale(y) + I(scale(y)^2) + (1|Provenance) + (1|BLK), data=dbh_num14_alldist_noGO)
 summary(bestmod_dbh_pca_y_noGO)
 
 ###make plot
@@ -1995,30 +1974,46 @@ dbh_numeric_time <- dbh_numeric %>%
 
 
 ##PCs and x 
-mod_dbh_pca_x_time <- lmer(DBH ~ PC1*PC2 + PC1*scale(x) + PC2*scale(x) + I(PC1^2) + I(PC2^2) + I(scale(x)^2) + scale(year) + scale(year)*PC1 + scale(year)*PC2 + scale(year)*scale(x) + scale(year)*I(PC1^2) + scale(year)*I(PC2^2) + scale(year)*I(scale(x)^2) + (1|Provenance), data=dbh_numeric_time)
+mod_dbh_pca_x_time <- lmer(DBH ~ PC1*PC2 + PC1*scale(x) + PC2*scale(x) + I(PC1^2) + I(PC2^2) + I(scale(x)^2) + scale(year) + scale(year)*PC1 + scale(year)*PC2 + scale(year)*scale(x) + scale(year)*I(PC1^2) + scale(year)*I(PC2^2) + scale(year)*I(scale(x)^2) + (1|Provenance) + (1|BLK), data=dbh_numeric_time)
 plot(mod_dbh_pca_x_time)
 qqmath(mod_dbh_pca_x_time)
 summary(mod_dbh_pca_x_time)
-mod_dbh_pca_x_time_dredge<- dredge(mod_dbh_pca_x_time)
-mod_dbh_pca_x_time_dredge
+#mod_dbh_pca_x_time_dredge<- dredge(mod_dbh_pca_x_time)
+#saveRDS(mod_dbh_pca_x_time_dredge,"mod_dbh_pca_x_time_dredge.RDS")
+mod_dbh_pca_x_time_dredge <- readRDS("mod_dbh_pca_x_time_dredge.RDS")
 
-bestmod_dbh_pca_x_time <- lmer(DBH ~ year + scale(x) + PC1 + I(PC1^2) + (1|Provenance), data=dbh_numeric_time)
+bestmod_dbh_pca_x_time <- lmer(DBH ~ year + scale(x) + PC1 + I(PC1^2) + (1|Provenance) + (1|BLK), data=dbh_numeric_time)
 summary(bestmod_dbh_pca_x_time)
 
 ##PCs and y 
-mod_dbh_pca_y_time <- lmer(DBH ~ PC1*PC2 + PC1*scale(y) + PC2*scale(y) + I(PC1^2) + I(PC2^2) + I(scale(y)^2) + scale(year) + scale(year)*PC1 + scale(year)*PC2 + scale(year)*scale(y) + scale(year)*I(PC1^2) + scale(year)*I(PC2^2) + scale(year)*I(scale(y)^2) + (1|Provenance), data=dbh_numeric_time)
+mod_dbh_pca_y_time <- lmer(DBH ~ PC1*PC2 + PC1*scale(y) + PC2*scale(y) + I(PC1^2) + I(PC2^2) + I(scale(y)^2) + scale(year) + scale(year)*PC1 + scale(year)*PC2 + scale(year)*scale(y) + scale(year)*I(PC1^2) + scale(year)*I(PC2^2) + scale(year)*I(scale(y)^2) + (1|Provenance) + (1|BLK), data=dbh_numeric_time)
 plot(mod_dbh_pca_y_time)
 qqmath(mod_dbh_pca_y_time)
 summary(mod_dbh_pca_y_time)
-mod_dbh_pca_y_time_dredge<- dredge(mod_dbh_pca_y_time)
+#mod_dbh_pca_y_time_dredge<- dredge(mod_dbh_pca_y_time)
+#saveRDS(mod_dbh_pca_y_time_dredge,"mod_dbh_pca_y_time_dredge.RDS")
+mod_dbh_pca_y_time_dredge <- readRDS("mod_dbh_pca_y_time_dredge.RDS")
+
+bestmod_dbh_pca_y_time <- lmer(DBH ~ year + scale(y) + (1|Provenance) + (1|BLK), data=dbh_numeric_time)
+summary(bestmod_dbh_pca_y_time) #year is only thing significant
 
 AICc(mod_dbh_pca_x_time, mod_dbh_pca_y_time) #lat is better
-###to be continued...
+
+###try year as a random effect
+mod_dbh_pca_y_randtime <- lmer(DBH ~ PC1*PC2 + PC1*scale(y) + PC2*scale(y) + I(PC1^2) + I(PC2^2) + I(scale(y)^2)+ (1|Provenance) + (1|BLK) + (1|year), data=dbh_numeric_time)
+plot(mod_dbh_pca_y_randtime)
+qqmath(mod_dbh_pca_y_randtime)
+summary(mod_dbh_pca_y_randtime)
+mod_dbh_pca_y_randtime_dredge<- dredge(mod_dbh_pca_y_randtime)
+mod_dbh_pca_y_randtime_dredge
+
+bestmod_dbh_pca_y_randtime <- lmer(DBH ~ scale(y) + (1|Provenance) + (1|BLK) + (1|year), data=dbh_numeric_time)
+summary(bestmod_dbh_pca_y_randtime)
 ```
 
 ```{r}
 ##all 3 PCs
-mod_dbh_pcs <- lmer(DBH ~ PC1*PC2 + PC1*PC3 + PC2*PC3 + I(PC1^2) + I(PC2^2) + I(PC3^2) + (1|Provenance), data=dbh_num14_alldist)
+mod_dbh_pcs <- lmer(DBH ~ PC1*PC2 + PC1*PC3 + PC2*PC3 + I(PC1^2) + I(PC2^2) + I(PC3^2) + (1|Provenance) + (1|BLK), data=dbh_num14_alldist)
 plot(mod_dbh_pcs)
 qqmath(mod_dbh_pcs)
 summary(mod_dbh_pcs)
@@ -2026,7 +2021,7 @@ dredge(mod_dbh_pcs) ##null model is the best model
 
 AICc(mod_dbh_pca_x, mod_dbh_pca_y, mod_dbh_pcs) ##model with latitude has the lowest AICc
 
-mod_dbh_pcs_nog <- lmer(DBH ~ PC1*PC2 + PC1*PC3 + PC2*PC3 + I(PC1^2) + I(PC2^2) + I(PC3^2) + (1|Provenance), data=dbh_num14_alldist_noG)
+mod_dbh_pcs_nog <- lmer(DBH ~ PC1*PC2 + PC1*PC3 + PC2*PC3 + I(PC1^2) + I(PC2^2) + I(PC3^2) + (1|Provenance) + (1|BLK), data=dbh_num14_alldist_noG)
 plot(mod_dbh_pcs_nog)
 qqmath(mod_dbh_pcs_nog)
 summary(mod_dbh_pcs_nog)
@@ -2048,10 +2043,10 @@ dbh_num14_long <- dbh_num14 %>%
 dbh_mods<- data.frame()
 dbh_num14_nog <- dbh_num14 %>% filter(!Provenance=="Gila NF")
 for(i in 1:length(provenance_climvars)){
-mod <- lmer(DBH ~ value + (1|Provenance), data=dbh_num14_long %>% filter(name==provenance_climvars[i]))
+mod <- lmer(DBH ~ value + (1|Provenance)+ (1|BLK), data=dbh_num14_long %>% filter(name==provenance_climvars[i]))
 pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
 
-mod_nog <- lmer(DBH ~ value + (1|Provenance), data=dbh_num14_long %>% filter(name==provenance_climvars[i]) %>% filter(!Provenance=="Gila NF"))
+mod_nog <- lmer(DBH ~ value + (1|Provenance)+ (1|BLK), data=dbh_num14_long %>% filter(name==provenance_climvars[i]) %>% filter(!Provenance=="Gila NF"))
 pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|t|)`
 
 dbh_mods <- bind_rows(dbh_mods, data.frame(var=provenance_climvars[i], pvalue = pvalue, pvalue_nog = pvalue_nog))
@@ -2065,10 +2060,10 @@ dbh_mods %>% arrange(pvalue_nog)
 dbh_mods_quad<- data.frame()
 
 for(i in 1:length(provenance_climvars)){
-mod <- lmer(DBH ~ value + I(value^2) + (1|Provenance), data=dbh_num14_long %>% filter(name==provenance_climvars[i]))
+mod <- lmer(DBH ~ value + I(value^2) + (1|Provenance) + (1|BLK), data=dbh_num14_long %>% filter(name==provenance_climvars[i]))
 pvalues<- as.data.frame(summary(mod)$coefficients)[2:3,]$`Pr(>|t|)`
 
-mod_nog <- lmer(DBH ~ value + I(value^2) + (1|Provenance), data=dbh_num14_long %>% filter(name==provenance_climvars[i]) %>% filter(!Provenance=="Gila NF"))
+mod_nog <- lmer(DBH ~ value + I(value^2) + (1|Provenance) + (1|BLK), data=dbh_num14_long %>% filter(name==provenance_climvars[i]) %>% filter(!Provenance=="Gila NF"))
 pvalues_nog<- as.data.frame(summary(mod_nog)$coefficients)[2:3,]$`Pr(>|t|)`
 
 dbh_mods_quad <- bind_rows(dbh_mods_quad, data.frame(var=provenance_climvars[i], pvalue1 = pvalues[1], pvalue2 = pvalues[2], pvalue1_nog = pvalues_nog[1], pvalue2_nog = pvalues_nog[2]))
@@ -2095,10 +2090,10 @@ dbh_num91_long <- dbh_numeric91 %>%
 dbh_mods91<- data.frame()
 dbh_num91_nog <- dbh_numeric91 %>% filter(!Provenance=="Gila NF")
 for(i in 1:length(provenance_climvars)){
-mod <- lmer(DBH ~ value + (1|Provenance), data=dbh_num91_long %>% filter(name==provenance_climvars[i]))
+mod <- lmer(DBH ~ value + (1|Provenance) + (1|BLK), data=dbh_num91_long %>% filter(name==provenance_climvars[i]))
 pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
 
-mod_nog <- lmer(DBH ~ value + (1|Provenance), data=dbh_num91_long %>% filter(name==provenance_climvars[i]) %>% filter(!Provenance=="Gila NF"))
+mod_nog <- lmer(DBH ~ value + (1|Provenance) + (1|BLK), data=dbh_num91_long %>% filter(name==provenance_climvars[i]) %>% filter(!Provenance=="Gila NF"))
 pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|t|)`
 
 dbh_mods91 <- bind_rows(dbh_mods91, data.frame(var=provenance_climvars[i], pvalue = pvalue, pvalue_nog = pvalue_nog))
@@ -2224,7 +2219,7 @@ ht_data_year <-  ht_data %>% mutate(year=case_when(
   name == "HT06" ~ 2006,
   name == "HT14" ~ 2014))
 
-nurse_ht_mod <- lmer(log(value) ~ nursery_ht_m*factor(year) + (1|Provenance), data=ht_data_year)
+nurse_ht_mod <- lmer(log(value) ~ nursery_ht_m*factor(year) + (1|Provenance) + (1|BLK), data=ht_data_year)
 plot(nurse_ht_mod)
 qqmath(nurse_ht_mod)
 summary(nurse_ht_mod)  
@@ -2245,10 +2240,11 @@ ggplot()+
   #facet_wrap(~year)
 
 ##no Gila
-nurse_ht_mod_nog <- lmer(log(value) ~ nursery_ht_m*factor(year) + (1|Provenance), data=ht_data_year %>% filter(!Provenance=="Gila NF"))
+nurse_ht_mod_nog <- lmer(log(value) ~ nursery_ht_m*factor(year) + (1|Provenance) + (1|BLK), data=ht_data_year %>% filter(!Provenance=="Gila NF"))
 plot(nurse_ht_mod_nog)
 qqmath(nurse_ht_mod_nog)
 summary(nurse_ht_mod_nog)  
+Anova(nurse_ht_mod_nog, type="3")
 
 ##predict
 ht_data_year_nog <- ht_data_year %>% filter(!Provenance=="Gila NF")
@@ -2268,53 +2264,53 @@ ggplot()+
 #### 
 
 #1974
-nurse_ht_mod74 <- lmer(value ~ nursery_ht_m + (1|Provenance), data=ht_data %>% filter(name=="HT74"))
+nurse_ht_mod74 <- lmer(value ~ nursery_ht_m + (1|Provenance)+ (1|BLK), data=ht_data %>% filter(name=="HT74"))
 plot(nurse_ht_mod74)
 qqmath(nurse_ht_mod74)
 summary(nurse_ht_mod74)  ##significant 
-summary(lmer(value ~ nursery_ht_m + (1|Provenance), data=ht_data %>% filter(name=="HT74") %>% filter(!Provenance=="Gila NF")))
+summary(lmer(value ~ nursery_ht_m + (1|Provenance) + (1|BLK), data=ht_data %>% filter(name=="HT74") %>% filter(!Provenance=="Gila NF")))
 
 #1979
-nurse_ht_mod79 <- lmer(value ~ nursery_ht_m + (1|Provenance), data=ht_data %>% filter(name=="HT79"))
+nurse_ht_mod79 <- lmer(value ~ nursery_ht_m + (1|Provenance) + (1|BLK), data=ht_data %>% filter(name=="HT79"))
 plot(nurse_ht_mod79)
 qqmath(nurse_ht_mod79)
 summary(nurse_ht_mod79)  ##no effect of nursery height on total height in 1979 
-summary(lmer(value ~ nursery_ht_m + (1|Provenance), data=ht_data %>% filter(name=="HT79") %>% filter(!Provenance=="Gila NF")))
+summary(lmer(value ~ nursery_ht_m + (1|Provenance)+ (1|BLK), data=ht_data %>% filter(name=="HT79") %>% filter(!Provenance=="Gila NF")))
 
 #1985
-nurse_ht_mod85 <- lmer(value ~ nursery_ht_m + (1|Provenance), data=ht_data %>% filter(name=="HT85"))
+nurse_ht_mod85 <- lmer(value ~ nursery_ht_m + (1|Provenance) + (1|BLK), data=ht_data %>% filter(name=="HT85"))
 plot(nurse_ht_mod85)
 qqmath(nurse_ht_mod85)
 summary(nurse_ht_mod85)  ##no effect of nursery height on total height in 1985 
-summary(lmer(value ~ nursery_ht_m + (1|Provenance), data=ht_data %>% filter(name=="HT85") %>% filter(!Provenance=="Gila NF")))
+summary(lmer(value ~ nursery_ht_m + (1|Provenance) + (1|BLK), data=ht_data %>% filter(name=="HT85") %>% filter(!Provenance=="Gila NF")))
 
 #1991
-nurse_ht_mod91 <- lmer(value ~ nursery_ht_m + (1|Provenance), data=ht_data %>% filter(name=="HT91"))
+nurse_ht_mod91 <- lmer(value ~ nursery_ht_m + (1|Provenance) + (1|BLK), data=ht_data %>% filter(name=="HT91"))
 plot(nurse_ht_mod91)
 qqmath(nurse_ht_mod91)
 summary(nurse_ht_mod91)  ##no effect of nursery height on total height in 1991 
-summary(lmer(value ~ nursery_ht_m + (1|Provenance), data=ht_data %>% filter(name=="HT91") %>% filter(!Provenance=="Gila NF")))
+summary(lmer(value ~ nursery_ht_m + (1|Provenance) + (1|BLK), data=ht_data %>% filter(name=="HT91") %>% filter(!Provenance=="Gila NF")))
 
 #1996
-nurse_ht_mod96 <- lmer(value ~ nursery_ht_m + (1|Provenance), data=ht_data %>% filter(name=="HT96"))
+nurse_ht_mod96 <- lmer(value ~ nursery_ht_m + (1|Provenance) + (1|BLK), data=ht_data %>% filter(name=="HT96"))
 plot(nurse_ht_mod96)
 qqmath(nurse_ht_mod96)
 summary(nurse_ht_mod96)  ##no effect of nursery height on total height in 1996 
-summary(lmer(value ~ nursery_ht_m + (1|Provenance), data=ht_data %>% filter(name=="HT96") %>% filter(!Provenance=="Gila NF")))
+summary(lmer(value ~ nursery_ht_m + (1|Provenance) + (1|BLK), data=ht_data %>% filter(name=="HT96") %>% filter(!Provenance=="Gila NF")))
 
 #2006
-nurse_ht_mod06 <- lmer(value ~ nursery_ht_m + (1|Provenance), data=ht_data %>% filter(name=="HT06") %>% filter(!Provenance=="Gila NF"))
+nurse_ht_mod06 <- lmer(value ~ nursery_ht_m + (1|Provenance) + (1|BLK), data=ht_data %>% filter(name=="HT06"))
 plot(nurse_ht_mod06)
 qqmath(nurse_ht_mod06)
 summary(nurse_ht_mod06)  ##no effect of nursery height on total height in 2006 
-summary(lmer(value ~ nursery_ht_m + (1|Provenance), data=ht_data %>% filter(name=="HT06") %>% filter(!Provenance=="Gila NF"))) #significant without Gila
+summary(lmer(value ~ nursery_ht_m + (1|Provenance) + (1|BLK), data=ht_data %>% filter(name=="HT06") %>% filter(!Provenance=="Gila NF"))) #significant without Gila
 
 #2014
-nurse_ht_mod14 <- lmer(value ~ nursery_ht_m + (1|Provenance), data=ht_data %>% filter(name=="HT14"))
+nurse_ht_mod14 <- lmer(value ~ nursery_ht_m + (1|Provenance) + (1|BLK), data=ht_data %>% filter(name=="HT14"))
 plot(nurse_ht_mod14)
 qqmath(nurse_ht_mod14)
 summary(nurse_ht_mod14)  ##no effect of nursery height on total height in 2014. 
-summary(lmer(value ~ nursery_ht_m + (1|Provenance), data=ht_data %>% filter(name=="HT14") %>% filter(!Provenance=="Gila NF")))
+summary(lmer(value ~ nursery_ht_m + (1|Provenance) + (1|BLK), data=ht_data %>% filter(name=="HT14") %>% filter(!Provenance=="Gila NF"))) #only marginally significant without Gila
 
 ##effect of year * provenance
 par(mfrow=c(2,2))
@@ -2356,63 +2352,88 @@ ggplot(ht_data_year %>%
   scale_color_manual(values=c("steelblue","tomato"))
 
 #each year separately
-totht_mod74 <- aov(value ~ Provenance, data= ht_data %>% filter(name=="HT74"))
+totht_mod74 <- lmer(value ~ Provenance + (1|BLK), data= ht_data %>% filter(name=="HT74"))
 plot(totht_mod74)
-summary(totht_mod74)
-TukeyHSD(totht_mod74)$Provenance %>% 
-  as.data.frame() %>% 
-  filter(`p adj`<0.05)
+anova(totht_mod74)
+rand(totht_mod74)
+totht_mod74_marg = lsmeans(totht_mod74, ~ Provenance)
 
-totht_mod79 <- aov(value ~ Provenance, data= ht_data %>% filter(name=="HT79"))
+CLD_totht_mod74 = cld(totht_mod74_marg,
+          alpha=0.05,
+          Letters=letters)
+CLD_totht_mod74
+
+totht_mod79 <- lmer(value ~ Provenance + (1|BLK), data= ht_data %>% filter(name=="HT79"))
 plot(totht_mod79)
-summary(totht_mod79)
-TukeyHSD(totht_mod79)$Provenance %>% 
-  as.data.frame() %>% 
-  filter(`p adj`<0.05)
+anova(totht_mod79)
+rand(totht_mod79)
+totht_mod79_marg = lsmeans(totht_mod79, ~ Provenance)
 
-totht_mod85 <- aov(value ~ Provenance, data= ht_data %>% filter(name=="HT85"))
+CLD_totht_mod79 = cld(totht_mod79_marg,
+          alpha=0.05,
+          Letters=letters)
+CLD_totht_mod79
+
+totht_mod85 <- lmer(value ~ Provenance + (1|BLK), data= ht_data %>% filter(name=="HT85"))
 plot(totht_mod85)
-summary(totht_mod85)
-TukeyHSD(totht_mod85)$Provenance %>% 
-  as.data.frame() %>% 
-  filter(`p adj`<0.05)
+anova(totht_mod85)
+rand(totht_mod85)
+totht_mod85_marg = lsmeans(totht_mod85, ~ Provenance)
 
-totht_mod91 <- aov(value ~ Provenance, data= ht_data %>% filter(name=="HT74"))
-plot(totht_mod74)
-summary(totht_mod74)
-TukeyHSD(totht_mod74)$Provenance %>% 
-  as.data.frame() %>% 
-  filter(`p adj`<0.05)
+CLD_totht_mod85 = cld(totht_mod85_marg,
+          alpha=0.05,
+          Letters=letters)
+CLD_totht_mod85
 
-totht_mod96 <- aov(value ~ Provenance, data= ht_data %>% filter(name=="HT96"))
+totht_mod91 <- lmer(value ~ Provenance + (1|BLK), data= ht_data %>% filter(name=="HT91"))
+plot(totht_mod91)
+anova(totht_mod91)
+rand(totht_mod91)
+totht_mod91_marg = lsmeans(totht_mod91, ~ Provenance)
+
+CLD_totht_mod91 = cld(totht_mod91_marg,
+          alpha=0.05,
+          Letters=letters)
+CLD_totht_mod91
+
+totht_mod96 <- lmer(value ~ Provenance + (1|BLK), data= ht_data %>% filter(name=="HT96"))
 plot(totht_mod96)
-summary(totht_mod96)
-TukeyHSD(totht_mod96)$Provenance %>% 
-  as.data.frame() %>% 
-  filter(`p adj`<0.05)
+anova(totht_mod96)
+rand(totht_mod96)
+totht_mod96_marg = lsmeans(totht_mod96, ~ Provenance)
 
-totht_mod06 <- aov(value ~ Provenance, data= ht_data %>% filter(name=="HT06"))
+CLD_totht_mod96 = cld(totht_mod96_marg,
+          alpha=0.05,
+          Letters=letters)
+CLD_totht_mod96
+
+totht_mod06 <- lmer(value ~ Provenance + (1|BLK), data= ht_data %>% filter(name=="HT06"))
 plot(totht_mod06)
-summary(totht_mod06)
-TukeyHSD(totht_mod06)$Provenance %>% 
-  as.data.frame() %>% 
-  filter(`p adj`<0.05)
+anova(totht_mod06)
+rand(totht_mod06)
+totht_mod06_marg = lsmeans(totht_mod06, ~ Provenance)
+
+CLD_totht_mod06 = cld(totht_mod06_marg,
+          alpha=0.05,
+          Letters=letters)
+CLD_totht_mod06
 
 ht_data14<- ht_data %>% filter(name=="HT14") %>% 
   mutate(Provenance=as.factor(Provenance))
 
-totht_mod14 <- aov(value ~ Provenance, data=ht_data14)
+totht_mod14 <- lmer(value ~ Provenance + (1|BLK), data=ht_data14)
 plot(totht_mod14)
-summary(totht_mod14)
-TukeyHSD(totht_mod14)$Provenance %>% 
-  as.data.frame() %>% 
-  filter(`p adj`<0.05)
+anova(totht_mod14)
+rand(totht_mod14)
+totht_mod14_marg = lsmeans(totht_mod14, ~ Provenance)
 
-totht14_glht <- glht(totht_mod14, linfct = mcp(Provenance="Tukey"))
-totht14_cld<- cld(totht14_glht)
-totht14_letter_df<- as.data.frame(totht14_cld$mcletters$Letters) %>% 
-  rename(letters = `totht14_cld$mcletters$Letters`) %>% 
-  mutate(Provenance = rownames(as.data.frame(totht14_cld$mcletters$Letters)))
+CLD_totht_mod14 = cld(totht_mod14_marg,
+          alpha=0.05,
+          Letters=letters)
+CLD_totht_mod14
+
+totht14_letter_df<- as.data.frame(CLD_totht_mod14) %>% 
+  rename(letters = `.group`)
 
 prov_ht_order14<- ht_data14 %>% 
   group_by(Provenance) %>% 
@@ -2448,16 +2469,14 @@ ht_data_clim14 %>%
   dplyr::select(value,DBH) %>% 
   cor()
 
-
-
 ## Distance model
-ht_dist_mod <- lmer(value ~ scale(geo.dist.to.plant.km)*scale(dist.to.plant.3d) + (1|Provenance), data=ht_data_clim14)
+ht_dist_mod <- lmer(value ~ scale(geo.dist.to.plant.km)*scale(dist.to.plant.3d) + (1|Provenance) + (1|BLK), data=ht_data_clim14)
 plot(ht_dist_mod)
 qqmath(ht_dist_mod)
 summary(ht_dist_mod)
 dredge(ht_dist_mod)
 
-best_ht_dist_mod <- lmer(value ~ scale(geo.dist.to.plant.km)*scale(dist.to.plant.3d) + (1|Provenance), data=ht_data_clim14)
+best_ht_dist_mod <- lmer(value ~ scale(geo.dist.to.plant.km)*scale(dist.to.plant.3d) + (1|Provenance) + (1|BLK), data=ht_data_clim14)
 summary(best_ht_dist_mod)
 
 ggplot(data=ht_data_clim14, aes(x=dist.to.plant.3d, y=value))+
@@ -2467,13 +2486,13 @@ ggplot(data=ht_data_clim14, aes(x=geo.dist.to.plant.km, y=value))+
   geom_point()+
   geom_smooth(method="lm")
 
-ht_dist_mod_nog <- lmer(value ~ scale(geo.dist.to.plant.km)*scale(dist.to.plant.3d) + (1|Provenance), data=ht_data_clim14_nog)
+ht_dist_mod_nog <- lmer(value ~ scale(geo.dist.to.plant.km)*scale(dist.to.plant.3d) + (1|Provenance) + (1|BLK), data=ht_data_clim14_nog)
 plot(ht_dist_mod_nog)
 qqmath(ht_dist_mod_nog)
 summary(ht_dist_mod_nog)
 dredge(ht_dist_mod_nog)
 
-best_ht_dist_mod_nog <- lmer(value ~ scale(geo.dist.to.plant.km) + scale(dist.to.plant.3d) + (1|Provenance), data=ht_data_clim14_nog)
+best_ht_dist_mod_nog <- lmer(value ~ scale(geo.dist.to.plant.km) + scale(dist.to.plant.3d) + (1|Provenance) + (1|BLK), data=ht_data_clim14_nog)
 summary(best_ht_dist_mod_nog)
 
 ggplot(data=ht_data_clim14_nog, aes(x=dist.to.plant.3d, y=value, col=geo.dist.to.plant.km>800))+
@@ -2533,19 +2552,20 @@ ggplot()+
 ```{r}
 
 ##PCs and x 
-mod_ht_pca_x <- lmer(value ~ PC1*PC2 + PC1*x + PC2*x + I(PC1^2) + I(PC2^2) + I(scale(x)^2) + (1|Provenance), data=ht_data_clim14)
+mod_ht_pca_x <- lmer(value ~ PC1*PC2 + PC1*x + PC2*x + I(PC1^2) + I(PC2^2) + I(scale(x)^2) + (1|Provenance) + (1|BLK), data=ht_data_clim14)
 plot(mod_ht_pca_x)
 qqmath(mod_ht_pca_x)
 summary(mod_ht_pca_x)
-dredge(mod_ht_pca_x)
+mod_ht_pca_x_dredge <- dredge(mod_ht_pca_x)
+mod_ht_pca_x_dredge
 
-bestmod_ht_pca_x <- lmer(value ~ PC1 + PC2 + I(PC2^2) + scale(x) + (1|Provenance), data=ht_data_clim14)
+bestmod_ht_pca_x <- lmer(value ~ PC1 + PC2 + I(PC2^2) + I(scale(x)^2) + (1|Provenance) + (1|BLK), data=ht_data_clim14)
 summary(bestmod_ht_pca_x)
 
 ggplot(data=ht_data_clim14, aes(x=x, y=value))+
   geom_point()
 
-mod_ht_pca_x_nog <- lmer(value ~ PC1*PC2 + PC1*x + PC2*x + I(PC1^2) + I(PC2^2) + I(scale(x)^2) + (1|Provenance), data=ht_data_clim14_nog)
+mod_ht_pca_x_nog <- lmer(value ~ PC1*PC2 + PC1*x + PC2*x + I(PC1^2) + I(PC2^2) + I(scale(x)^2) + (1|Provenance) + (1|BLK), data=ht_data_clim14_nog)
 plot(mod_ht_pca_x_nog)
 qqmath(mod_ht_pca_x_nog)
 summary(mod_ht_pca_x_nog)
@@ -2553,7 +2573,7 @@ dredge(mod_ht_pca_x_nog) ##null model is best when Gila is removed
 
 
 ##PCs and y 
-mod_ht_pca_y <- lmer(value ~ PC1*PC2 + PC1*y + PC2*y + I(PC1^2) + I(PC2^2) + I(scale(y)^2) + (1|Provenance), data=ht_data_clim14)
+mod_ht_pca_y <- lmer(value ~ PC1*PC2 + PC1*y + PC2*y + I(PC1^2) + I(PC2^2) + I(scale(y)^2) + (1|Provenance) + (1|BLK), data=ht_data_clim14)
 plot(mod_ht_pca_y)
 qqmath(mod_ht_pca_y)
 summary(mod_ht_pca_y)
@@ -2561,7 +2581,7 @@ dredge(mod_ht_pca_y)
 
 AICc(mod_ht_pca_x, mod_ht_pca_y) #y is lower
 
-bestmod_ht_pca_y <- lmer(value ~ PC1 + PC2 + I(PC2^2) + scale(y) + (1|Provenance), data=ht_data_clim14)
+bestmod_ht_pca_y <- lmer(value ~ PC1 + PC2 + I(PC2^2) + scale(y) + (1|Provenance) + (1|BLK), data=ht_data_clim14)
 summary(bestmod_ht_pca_y)
 
 interact_plot(bestmod_ht_pca_y, data=ht_data_clim14, pred=y, modx=PC2, plot.points=TRUE, interval=TRUE, int.type="confidence")
@@ -2571,14 +2591,14 @@ ggplot(ht_data_clim14, aes(x=y, y=value))+
 ggplot(ht_data_clim14, aes(x=PC2, y=value, col=Provenance))+
   geom_point()
 
-mod_ht_pca_y_nog <- lmer(value ~ PC1*PC2 + PC1*y + PC2*y + I(PC1^2) + I(PC2^2) + I(scale(y)^2) + (1|Provenance), data=ht_data_clim14_nog)
+mod_ht_pca_y_nog <- lmer(value ~ PC1*PC2 + PC1*y + PC2*y + I(PC1^2) + I(PC2^2) + I(scale(y)^2) + (1|Provenance) + (1|BLK), data=ht_data_clim14_nog)
 plot(mod_ht_pca_y_nog)
 qqmath(mod_ht_pca_y_nog)
 summary(mod_ht_pca_y_nog)
 dredge(mod_ht_pca_y_nog)
 
-bestmod_ht_pca_y_nog <- lmer(value ~ y + I(scale(y)^2) + (1|Provenance), data=ht_data_clim14_nog)
-summary(bestmod_ht_pca_y_nog) #quadratic y effect still significant when you take out Gila
+bestmod_ht_pca_y_nog <- lmer(value ~ y + I(scale(y)^2) + (1|Provenance) + (1|BLK), data=ht_data_clim14_nog)
+summary(bestmod_ht_pca_y_nog) #quadratic y effect only marginally significant when Gila is removed
 
 
 ###make plot
@@ -2626,8 +2646,6 @@ geo.legend <- get_legend(interact_plot(ht_dist_mod_nog, pred=dist.to.plant, modx
   theme(legend.position = "right")
 )
 
-library(cowplot)
-
 #png("figures/dbh_height_fig.png", width=9,height=7, units="in", res=500)
 #grid.arrange(grid.arrange(dbh_dist_plot,dbh_lat_plot,ht_dist_plot,ht_lat_plot),grid.arrange(prov.legend,geo.legend, nrow=2, heights=c(1,0.4)),widths=c(1,0.4))
 #dev.off()
@@ -2636,7 +2654,7 @@ library(cowplot)
  
 ```{r}
 ##all 3 PCs
-mod_ht_pcs <- lmer(value ~ PC1*PC2 + PC1*PC3 + PC2*PC3 + I(PC1^2) + I(PC2^2) + I(PC3^2) + (1|Provenance), data=ht_data_clim14)
+mod_ht_pcs <- lmer(value ~ PC1*PC2 + PC1*PC3 + PC2*PC3 + I(PC1^2) + I(PC2^2) + I(PC3^2) + (1|Provenance) + (1|BLK), data=ht_data_clim14)
 plot(mod_ht_pcs)
 qqmath(mod_ht_pcs)
 summary(mod_ht_pcs)
@@ -2644,12 +2662,12 @@ dredge(mod_ht_pcs)
 
 AICc(mod_ht_pca_x, mod_ht_pca_y, mod_ht_pcs) ##PC3 model has the lowest AICc
 
-bestmod_ht_pcs <- lmer(value ~ PC3 + I(PC3^2) + (1|Provenance), data=ht_data_clim14)
+bestmod_ht_pcs <- lmer(value ~ PC3 + I(PC3^2) + (1|Provenance) + (1|BLK), data=ht_data_clim14)
 plot(bestmod_ht_pcs)
 qqmath(bestmod_ht_pcs)
 summary(bestmod_ht_pcs)
 
-mod_ht_pcs_nog <- lmer(value ~ PC1*PC2 + PC1*PC3 + PC2*PC3 + I(PC1^2) + I(PC2^2) + I(PC3^2) + (1|Provenance), data=ht_data_clim14_nog)
+mod_ht_pcs_nog <- lmer(value ~ PC1*PC2 + PC1*PC3 + PC2*PC3 + I(PC1^2) + I(PC2^2) + I(PC3^2) + (1|Provenance) + (1|BLK), data=ht_data_clim14_nog)
 plot(mod_ht_pcs_nog)
 qqmath(mod_ht_pcs_nog)
 summary(mod_ht_pcs_nog)
@@ -2669,10 +2687,10 @@ ht_data_clim14_long <- ht_data_clim14 %>%
 ht_mods<- data.frame()
 
 for(i in 1:length(provenance_climvars)){
-mod <- lmer(value ~ climvar.value + (1|Provenance), data=ht_data_clim14_long %>% filter(climvar.name==provenance_climvars[i]))
+mod <- lmer(value ~ climvar.value + (1|Provenance)+(1|BLK), data=ht_data_clim14_long %>% filter(climvar.name==provenance_climvars[i]))
 pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
 
-mod_nog <- lmer(value ~ climvar.value + (1|Provenance), data=ht_data_clim14_long %>% filter(climvar.name==provenance_climvars[i]) %>% filter(!Provenance=="Gila NF"))
+mod_nog <- lmer(value ~ climvar.value + (1|Provenance) + (1|BLK), data=ht_data_clim14_long %>% filter(climvar.name==provenance_climvars[i]) %>% filter(!Provenance=="Gila NF"))
 pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|t|)`
 
 ht_mods <- bind_rows(ht_mods, data.frame(var=provenance_climvars[i], pvalue = pvalue, pvalue_nog = pvalue_nog))
@@ -2686,10 +2704,10 @@ ht_mods %>% arrange(pvalue) ##lots significant with Gila, but when it's taken ou
 ht_mods_quad<- data.frame()
 
 for(i in 1:length(provenance_climvars)){
-mod <- lmer(value ~ climvar.value + I(climvar.value^2) + (1|Provenance), data=ht_data_clim14_long %>% filter(climvar.name==provenance_climvars[i]))
+mod <- lmer(value ~ climvar.value + I(climvar.value^2) + (1|Provenance) + (1|BLK), data=ht_data_clim14_long %>% filter(climvar.name==provenance_climvars[i]))
 pvalues<- as.data.frame(summary(mod)$coefficients)[2:3,]$`Pr(>|t|)`
 
-mod_nog <- lmer(value ~ climvar.value + I(climvar.value^2) + (1|Provenance), data=ht_data_clim14_long %>% filter(climvar.name==provenance_climvars[i]) %>% filter(!Provenance=="Gila NF"))
+mod_nog <- lmer(value ~ climvar.value + I(climvar.value^2) + (1|Provenance) + (1|BLK), data=ht_data_clim14_long %>% filter(climvar.name==provenance_climvars[i]) %>% filter(!Provenance=="Gila NF"))
 pvalues_nog<- as.data.frame(summary(mod_nog)$coefficients)[2:3,]$`Pr(>|t|)`
 
 ht_mods_quad <- bind_rows(ht_mods_quad, data.frame(var=provenance_climvars[i], pvalue1 = pvalues[1], pvalue2 = pvalues[2], pvalue1_nog = pvalues_nog[1], pvalue2_nog = pvalues_nog[2]))
@@ -2714,10 +2732,10 @@ ht_data_clim91_long <- ht_data_clim91 %>%
 ht_mods91<- data.frame()
 
 for(i in 1:length(provenance_climvars)){
-mod <- lmer(value ~ climvar.value + (1|Provenance), data=ht_data_clim91_long %>% filter(climvar.name==provenance_climvars[i]))
+mod <- lmer(value ~ climvar.value + (1|Provenance) + (1|BLK), data=ht_data_clim91_long %>% filter(climvar.name==provenance_climvars[i]))
 pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
 
-mod_nog <- lmer(value ~ climvar.value + (1|Provenance), data=ht_data_clim91_long %>% filter(climvar.name==provenance_climvars[i]) %>% filter(!Provenance=="Gila NF"))
+mod_nog <- lmer(value ~ climvar.value + (1|Provenance) + (1|BLK), data=ht_data_clim91_long %>% filter(climvar.name==provenance_climvars[i]) %>% filter(!Provenance=="Gila NF"))
 pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|t|)`
 
 ht_mods91 <- bind_rows(ht_mods91, data.frame(var=provenance_climvars[i], pvalue = pvalue, pvalue_nog = pvalue_nog))
@@ -2744,20 +2762,20 @@ ht_SR_long <- ht_SR %>%
 ht_SR_mods<- data.frame()
 
 for(i in 1:length(provenance_climvars)){
-mod <- lmer(value ~ climvar.value + (1|Provenance), data=ht_SR_long %>% filter(climvar.name==provenance_climvars[i]))
+mod <- lmer(value ~ climvar.value + (1|Provenance) + (1|BLK), data=ht_SR_long %>% filter(climvar.name==provenance_climvars[i]))
 pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
 
 ht_SR_mods <- bind_rows(ht_SR_mods, data.frame(var=provenance_climvars[i], pvalue = pvalue))
 
 }
 
-ht_SR_mods %>% arrange(pvalue) ##TD & RH are significant
+ht_SR_mods %>% arrange(pvalue) ##TD, RH, & smrpb are significant
 
 cor(ht_SR %>% dplyr::select(c(AHM:SHM,elev,x,y,smrpb,monsoonality)))
 #TD is the main differentiating climate factor in the southern rockies, this might be why it's coming out. 
 
 ##TD
-ht_TD_mod <- lmer(value ~ climvar.value + (1|Provenance), data=ht_SR_long %>% filter(climvar.name=="TD"))
+ht_TD_mod <- lmer(value ~ climvar.value + (1|Provenance) + (1|BLK), data=ht_SR_long %>% filter(climvar.name=="TD"))
 plot(ht_TD_mod)
 qqmath(ht_TD_mod)
 summary(ht_TD_mod)
@@ -2767,7 +2785,7 @@ ggplot(data=ht_SR_long %>% filter(climvar.name=="TD"), aes(x=climvar.value, y=va
   geom_smooth(method="lm")
 
 ##RH
-ht_RH_mod <- lmer(value ~ climvar.value + (1|Provenance), data=ht_SR_long %>% filter(climvar.name=="RH"))
+ht_RH_mod <- lmer(value ~ climvar.value + (1|Provenance) + (1|BLK), data=ht_SR_long %>% filter(climvar.name=="RH"))
 plot(ht_RH_mod)
 qqmath(ht_RH_mod)
 summary(ht_RH_mod)
@@ -2776,12 +2794,22 @@ ggplot(data=ht_SR_long %>% filter(climvar.name=="RH"), aes(x=climvar.value, y=va
   geom_point()+
   geom_smooth(method="lm")
 
+##smrpb
+ht_smrpb_mod <- lmer(value ~ climvar.value + (1|Provenance) + (1|BLK), data=ht_SR_long %>% filter(climvar.name=="smrpb"))
+plot(ht_smrpb_mod)
+qqmath(ht_smrpb_mod)
+summary(ht_smrpb_mod)
+
+ggplot(data=ht_SR_long %>% filter(climvar.name=="smrpb"), aes(x=climvar.value, y=value))+
+  geom_point()+
+  geom_smooth(method="lm")
+
 ###quadratic
 
 ht_SR_mods_quad<- data.frame()
 
 for(i in 1:length(provenance_climvars)){
-mod <- lmer(value ~ climvar.value + I(climvar.value^2) + (1|Provenance), data=ht_SR_long %>% filter(climvar.name==provenance_climvars[i]))
+mod <- lmer(value ~ climvar.value + I(climvar.value^2) + (1|Provenance) + (1|BLK), data=ht_SR_long %>% filter(climvar.name==provenance_climvars[i]))
 pvalues<- as.data.frame(summary(mod)$coefficients)[2:3,]$`Pr(>|t|)`
 
 ht_SR_mods_quad <- bind_rows(ht_SR_mods_quad, data.frame(var=provenance_climvars[i], pvalue1 = pvalues[1], pvalue2 = pvalues[2]))
@@ -2791,7 +2819,7 @@ ht_SR_mods_quad <- bind_rows(ht_SR_mods_quad, data.frame(var=provenance_climvars
 ht_SR_mods_quad %>% arrange(pvalue2) #MAP & winter ppt have significant quadratic effect
 
 ##MAP
-ht_map_quad <- lmer(value ~ climvar.value + I(climvar.value^2) + (1|Provenance), data=ht_SR_long %>% filter(climvar.name=="MAP"))
+ht_map_quad <- lmer(value ~ climvar.value + I(climvar.value^2) + (1|Provenance) + (1|BLK), data=ht_SR_long %>% filter(climvar.name=="MAP"))
 plot(ht_map_quad)
 qqmath(ht_map_quad)
 summary(ht_map_quad)
@@ -2812,7 +2840,7 @@ ggplot()+
   theme_bw()
 
 ##Latitude
-htmod_SR <- lmer(value ~ y + (1|Provenance), data=ht_SR)
+htmod_SR <- lmer(value ~ y + (1|Provenance) + (1|BLK), data=ht_SR)
 plot(htmod_SR)
 qqmath(htmod_SR)
 summary(htmod_SR)
@@ -2822,15 +2850,15 @@ ggplot(data=ht_SR, aes(x=y, y=value, col=Provenance))+
   geom_smooth(method="lm")
 
 #nursery height
-totht_mod_nursery <- lmer(value ~ Seedling.Ht..from.Nursery + (1|Provenance), data=ht_data_clim14)
+totht_mod_nursery <- lmer(value ~ Seedling.Ht..from.Nursery + (1|Provenance) + (1|BLK), data=ht_data_clim14)
 plot(totht_mod_nursery)
 qqmath(totht_mod_nursery)
 summary(totht_mod_nursery) 
 
-totht_mod_nursery_nog <- lmer(value ~ Seedling.Ht..from.Nursery + (1|Provenance), data=ht_data_clim14_nog)
+totht_mod_nursery_nog <- lmer(value ~ Seedling.Ht..from.Nursery + (1|Provenance) + (1|BLK), data=ht_data_clim14_nog)
 plot(totht_mod_nursery_nog)
 qqmath(totht_mod_nursery_nog)
-summary(totht_mod_nursery_nog) ##significant effect of nursery height on total height in 2014 when Gila is removed
+summary(totht_mod_nursery_nog) ##marginally significant effect of nursery height on total height in 2014 when Gila is removed
 
 ggplot(data= ht_data_clim14, aes(x=Seedling.Ht..from.Nursery, y=value, col=Provenance))+
   geom_point()
@@ -2847,7 +2875,7 @@ dbh_SR_long <- dbh_SR %>%
 dbh_SR_mods<- data.frame()
 
 for(i in 1:length(provenance_climvars)){
-mod <- lmer(DBH ~ climvar.value + (1|Provenance), data=dbh_SR_long %>% filter(climvar.name==provenance_climvars[i]))
+mod <- lmer(DBH ~ climvar.value + (1|Provenance) + (1|BLK), data=dbh_SR_long %>% filter(climvar.name==provenance_climvars[i]))
 pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
 
 dbh_SR_mods <- bind_rows(dbh_SR_mods, data.frame(var=provenance_climvars[i], pvalue = pvalue))
@@ -2868,7 +2896,7 @@ ggplot(data=dbh_SR_long %>% filter(climvar.name=="smrpb"), aes(x=climvar.value, 
 dbh_SR_mods_quad<- data.frame()
 
 for(i in 1:length(provenance_climvars)){
-mod <- lmer(DBH ~ climvar.value + I(climvar.value^2) + (1|Provenance), data=dbh_SR_long %>% filter(climvar.name==provenance_climvars[i]))
+mod <- lmer(DBH ~ climvar.value + I(climvar.value^2) + (1|Provenance) + (1|BLK), data=dbh_SR_long %>% filter(climvar.name==provenance_climvars[i]))
 pvalues<- as.data.frame(summary(mod)$coefficients)[2:3,]$`Pr(>|t|)`
 
 dbh_SR_mods_quad <- bind_rows(dbh_SR_mods_quad, data.frame(var=provenance_climvars[i], pvalue1 = pvalues[1], pvalue2 = pvalues[2]))
@@ -2878,7 +2906,7 @@ dbh_SR_mods_quad <- bind_rows(dbh_SR_mods_quad, data.frame(var=provenance_climva
 dbh_SR_mods_quad %>% arrange(pvalue2) #PPTwt significant
 
 ##PPTwt
-pptwt_dbh_quad <- lmer(DBH ~ climvar.value + I(climvar.value^2) + (1|Provenance), data=dbh_SR_long %>% filter(climvar.name=="PPTwt"))
+pptwt_dbh_quad <- lmer(DBH ~ climvar.value + I(climvar.value^2) + (1|Provenance) + (1|BLK), data=dbh_SR_long %>% filter(climvar.name=="PPTwt"))
 plot(pptwt_dbh_quad)
 qqmath(pptwt_dbh_quad)
 summary(pptwt_dbh_quad)
@@ -2915,7 +2943,7 @@ ht_NR_long <- ht_NR %>%
 ht_NR_mods<- data.frame()
 
 for(i in 1:length(provenance_climvars)){
-mod <- lmer(value ~ climvar.value + (1|Provenance), data=ht_NR_long %>% filter(climvar.name==provenance_climvars[i]))
+mod <- lmer(value ~ climvar.value + (1|Provenance) + (1|BLK), data=ht_NR_long %>% filter(climvar.name==provenance_climvars[i]))
 pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
 
 ht_NR_mods <- bind_rows(ht_NR_mods, data.frame(var=provenance_climvars[i], pvalue = pvalue))
@@ -2925,7 +2953,7 @@ ht_NR_mods <- bind_rows(ht_NR_mods, data.frame(var=provenance_climvars[i], pvalu
 ht_NR_mods %>% arrange(pvalue) ##eFFP, SHM, EMT, PPTsm, NFFD...and many more
 
 ##TD
-ht_SHM_mod <- lmer(value ~ climvar.value + (1|Provenance), data=ht_NR_long %>% filter(climvar.name=="SHM"))
+ht_SHM_mod <- lmer(value ~ climvar.value + (1|Provenance) + (1|BLK), data=ht_NR_long %>% filter(climvar.name=="SHM"))
 plot(ht_SHM_mod)
 qqmath(ht_SHM_mod)
 summary(ht_SHM_mod)
@@ -2939,7 +2967,7 @@ ggplot(data=ht_NR_long %>% filter(climvar.name=="SHM"), aes(x=climvar.value, y=v
 ht_NR_mods_quad<- data.frame()
 
 for(i in 1:length(provenance_climvars)){
-mod <- lmer(value ~ climvar.value + I(climvar.value^2) + (1|Provenance), data=ht_NR_long %>% filter(climvar.name==provenance_climvars[i]))
+mod <- lmer(value ~ climvar.value + I(climvar.value^2) + (1|Provenance) + (1|BLK), data=ht_NR_long %>% filter(climvar.name==provenance_climvars[i]))
 pvalues<- as.data.frame(summary(mod)$coefficients)[2:3,]$`Pr(>|t|)`
 
 ht_NR_mods_quad <- bind_rows(ht_NR_mods_quad, data.frame(var=provenance_climvars[i], pvalue1 = pvalues[1], pvalue2 = pvalues[2]))
@@ -2960,7 +2988,7 @@ dbh_NR_long <- dbh_NR %>%
 dbh_NR_mods<- data.frame()
 
 for(i in 1:length(provenance_climvars)){
-mod <- lmer(DBH ~ climvar.value + (1|Provenance), data=dbh_NR_long %>% filter(climvar.name==provenance_climvars[i]))
+mod <- lmer(DBH ~ climvar.value + (1|Provenance) + (1|BLK), data=dbh_NR_long %>% filter(climvar.name==provenance_climvars[i]))
 pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
 
 dbh_NR_mods <- bind_rows(dbh_NR_mods, data.frame(var=provenance_climvars[i], pvalue = pvalue))
@@ -2974,7 +3002,7 @@ dbh_NR_mods %>% arrange(pvalue) ##MAT and many others significant
 dbh_NR_mods_quad<- data.frame()
 
 for(i in 1:length(provenance_climvars)){
-mod <- lmer(DBH ~ climvar.value + I(climvar.value^2) + (1|Provenance), data=dbh_NR_long %>% filter(climvar.name==provenance_climvars[i]))
+mod <- lmer(DBH ~ climvar.value + I(climvar.value^2) + (1|Provenance) + (1|BLK), data=dbh_NR_long %>% filter(climvar.name==provenance_climvars[i]))
 pvalues<- as.data.frame(summary(mod)$coefficients)[2:3,]$`Pr(>|t|)`
 
 dbh_NR_mods_quad <- bind_rows(dbh_NR_mods_quad, data.frame(var=provenance_climvars[i], pvalue1 = pvalues[1], pvalue2 = pvalues[2]))
@@ -2988,7 +3016,7 @@ dbh_NR_mods_quad %>% arrange(pvalue2) #MAP and others significant
 
 ```{r}
 cone_data <- moniger_data_comb %>% 
-  dplyr::select(c(SORT,Provenance,Cones85:Cones06)) %>% 
+  dplyr::select(c(SORT,BLK,Provenance,Cones85:Cones06)) %>% 
   pivot_longer(Cones85:Cones06) %>% 
   mutate(year=case_when(name == "Cones85" ~ 1985,
                         name == "Cones91" ~ 1991,
@@ -3003,7 +3031,7 @@ cone_sum <- cone_data %>%
   mutate(prop.w.cones = value/n)
 
 ave_dbhs <- moniger_data_comb %>% 
-  dplyr::select(c(SORT,Provenance,DBH91:DBH06)) %>% 
+  dplyr::select(c(SORT,BLK,Provenance,DBH91:DBH06)) %>% 
   pivot_longer(DBH91:DBH06) %>% 
   mutate(year=case_when(name == "DBH91" ~ 1991,
                         name == "DBH96" ~ 1996,
@@ -3014,7 +3042,7 @@ ave_dbhs <- moniger_data_comb %>%
   left_join(cone_sum)
 
 ave_dbh <- moniger_data_comb %>% 
-  dplyr::select(c(SORT,Provenance,DBH91:DBH06)) %>% 
+  dplyr::select(c(SORT,BLK,Provenance,DBH91:DBH06)) %>% 
   pivot_longer(DBH91:DBH06) %>% 
   mutate(year=case_when(name == "DBH91" ~ 1991,
                         name == "DBH96" ~ 1996,
@@ -3029,11 +3057,11 @@ ggplot(ave_dbhs, aes(x=ave.dbh, y=prop.w.cones, col=Provenance))+
   geom_errorbar(aes(xmin=ave.dbh - se.dbh, xmax=ave.dbh+se.dbh))
 
 ggplot(moniger_data_comb, aes(x=DBH91, y=Cones91))+
-  geom_jitter(heigdbh=0.1)
+  geom_jitter(width=0.1)
 ggplot(moniger_data_comb, aes(x=DBH96, y=Cones96))+
-  geom_jitter(heigdbh=0.1)
+  geom_jitter(width=0.1)
 ggplot(moniger_data_comb, aes(x=DBH06, y=Cones06))+
-  geom_jitter(heigdbh=0.1)
+  geom_jitter(width=0.1)
 
 ggplot(cone_sum, aes(x=year, y=prop.w.cones, col=Provenance))+
   geom_point()+
@@ -3057,10 +3085,12 @@ cone_means_fig <- ggplot(cone_sum_forfig, aes(x=factor(year,levels=c(1974,1979,1
 
 ####logistic
 ```{r}
-cone_data 
+logmod_cat1 <- glmer(value ~ BLK, data=cone_data, family="binomial")
 
-logmod_cat <- glm(value ~ year*Provenance, data= cone_data, family="binomial")
-summary(logmod_cat)
+
+logmod_cat <- glmer(value ~ scale(year, scale=FALSE)*factor(Provenance) + (1|BLK), data= cone_data, family="binomial")
+summary(logmod_cat, corr=FALSE)
+Anova(logmod_cat, type="3")
 confint(logmod_cat)
 wald.test(b = coef(logmod_cat), Sigma = vcov(logmod_cat), Terms=2) ##year is significant
 wald.test(b = coef(logmod_cat), Sigma = vcov(logmod_cat), Terms=3:21) ##Provenance is significant
