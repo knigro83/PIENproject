@@ -1695,15 +1695,16 @@ pcaplot2_big
 
 
 ###pien climate niche
-scores <- data.frame(clim_pca_big$x[,1:3])
-scores[] <- lapply(scores, function(x) x / sqrt(sum((x - mean(x))^2)))
+scores1 <- data.frame(clim_pca_big$x[,1:3])
+# scores <- lapply(scores1, function(x) x / sqrt(sum((x - mean(x))^2)))
+loadings <- as.data.frame(clim_pca_big$rotation)[1:3]
 loadings_pc1pc2 <- as.data.frame(clim_pca_big$rotation)[1:3][c("PAS","PPTsp","NFFD"),]
 loadings_pc1pc3 <- as.data.frame(clim_pca_big$rotation)[1:3][c("PAS","PPTsp","PPTsm","SMRPB_NA"),]
-scale <- min(max(abs(scores$PC1))/max(abs(loadings$PC1)),
-             max(abs(scores$PC2))/max(abs(loadings$PC2))) * 0.8
+scale <- min(max(abs(scores1$PC1))/max(abs(loadings$PC1)),
+             max(abs(scores1$PC2))/max(abs(loadings$PC2))) * 0.8
 
 pc1_pc2_niche_plot <- ggplot(as.data.frame(clim_pca_big$x[-(1:5),]), aes(x=PC1, y=PC2))+
-  geom_hex(alpha=0.7)+
+  geom_hex(alpha=0.7, na.rm=TRUE, bins=100)+
   geom_segment(data = loadings_pc1pc2 * scale,
                aes(x = 0, y = 0, xend = PC1, yend = PC2),
                color = "black", linewidth=.25, arrow = arrow(angle = 25, length = unit(2, "mm")))+
@@ -1711,12 +1712,15 @@ pc1_pc2_niche_plot <- ggplot(as.data.frame(clim_pca_big$x[-(1:5),]), aes(x=PC1, 
               mutate(name=rownames(loadings_pc1pc2)),
                aes(x = PC1, y = PC2, label=name),
                color = "black", size=2, hjust=-.1, vjust=1)+
-  scale_fill_gradientn(colors=c("tan4","wheat"))+
+  scale_fill_gradientn(colors=c("wheat","tan4"))+
   ggnewscale::new_scale_fill()+
   scale_fill_manual(values=unname(stepped()), name="Provenance")+
-  geom_point(data=plant_pca_scores, aes(x=PC1, y=PC2, shape=period), col="black", size=1.5)+
+  geom_point(data=plant_pca_scores, aes(x=PC1, y=PC2, shape=period), col="red4", size=2)+
+  scale_shape_manual(values=c(19,15,8,3))+
   geom_point(data=prov_pcapts_big, aes(x=PC1, y=PC2, fill=factor(Provenance, levels=provs_bylat$Provenance)), size=1.5, shape=24)+
   ggrepel::geom_text_repel(data=prov_pcapts_big, aes(label=code), size=1.5)+
+  xlim(-10,8)+
+  ylim(-3,6)+
   theme_bw()+
   theme(legend.position = "none", axis.text = element_text(color="black", size=6), axis.title = element_text(size=8))
 
@@ -1726,7 +1730,7 @@ dev.off()
  
 
 pc1_pc3_niche_plot <- ggplot(as.data.frame(clim_pca_big$x[-(1:5),]), aes(x=PC1, y=PC3))+
-  geom_hex(alpha=0.7)+
+  geom_hex(alpha=0.7, na.rm=TRUE, bins=100)+
   geom_segment(data = loadings_pc1pc3 * scale,
                aes(x = 0, y = 0, xend = PC1, yend = PC3),
                color = "black", linewidth=.25, arrow = arrow(angle = 25, length = unit(2, "mm")))+
@@ -1734,12 +1738,15 @@ pc1_pc3_niche_plot <- ggplot(as.data.frame(clim_pca_big$x[-(1:5),]), aes(x=PC1, 
               mutate(name=rownames(loadings_pc1pc3)),
                aes(x = PC1, y = PC3, label=name),
                color = "black", size=2, hjust=-.1, vjust=1)+
-  scale_fill_gradientn(colors=c("tan4","wheat"))+
+  scale_fill_gradientn(colors=c("wheat","tan4"))+
   ggnewscale::new_scale_fill()+
   scale_fill_manual(values=unname(stepped()), name="Provenance")+
-  geom_point(data=plant_pca_scores, aes(x=PC1, y=PC3, shape=period), col="black", size=1.5)+
+  geom_point(data=plant_pca_scores, aes(x=PC1, y=PC3, shape=period), col="red4", size=2)+
+  scale_shape_manual(values=c(19,15,8,3))+
   geom_point(data=prov_pcapts_big, aes(x=PC1, y=PC3, fill=factor(Provenance, levels=provs_bylat$Provenance)), size=1.5, shape=24)+
   ggrepel::geom_text_repel(data=prov_pcapts_big, aes(label=code), size=1.5)+
+  xlim(-10,8)+
+  ylim(-13,3)+
   theme_bw()+
   theme(legend.position = "none", axis.text = element_text(color="black", size=6), axis.title = element_text(size=8))
 
@@ -1747,6 +1754,30 @@ png("figures/pc1_pc3_niche_plot.png", width=3, height=3, res=300, units = "in")
 pc1_pc3_niche_plot
 dev.off()
  
+
+figpca_legend <- get_legend( ggplot(as.data.frame(clim_pca_big$x[-(1:5),]), aes(x=PC1, y=PC2))+
+  geom_hex(alpha=0.7, na.rm=TRUE, bins=100)+
+  geom_segment(data = loadings_pc1pc2 * scale,
+               aes(x = 0, y = 0, xend = PC1, yend = PC2),
+               color = "black", linewidth=.25, arrow = arrow(angle = 25, length = unit(2, "mm")))+
+  geom_text(data = as.data.frame(loadings_pc1pc2 * scale) %>% 
+              mutate(name=rownames(loadings_pc1pc2)),
+               aes(x = PC1, y = PC2, label=name),
+               color = "black", size=2, hjust=-.1, vjust=1)+
+  scale_fill_gradientn(colors=c("wheat","tan4"))+
+  ggnewscale::new_scale_fill()+
+  scale_fill_manual(values=unname(stepped()), name="Provenance")+
+  geom_point(data=plant_pca_scores, aes(x=PC1, y=PC2, shape=period), col="red4", size=2)+
+  scale_shape_manual(values=c(19,15,8,3))+
+  xlim(-10,8)+
+  ylim(-3,6)+
+  theme_bw()+
+  theme(legend.position = "right", axis.text = element_text(color="black", size=6), axis.title = element_text(size=8)) )
+
+png("figures/map_and_bigpca.png", width=8, height=3.5, res=300, units = "in")
+ggarrange(map,ggarrange(pc1_pc2_niche_plot, pc1_pc3_niche_plot, nrow=2, ncol=1, labels=c("B)","C)")),figpca_legend, labels=c("A)","",""), ncol=3, nrow=1, widths=c(1,1,.5))
+dev.off()
+
 
 ```
 
