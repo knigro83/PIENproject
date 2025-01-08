@@ -1021,12 +1021,22 @@ colnames(plantation_clim)
 
 plantation_clim_long <- plantation_clim %>% 
 dplyr::select(c(CN:vpdmax_sp, FDSI, aet_sum, cwd_sum, cwd_wy, spei_sum)) %>% 
-  pivot_longer(PPTsm:spei_sum)
+  pivot_longer(PPTsm:spei_sum) %>% 
+  mutate(type = ifelse(name %in% c("PPTsp","PPTsm","PPT_at","ppt_wt"), "PPT",
+                       ifelse(name %in% c("value_sp_tmean","value_sm_tmean","value_fa_tmean","value_wt_tmean"),"TEMP",NA)),
+         season = ifelse(name %in% c("PPTsp","value_sp_tmean"), "Spring", 
+                         ifelse(name %in% c("PPTsm","value_sm_tmean"), "Summer",
+                                ifelse(name %in% c("ppt_wt","value_wt_tmean"),"Winter",
+                                                   ifelse(name %in% c("PPT_at","value_fa_tmean"),"Fall",NA)))))
 
-ggplot(plantation_clim_long, aes(x=year, y=value))+
-  geom_point()+
-  geom_line()+
-  facet_wrap(~name, scales="free")
+ggplot(plantation_clim_long %>% filter(name %in% c("PPTsp","PPTsm","PPT_at","ppt_wt","value_sp_tmean","value_sm_tmean","value_fa_tmean","value_wt_tmean")), aes(x=year, y=value, col=type))+
+  scale_color_manual(values=c("skyblue4","firebrick"))+
+  geom_line(aes(lty=factor(season,levels=c("Spring","Summer","Fall","Winter"))))+
+  scale_linetype(name="Season")+
+  geom_smooth(method="lm")+
+  facet_wrap(type~factor(season,levels=c("Spring","Summer","Fall","Winter")), scales="free", nrow=2)+
+  theme_bw()+
+  theme(axis.text=element_text(angle=45, hjust=1))
 ```
 
 ##Climate extremes
@@ -1816,13 +1826,13 @@ dbh_long<- dbh %>%
   filter(!is.na(DBH91)) %>% 
   pivot_longer(DBH91:DBH14, names_to = 'year', values_to = 'DBH')
 
-provs_arranged_lat<- prov_pcapts %>% 
+provs_arranged_lat<- prov_pcapts_big %>% 
   arrange(y) %>% 
   pull(Provenance)
 provs_arranged_lat
 
 dbh_clim_data <- dbh_long %>% 
-  left_join(prov_pcapts) %>% 
+  left_join(prov_pcapts_big) %>% 
   filter(!is.na(DBH)) %>% 
   filter(!DBH==0) ##there is one with a dbh value of 0 which seems like an error.
 
