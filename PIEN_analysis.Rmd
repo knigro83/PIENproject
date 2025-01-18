@@ -57,6 +57,8 @@ library(lsmeans)
 library(cowplot)
 library(glmm)
 library(glmmTMB)
+library(colorspace)
+
 ```
 
 ##Plot locations
@@ -1495,6 +1497,9 @@ us <- geodata::gadm(country = "USA",  level = 1, resolution = 2,
              path = "C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/maps")
 states=c("Arizona","Colorado","Idaho","Montana","Nevada","New Mexico","South Dakota","North Dakota","Nebraska","Utah","Wyoming","Kansas")
 interiorwest <- us[match(toupper(states),toupper(us$NAME_1)),]
+Wstates <- c("Arizona","Colorado","Idaho","Montana","Nevada","New Mexico","South Dakota","North Dakota","Nebraska","Utah","Wyoming","Kansas","California","Oregon","Washington","Oklahoma","Texas")
+colorado <- us[match(toupper("Colorado"),toupper(us$NAME_1)),]
+westernus <- us[match(toupper(Wstates),toupper(us$NAME_1)),]
 
 pien <- rast("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ArcGIS/Projects/SpeciesRanges/pien_range.tif")
 
@@ -1504,56 +1509,39 @@ plot(pien2)
 pien_trim<- trim(pien2)
 plot(pien_trim)
 
-# engelmann_points <- spatSample(pien_trim, size=100000000, method="regular", replace=FALSE, na.rm=TRUE, as.points=TRUE, values=TRUE, xy=TRUE)
-# 
-#engelmann_clim <- terra::extract(clim_raster_stack, engelmann_points %>% project(crs(clim_raster_stack)), method="simple", weights=TRUE)
-# 
-# # #extract PRISM data for summer/spring precip ratio
-# climdir <- "C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/PRISM"
-# months<-c('01','02','03','04','05','06','07','08','09','10','11','12')
-# 
-# ppt_data_pien<-vector()
-# for(j in 1:length(months)){
-#   raster<-paste(climdir,'/PRISM_ppt_30yr_normal_800mM4_all_bil/PRISM_ppt_30yr_normal_800mM4_',months[j],'_bil.bil',sep="")
-#   rast <- rast(raster)
-#   ext.poly <- terra::extract(rast,engelmann_points %>% project(crs(clim_raster_stack)), method="simple", weights = TRUE, df=TRUE)
-#   ppt<-ext.poly[,2]
-#   ID<- seq(1:nrow(ext.poly))
-#   month <- rep(months[j],length(ext.poly[,2]))
-#   ppt_CN<-cbind(ID,ppt,month)
-#   ppt_data_pien<-rbind(ppt_data_pien,ppt_CN)}
-# 
-# pien_ppt_sum<- ppt_data_pien %>%
-#   as.data.frame() %>%
-#   unique() %>%
-#   mutate(ppt=as.numeric(ppt), ID = as.numeric(ID)) %>%
-#   pivot_wider(id_cols=ID, names_from=month, values_from = ppt) %>%
-#   rowwise() %>%
-#   mutate(JA_ppt = sum(`07`,`08`, na.rm=T), smrpb = sum(`07`,`08`,`09`,na.rm=T)/sum(`04`,`05`,`06`, na.rm=T))
-# 
-# saveRDS(pien_ppt_sum, "pien_ppt_sum.RDS")
-# 
-# pien_ppt_sum <- readRDS("pien_ppt_sum.RDS")
-# 
-# clim_pien <- left_join(engelmann_clim, pien_ppt_sum)
-# 
-# saveRDS(clim_pien, "clim_pien.RDS")
+engelmann_points_usonly <- spatSample(pien_trim, size=100000, method="regular", replace=FALSE, na.rm=TRUE, as.points=TRUE, values=TRUE, xy=TRUE)
+engelmann_clim_us <- terra::extract(clim_raster_stack, engelmann_points_usonly %>% project(crs(clim_raster_stack)), method="simple", weights=TRUE)
 
-clim_pien <- readRDS("clim_pien.RDS")
- 
+##get points for Canada distribution from Mathys study and limit to only those within the boundary established by Little.
+pien_mathys <- rast("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/maps/Current and predicted range of Engelmann spruce under climate change in the Pacific Northwest/data/commondata/data0/es_5075/w001001.adf")
+
+pien_little <- vect("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ASCC/ASCC/maps/Engelmann spruce ( Picea engelmannii) extent, North America/data/commondata/data0/piceenge.shp")
+
+pien_mathys2 <- classify(pien_mathys, cbind(-Inf, 0, NA), right=TRUE)
+pien_mathys_crop_ca <- crop(pien_mathys2 %>% project(crs(canada)), canada %>% filter(NAME_1%in%c("Alberta","British Columbia")) ) %>% crop(pien_little %>% project(crs(canada))) %>% 
+  trim()
+
+pien_mathys_little_ca_points <- spatSample(pien_mathys_crop_ca, size=100000, method="regular", replace=FALSE, na.rm=TRUE, as.points=TRUE, values=TRUE, xy=TRUE)
+pien_mathys_little_ca_points_crop <- crop(pien_mathys_little_ca_points, pien_little %>% project(crs(pien_mathys_little_ca_points)))
+pien_mathys_little_ca_clim <- terra::extract(clim_raster_stack, pien_mathys_little_ca_points_crop %>% project(crs(clim_raster_stack)), method="simple", weights=TRUE)
+
+##combine US and Canada climates
+clim_pien<- bind_rows(pien_mathys_little_ca_clim,engelmann_clim_us)
+
+ggplot()+
+  geom_spatvector(data=engelmann_points_usonly %>% project(crs(canada)),size=0.05)+
+  geom_spatvector(data=pien_mathys_little_ca_points_crop %>% project(crs(canada)), size=0.05)+
+  geom_spatvector(data = canada, fill=NA, color="red")+
+  geom_spatvector(data=westernus, fill=NA, color="red")
+
+
+#### plotting climate variables
 plantation_only <- prov_pcapts %>% filter(Provenance == "Plantation") %>% 
   mutate(period="1970s")
 
-ggplot(clim_pien, aes(x=MAT, y=MAP))+
-  geom_hex(alpha=0.7)+
-  scale_fill_gradientn(colors=c("gray","black"))+
-  geom_point(data=prov_pcapts %>% filter(!Provenance=="Plantation"), aes(x=MAT, y=MAP, col=Provenance), size=4)+
-  ggrepel::geom_text_repel(data=prov_pcapts %>% filter(!Provenance=="Plantation"), aes(label=code))+
-  geom_point(data=plantation_only, aes(x=MAT, y=MAP), size=4, col="gold", shape=18)+
-  ggrepel::geom_text_repel(data=plantation_only, aes(label=code))+
-  scale_color_manual(values=unname(stepped()))+
-  theme_bw()+
-  theme(text = element_text(size=16, color="black"))
+ggplot()+
+  geom_spatvector(data=pien_mathys_little_ca_points %>% project(crs(us)))+
+  geom_spatvector(data=engelmann_points_usonly)
 
 plantation_future <- prov_futures_long %>% filter(Provenance=="Plantation") %>% 
   pivot_wider(names_from=climvar, values_from=value, id_cols = c(ID,Provenance,carbon,period))
@@ -1562,8 +1550,6 @@ plantation_all<- bind_rows(plantation_only, plantation_future)
 
 carbon.colors<- c("black",brewer.pal(6,"RdBu")[c(6,5,2,1)])
 
-library(colorspace)
-
 plantation_2dclim_groups<- plantation_2dclim %>% 
   mutate(group=case_when(decade%in%c("70s","80s","90s") ~ "80s",
                          decade %in% c("00s","10s","20s") ~ "10s")) %>% 
@@ -1571,8 +1557,9 @@ plantation_2dclim_groups<- plantation_2dclim %>%
   summarise(MAT=mean(MAT),MAP_ave=mean(MAP_ave))
 
 ggplot(clim_pien, aes(x=MAT, y=MAP))+
-  geom_hex(alpha=0.7)+
-  scale_fill_gradientn(colors=c("black","grey"))+
+  #stat_density_2d(geom="raster", aes(fill=after_stat(count)), n=100, contour=FALSE)+
+  geom_hex(bins=75)+
+  scale_fill_gradientn(colors=c("lightgray","black"))+
   geom_point(data=plantation_all, aes(x=MAT, y=MAP, shape=period), col="gold", size=5)+
   geom_point(data=prov_pcapts %>% filter(!Provenance=="Plantation"), aes(x=MAT, y=MAP, color=factor(Provenance, levels=provs_bylat$Provenance)), size=4)+
     scale_color_manual(values=unname(stepped()), name="Provenance")+
@@ -1581,6 +1568,7 @@ ggplot(clim_pien, aes(x=MAT, y=MAP))+
   scale_fill_manual(values=hcl.colors(n=2, palette="Batlow"))+
   ggrepel::geom_text_repel(data=prov_pcapts %>% filter(!Provenance=="Plantation"), aes(label=code))+
   theme_bw()+
+  ylim(c(250,2500))+
   theme(text = element_text(size=16, color="black"))
 ```
 
@@ -1596,7 +1584,7 @@ clim_pien %>%
     mutate(SMRPB_NA = PPTsm/PPTsp) %>% 
   cor()
 
-pca2_clim_vars <- c("CMD","Eref","MCMT","MWMT","NFFD","PAS","PPTsm","PPTsp","PPTat","PPTwt","RH","TD","SMRPB_NA")
+pca2_clim_vars <- c("CMD","MCMT","MWMT","NFFD","PAS","PPTsm","PPTsp","PPTat","PPTwt","RH","TD","SMRPB_NA")
 
 env_vars_pien<- clim_pien %>% 
   mutate(SMRPB_NA = PPTsm/PPTsp) %>% 
@@ -1620,9 +1608,10 @@ set.seed(83)
 clim_pca_big <- prcomp(big_pca_data,scale.=T) #proceed from correlation matrix, which scales variables--important because our variables have different units
 
 ##to get eigenvalues, we do the square of the stdev
-eigenvals<- (clim_pca_big$sdev)^2
-sum(eigenvals) #the sum of the eigenvalues = the number of variables (9)
-eigenvals/sum(eigenvals)#this is the proportion variance explained
+eigenvals_pcabig<- (clim_pca_big$sdev)^2
+eigenvals_pcabig
+sum(eigenvals_pcabig) #the sum of the eigenvalues = the number of variables (9)
+eigenvals_pcabig/sum(eigenvals_pcabig)#this is the proportion variance explained
 summary(clim_pca_big)
 par(mfrow=c(1,1))
 plot(clim_pca_big,type="l")
@@ -1708,13 +1697,13 @@ pcaplot2_big
 scores1 <- data.frame(clim_pca_big$x[,1:3])
 # scores <- lapply(scores1, function(x) x / sqrt(sum((x - mean(x))^2)))
 loadings <- as.data.frame(clim_pca_big$rotation)[1:3]
-loadings_pc1pc2 <- as.data.frame(clim_pca_big$rotation)[1:3][c("PAS","PPTsp","NFFD"),]
-loadings_pc1pc3 <- as.data.frame(clim_pca_big$rotation)[1:3][c("PAS","PPTsp","PPTsm","SMRPB_NA"),]
+loadings_pc1pc2 <- as.data.frame(clim_pca_big$rotation)[1:3][c("PAS","PPTat","TD","PPTsm","NFFD","MCMT"),]
+loadings_pc1pc3 <- as.data.frame(clim_pca_big$rotation)[1:3][c("PAS","PPTat","TD","PPTsm","NFFD","MCMT"),]
 scale <- min(max(abs(scores1$PC1))/max(abs(loadings$PC1)),
              max(abs(scores1$PC2))/max(abs(loadings$PC2))) * 0.8
 
 pc1_pc2_niche_plot <- ggplot(as.data.frame(clim_pca_big$x[-(1:5),]), aes(x=PC1, y=PC2))+
-  geom_hex(alpha=0.7, na.rm=TRUE, bins=100)+
+  geom_hex(alpha=0.7, na.rm=TRUE, bins=50)+
   geom_segment(data = loadings_pc1pc2 * scale,
                aes(x = 0, y = 0, xend = PC1, yend = PC2),
                color = "black", linewidth=.25, arrow = arrow(angle = 25, length = unit(2, "mm")))+
@@ -1725,12 +1714,14 @@ pc1_pc2_niche_plot <- ggplot(as.data.frame(clim_pca_big$x[-(1:5),]), aes(x=PC1, 
   scale_fill_gradientn(colors=c("wheat","tan4"))+
   ggnewscale::new_scale_fill()+
   scale_fill_manual(values=unname(stepped()), name="Provenance")+
-  geom_point(data=plant_pca_scores, aes(x=PC1, y=PC2, shape=period), col="red4", size=2)+
+  geom_point(data=plant_pca_scores, aes(x=PC1, y=PC2, shape=period), col="black", size=2)+
   scale_shape_manual(values=c(19,15,8,3))+
   geom_point(data=prov_pcapts_big, aes(x=PC1, y=PC2, fill=factor(Provenance, levels=provs_bylat$Provenance)), size=1.5, shape=24)+
   ggrepel::geom_text_repel(data=prov_pcapts_big, aes(label=code), size=1.5)+
-  xlim(-10,8)+
-  ylim(-3,6)+
+  xlab(paste("PC1 (",round((eigenvals_pcabig/sum(eigenvals_pcabig))[1]*100,1),"%)",sep=""))+
+  ylab(paste("PC2 (",round((eigenvals_pcabig/sum(eigenvals_pcabig))[2]*100,1),"%)",sep=""))+
+   xlim(-5,5)+
+   ylim(-3,7)+
   theme_bw()+
   theme(legend.position = "none", axis.text = element_text(color="black", size=6), axis.title = element_text(size=8))
 
@@ -1740,7 +1731,7 @@ dev.off()
  
 
 pc1_pc3_niche_plot <- ggplot(as.data.frame(clim_pca_big$x[-(1:5),]), aes(x=PC1, y=PC3))+
-  geom_hex(alpha=0.7, na.rm=TRUE, bins=100)+
+  geom_hex(alpha=0.7, na.rm=TRUE, bins=50)+
   geom_segment(data = loadings_pc1pc3 * scale,
                aes(x = 0, y = 0, xend = PC1, yend = PC3),
                color = "black", linewidth=.25, arrow = arrow(angle = 25, length = unit(2, "mm")))+
@@ -1751,12 +1742,14 @@ pc1_pc3_niche_plot <- ggplot(as.data.frame(clim_pca_big$x[-(1:5),]), aes(x=PC1, 
   scale_fill_gradientn(colors=c("wheat","tan4"))+
   ggnewscale::new_scale_fill()+
   scale_fill_manual(values=unname(stepped()), name="Provenance")+
-  geom_point(data=plant_pca_scores, aes(x=PC1, y=PC3, shape=period), col="red4", size=2)+
+  geom_point(data=plant_pca_scores, aes(x=PC1, y=PC3, shape=period), col="black", size=2)+
   scale_shape_manual(values=c(19,15,8,3))+
   geom_point(data=prov_pcapts_big, aes(x=PC1, y=PC3, fill=factor(Provenance, levels=provs_bylat$Provenance)), size=1.5, shape=24)+
   ggrepel::geom_text_repel(data=prov_pcapts_big, aes(label=code), size=1.5)+
-  xlim(-10,8)+
-  ylim(-13,3)+
+   xlim(-5,5)+
+   ylim(-3,6)+
+  xlab(paste("PC1 (",round((eigenvals_pcabig/sum(eigenvals_pcabig))[1]*100,1),"%)",sep=""))+
+  ylab(paste("PC3 (",round((eigenvals_pcabig/sum(eigenvals_pcabig))[3]*100,1),"%)",sep=""))+
   theme_bw()+
   theme(legend.position = "none", axis.text = element_text(color="black", size=6), axis.title = element_text(size=8))
 
@@ -1766,7 +1759,7 @@ dev.off()
  
 
 figpca_legend <- get_legend( ggplot(as.data.frame(clim_pca_big$x[-(1:5),]), aes(x=PC1, y=PC2))+
-  geom_hex(alpha=0.7, na.rm=TRUE, bins=100)+
+  geom_hex(alpha=0.7, na.rm=TRUE, bins=50)+
   geom_segment(data = loadings_pc1pc2 * scale,
                aes(x = 0, y = 0, xend = PC1, yend = PC2),
                color = "black", linewidth=.25, arrow = arrow(angle = 25, length = unit(2, "mm")))+
@@ -1777,14 +1770,14 @@ figpca_legend <- get_legend( ggplot(as.data.frame(clim_pca_big$x[-(1:5),]), aes(
   scale_fill_gradientn(colors=c("wheat","tan4"))+
   ggnewscale::new_scale_fill()+
   scale_fill_manual(values=unname(stepped()), name="Provenance")+
-  geom_point(data=plant_pca_scores, aes(x=PC1, y=PC2, shape=period), col="red4", size=2)+
+  geom_point(data=plant_pca_scores, aes(x=PC1, y=PC2, shape=period), col="black", size=2)+
   scale_shape_manual(values=c(19,15,8,3))+
   xlim(-10,8)+
   ylim(-3,6)+
   theme_bw()+
   theme(legend.position = "right", axis.text = element_text(color="black", size=6), axis.title = element_text(size=8)) )
 
-png("figures/map_and_bigpca.png", width=8, height=3.5, res=300, units = "in")
+png("figures/map_and_bigpca.png", width=8.2, height=5.5, res=300, units = "in")
 ggarrange(map,ggarrange(pc1_pc2_niche_plot, pc1_pc3_niche_plot, nrow=2, ncol=1, labels=c("B)","C)")),figpca_legend, labels=c("A)","",""), ncol=3, nrow=1, widths=c(1,1,.5))
 dev.off()
 
@@ -1810,7 +1803,7 @@ moniger_data_comb <- moniger_data %>%
   left_join(moniger_data_ids, by=c("LOC" = "ID.Code")) %>% 
   mutate(Provenance = ifelse(Location == "Larimer County 1","Larimer 1",
                                     ifelse(Location == "Larimer County 2","Larimer 2",Location))) %>% 
-  left_join(prov_pcapts)
+  left_join(prov_pcapts_big)
 
 dbh = moniger_data_comb %>% 
   dplyr::select(c(SORT, LOC, BLK, REP, DBH91, DBH96, DBH06, DBH14, Provenance, code)) %>% 
@@ -1930,7 +1923,7 @@ dbh_aov91_marg = lsmeans(dbh_aov91, ~ Provenance)
 CLD_dbh_aov91 = cld(dbh_aov91_marg,
           alpha=0.05,
           Letters=letters)
-CLD_dbh_aov91
+CLD_dbh_aov91 #payette greater than 12, gila less than 10
 
 dbh_aov96 <- lmer(DBH ~ Provenance + (1|BLK), data = dbh_numeric %>% filter(year=="DBH96"))
 plot(dbh_aov96)
@@ -1940,7 +1933,7 @@ dbh_aov96_marg = lsmeans(dbh_aov96, ~ Provenance)
 CLD_dbh_aov96 = cld(dbh_aov96_marg,
           alpha=0.05,
           Letters=letters)
-CLD_dbh_aov96
+CLD_dbh_aov96 #payette greater than 12, gila less than 10, cache less than 13
 
   
 dbh_aov06 <- lmer(DBH ~ Provenance + (1|BLK), data = dbh_numeric %>% filter(year=="DBH06"))
@@ -1951,7 +1944,7 @@ dbh_aov06_marg = lsmeans(dbh_aov06, ~ Provenance)
 CLD_dbh_aov06 = cld(dbh_aov06_marg,
           alpha=0.05,
           Letters=letters)
-CLD_dbh_aov06
+CLD_dbh_aov06 #payette greater than 13, gila less than 13
 
 dbh_numeric14 <- dbh_numeric %>% filter(year=="DBH14") %>% 
   mutate(Provenance=as.factor(Provenance))
@@ -1964,7 +1957,7 @@ dbh_aov14_marg = lsmeans(dbh_aov14, ~ Provenance)
 CLD_dbh_aov14 = cld(dbh_aov14_marg,
           alpha=0.05,
           Letters=letters)
-CLD_dbh_aov14
+CLD_dbh_aov14 #payette greater than 15, gila less than 13
 
 dbh14_letter_df<- as.data.frame(CLD_dbh_aov14) %>% 
   rename(letters = `.group`)
@@ -1998,8 +1991,8 @@ dbh_means_fig <- ggplot(dbh_aves, aes(x=factor(year,levels=c(1974,1979,1985,1991
 
 ```
 
-####distance
-```{r}
+####distance - cut
+```{r, eval=FALSE}
 ##does DBH vary with climate vars?
 
 
@@ -2087,20 +2080,34 @@ dbh_dist_plot <- ggplot()+
 
 ####PCA
 ```{r}
+#get data in order
+dbh_num14 <- dbh_numeric %>% filter(year=="DBH14")
+##distance in PCA space from plantation
+dbh_num14_pcadist<- dbh_num14 %>% 
+  left_join(pca_dist_df %>% dplyr::select(code, dist.to.plant, dist.to.plant.3d))
+
+dbh_num14_alldist <- dbh_num14_pcadist %>% 
+  left_join(geo.dist.df)
+
+dbh_num14_alldist %>% dplyr::select(PC1,PC2,dist.to.plant,geo.dist.to.plant.km,x,y) %>% cor()
+
+dbh_num14_alldist_noG3 <- dbh_num14_alldist %>% 
+  filter(!Provenance%in% c("Gila NF","Wenatchee NF","Okanogan NF"))
+
+dbh_num14_alldist_noG <- dbh_num14_alldist %>% 
+  filter(!Provenance%in% c("Gila NF"))
+
 ##PCs and x 
 mod_dbh_pca_x <- lmer(DBH ~ PC1*PC2 + PC1*scale(x) + PC2*scale(x) + + I(PC1^2) + I(PC2^2) + + I(scale(x)^2) + (1|Provenance) + (1|BLK), data=dbh_num14_alldist)
 plot(mod_dbh_pca_x)
 qqmath(mod_dbh_pca_x)
 summary(mod_dbh_pca_x)
+options(na.action="na.fail")
 dredge(mod_dbh_pca_x)
 
-bestmod_dbh_pca_x <- lmer(DBH ~ scale(x) + (1|Provenance) + (1|BLK), data=dbh_num14_alldist)
+bestmod_dbh_pca_x <- lmer(DBH ~ scale(x) + PC2 + (1|Provenance) + (1|BLK), data=dbh_num14_alldist)
 
 summary(bestmod_dbh_pca_x)
-
-ggplot(dbh_num14_alldist, aes(x=x, y=DBH))+
-  geom_point()+
-  geom_smooth(method="lm")
 
 ##PCs and y 
 mod_dbh_pca_y <- lmer(DBH ~ PC1*PC2 + PC1*scale(y) + PC2*scale(y) + I(PC1^2) + I(PC2^2) + I(scale(y)^2) + (1|Provenance) + (1|BLK), data=dbh_num14_alldist)
@@ -2109,77 +2116,73 @@ qqmath(mod_dbh_pca_y)
 summary(mod_dbh_pca_y)
 dredge(mod_dbh_pca_y)
 
-AICc(mod_dbh_pca_x, mod_dbh_pca_y) #lat is better
+AICc(mod_dbh_pca_x, mod_dbh_pca_y) #long is better
 
-bestmod_dbh_pca_y <- lmer(DBH ~ PC2*scale(y) + I(PC2^2) + I(scale(y)^2) + (1|Provenance) + (1|BLK), data=dbh_num14_alldist)
+bestmod_dbh_pca_y <- lmer(DBH ~ PC2 + scale(y) + (1|Provenance) + (1|BLK), data=dbh_num14_alldist)
 summary(bestmod_dbh_pca_y)
+
+AICc(bestmod_dbh_pca_x, bestmod_dbh_pca_y) #long is better
 
 ggplot(dbh_num14_alldist, aes(x=PC2, y=DBH))+
   geom_point()+
   geom_smooth(method="glm")
 
-ggplot(dbh_num14_alldist, aes(x=y, y=DBH))+
+ggplot(dbh_num14_alldist, aes(x=x, y=DBH))+
   geom_point()+
   geom_smooth(method="glm")
 
-dbh_pca_int_plot<- interact_plot(bestmod_dbh_pca_y, pred=y, modx=PC2, plot.points = TRUE, interval = TRUE, int.width = 0.95, data=dbh_num14_alldist)
+##no gila
+mod_dbh_pca_x_nog <- lmer(DBH ~ PC1*PC2 + PC1*scale(x) + PC2*scale(x) + I(PC1^2) + I(PC2^2) + I(scale(x)^2) + (1|Provenance) + (1|BLK), data=dbh_num14_alldist_noG)
+plot(mod_dbh_pca_x_nog)
+qqmath(mod_dbh_pca_x_nog)
+summary(mod_dbh_pca_x_nog)
+dredge(mod_dbh_pca_x_nog)
 
-dbh_num14_alldist_noG <- dbh_num14_alldist %>% 
-  filter(!Provenance%in% c("Gila NF"))
+bestmod_dbh_pca_x_nog <- lmer(DBH ~ scale(x) + PC2 + (1|Provenance) + (1|BLK), data=dbh_num14_alldist_noG)
+summary(bestmod_dbh_pca_x_nog) #x and PC2 still significant when you take out Gila. 
 
-mod_dbh_pca_y_nog <- lmer(DBH ~ PC1*PC2 + PC1*scale(y) + PC2*scale(y) + I(PC1^2) + I(PC2^2) + I(scale(y)^2) + (1|Provenance) + (1|BLK), data=dbh_num14_alldist_noG)
-plot(mod_dbh_pca_y_nog)
-qqmath(mod_dbh_pca_y_nog)
-summary(mod_dbh_pca_y_nog)
-dredge(mod_dbh_pca_y_nog)
+###make plots
 
-interact_plot(mod_dbh_pca_y_nog, pred=y, modx=PC2, plot.points=TRUE, interval = TRUE, int.width = 0.95, data=dbh_num14_alldist_noG)
+##long
+#just use lm
+bestmod_dbh_pca_x_lm <- lm(DBH ~ scale(x) + PC2, data=dbh_num14_alldist)
+summary(bestmod_dbh_pca_x_lm)
 
-bestmod_dbh_pca_y_nog <- lmer(DBH ~ scale(y) + I(scale(y)^2) + (1|Provenance) + (1|BLK), data=dbh_num14_alldist_noG)
-summary(bestmod_dbh_pca_y_nog) #quadratic y effect is significant when you take out Gila
+newdata_dbh_lm <-  expand.grid(x=seq(min(dbh_num14_alldist$x),max(dbh_num14_alldist$x),length.out=50),
+            PC2=mean(dbh_num14_alldist$PC2))
+dbh_predict_lm <- predict(bestmod_dbh_pca_x_lm, newdata = newdata_dbh_lm, interval="confidence")
 
-dbh_num14_alldist_noO <- dbh_num14_alldist %>% 
-  filter(!Provenance%in% c("Okanogan NF"))
+predictdatadbh_lm <- cbind(newdata_dbh_lm, dbh_predict_lm)
 
-mod_dbh_pca_y_noO <- lmer(DBH ~ PC1*PC2 + PC1*scale(y) + PC2*scale(y) + I(PC1^2) + I(PC2^2) + I(scale(y)^2) + (1|Provenance) + (1|BLK), data=dbh_num14_alldist_noO)
-plot(mod_dbh_pca_y_noO)
-qqmath(mod_dbh_pca_y_noO)
-summary(mod_dbh_pca_y_noO)
-dredge(mod_dbh_pca_y_noO)
+dbh_long_plot<- ggplot()+
+  geom_point(data=dbh_num14_alldist, aes(x=x, y=DBH, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_ribbon(data=predictdatadbh_lm, aes(x=x, ymin=lwr, ymax=upr), fill="black", alpha=0.2)+
+  geom_line(data=predictdatadbh_lm, aes(x=x,y=fit))+
+  xlab("Longitude")+
+  scale_color_manual(values=unname(stepped()),name="Provenance")+
+  theme_bw()+
+  theme(legend.position="none")
+#
 
-bestmod_dbh_pca_y_noO <- lmer(DBH ~ PC2 + I(PC2^2) + scale(y) + I(scale(y)^2) + (1|Provenance) + (1|BLK), data=dbh_num14_alldist_noO)
-summary(bestmod_dbh_pca_y_noO)
+##pc2
 
-dbh_num14_alldist_noGO <- dbh_num14_alldist %>% 
-  filter(!Provenance%in% c("Okanogan NF", "Gila NF"))
+##just use lm
+newdata_dbh_pc2 <-  expand.grid(x=mean(dbh_num14_alldist$x),
+            PC2=seq(min(dbh_num14_alldist$PC2),max(dbh_num14_alldist$PC2),length.out=50))
+dbh_predict_pc2 <- predict(bestmod_dbh_pca_x_lm, newdata = newdata_dbh_pc2, interval="confidence")
 
-mod_dbh_pca_y_noGO <- lmer(DBH ~ PC1*PC2 + PC1*scale(y) + PC2*scale(y) + I(PC1^2) + I(PC2^2) + I(scale(y)^2) + (1|Provenance) + (1|BLK), data=dbh_num14_alldist_noGO)
-plot(mod_dbh_pca_y_noGO)
-qqmath(mod_dbh_pca_y_noGO)
-summary(mod_dbh_pca_y_noGO)
-dredge(mod_dbh_pca_y_noGO)
+predictdatadbh_pc2 <- cbind(newdata_dbh_pc2, dbh_predict_pc2)
 
-bestmod_dbh_pca_y_noGO <- lmer(DBH ~ PC2  + scale(y) + I(scale(y)^2) + (1|Provenance) + (1|BLK), data=dbh_num14_alldist_noGO)
-summary(bestmod_dbh_pca_y_noGO)
-
-###make plot
-bestmod_dbh_pca_y_nog_lm <- lm(DBH ~ scale(y) + I(scale(y)^2), data=dbh_num14_alldist_noG)
-newdata_dbh <- with(dbh_num14_alldist_noG, data.frame(y=seq(min(y),max(y),length.out=100)))
-
-dbh_predict <- predict(bestmod_dbh_pca_y_nog_lm, newdata = newdata_dbh, interval="confidence")
-
-predictdatadbh <- cbind(newdata_dbh, dbh_predict)
-
-dbh_lat_plot <- ggplot()+
-  geom_point(data=dbh_num14_alldist, aes(x=y, y=DBH, col=factor(Provenance, levels=provs_bylat$Provenance)))+
-  geom_ribbon(data=predictdatadbh, aes(x=y, ymin=lwr, ymax=upr), fill="black", alpha=0.2)+
-  geom_line(data=predictdatadbh, aes(x=y,y=fit), color="black")+
-  xlab("Latitude")+
+dbh_pc2_plot <- ggplot()+
+  geom_point(data=dbh_num14_alldist, aes(x=PC2, y=DBH, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_ribbon(data=predictdatadbh_pc2, aes(x=PC2, ymin=lwr, ymax=upr), fill="black", alpha=0.2)+
+  geom_line(data=predictdatadbh_pc2, aes(x=PC2,y=fit), color="black")+
+  xlab("PC2 (cold to hot)")+
   scale_color_manual(values=unname(stepped()),name="Provenance")+
   theme_bw()+
   theme(legend.position="none")
 
-ggarrange(dbh_dist_plot, dbh_lat_plot, common.legend = TRUE)
+ggarrange(dbh_long_plot, dbh_pc2_plot, common.legend = TRUE)
 ```
 
 #####with year
@@ -2197,11 +2200,12 @@ mod_dbh_pca_x_time <- lmer(DBH ~ PC1*PC2 + PC1*scale(x) + PC2*scale(x) + I(PC1^2
 plot(mod_dbh_pca_x_time)
 qqmath(mod_dbh_pca_x_time)
 summary(mod_dbh_pca_x_time)
-#mod_dbh_pca_x_time_dredge<- dredge(mod_dbh_pca_x_time)
-#saveRDS(mod_dbh_pca_x_time_dredge,"mod_dbh_pca_x_time_dredge.RDS")
-mod_dbh_pca_x_time_dredge <- readRDS("mod_dbh_pca_x_time_dredge.RDS")
+# mod_dbh_pca_x_time_dredge<- dredge(mod_dbh_pca_x_time)
+# saveRDS(mod_dbh_pca_x_time_dredge,"mod_dbh_pca_x_time_dredge_011725.RDS")
+mod_dbh_pca_x_time_dredge <- readRDS("mod_dbh_pca_x_time_dredge_011725.RDS")
+mod_dbh_pca_x_time_dredge
 
-bestmod_dbh_pca_x_time <- lmer(DBH ~ year + scale(x) + PC1 + I(PC1^2) + (1|Provenance) + (1|BLK), data=dbh_numeric_time)
+bestmod_dbh_pca_x_time <- lmer(DBH ~ scale(year)*scale(x) + scale(year)*PC2 + (1|Provenance) + (1|BLK), data=dbh_numeric_time)
 summary(bestmod_dbh_pca_x_time)
 
 ##PCs and y 
@@ -2209,16 +2213,19 @@ mod_dbh_pca_y_time <- lmer(DBH ~ PC1*PC2 + PC1*scale(y) + PC2*scale(y) + I(PC1^2
 plot(mod_dbh_pca_y_time)
 qqmath(mod_dbh_pca_y_time)
 summary(mod_dbh_pca_y_time)
-#mod_dbh_pca_y_time_dredge<- dredge(mod_dbh_pca_y_time)
-#saveRDS(mod_dbh_pca_y_time_dredge,"mod_dbh_pca_y_time_dredge.RDS")
-mod_dbh_pca_y_time_dredge <- readRDS("mod_dbh_pca_y_time_dredge.RDS")
+# mod_dbh_pca_y_time_dredge<- dredge(mod_dbh_pca_y_time)
+# saveRDS(mod_dbh_pca_y_time_dredge,"mod_dbh_pca_y_time_dredge_011725.RDS")
+mod_dbh_pca_y_time_dredge <- readRDS("mod_dbh_pca_y_time_dredge_011725.RDS")
+mod_dbh_pca_y_time_dredge
 
-bestmod_dbh_pca_y_time <- lmer(DBH ~ year + scale(y) + (1|Provenance) + (1|BLK), data=dbh_numeric_time)
-summary(bestmod_dbh_pca_y_time) #year is only thing significant
+bestmod_dbh_pca_y_time <- lmer(DBH ~ scale(year) + scale(y) + PC2 + (1|Provenance) + (1|BLK), data=dbh_numeric_time)
+summary(bestmod_dbh_pca_y_time) 
 
-AICc(mod_dbh_pca_x_time, mod_dbh_pca_y_time) #lat is better
+AICc(mod_dbh_pca_x_time, mod_dbh_pca_y_time) #long is better
+AICc(bestmod_dbh_pca_x_time, bestmod_dbh_pca_y_time) #long is better
 
 ###try year as a random effect
+#y
 mod_dbh_pca_y_randtime <- lmer(DBH ~ PC1*PC2 + PC1*scale(y) + PC2*scale(y) + I(PC1^2) + I(PC2^2) + I(scale(y)^2)+ (1|Provenance) + (1|BLK) + (1|year), data=dbh_numeric_time)
 plot(mod_dbh_pca_y_randtime)
 qqmath(mod_dbh_pca_y_randtime)
@@ -2226,8 +2233,19 @@ summary(mod_dbh_pca_y_randtime)
 mod_dbh_pca_y_randtime_dredge<- dredge(mod_dbh_pca_y_randtime)
 mod_dbh_pca_y_randtime_dredge
 
-bestmod_dbh_pca_y_randtime <- lmer(DBH ~ scale(y) + (1|Provenance) + (1|BLK) + (1|year), data=dbh_numeric_time)
+bestmod_dbh_pca_y_randtime <- lmer(DBH ~ scale(y) + PC2 + (1|Provenance) + (1|BLK) + (1|year), data=dbh_numeric_time)
 summary(bestmod_dbh_pca_y_randtime)
+
+#x
+mod_dbh_pca_x_randtime <- lmer(DBH ~ PC1*PC2 + PC1*scale(x) + PC2*scale(x) + I(PC1^2) + I(PC2^2) + I(scale(x)^2)+ (1|Provenance) + (1|BLK) + (1|year), data=dbh_numeric_time)
+plot(mod_dbh_pca_x_randtime)
+qqmath(mod_dbh_pca_x_randtime)
+summary(mod_dbh_pca_x_randtime)
+mod_dbh_pca_x_randtime_dredge<- dredge(mod_dbh_pca_x_randtime)
+mod_dbh_pca_x_randtime_dredge
+
+bestmod_dbh_pca_x_randtime <- lmer(DBH ~ scale(x) + PC2 + (1|Provenance) + (1|BLK) + (1|year), data=dbh_numeric_time)
+summary(bestmod_dbh_pca_x_randtime)
 ```
 
 ```{r}
