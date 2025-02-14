@@ -1615,10 +1615,6 @@ eigenvals_pcabig/sum(eigenvals_pcabig)#this is the proportion variance explained
 summary(clim_pca_big)
 par(mfrow=c(1,1))
 plot(clim_pca_big,type="l")
-
-get_pca_ind_results(clim_pca_big$x, big_pca_data, eigenvals_pcabig, clim_pca_big$center, clim_pca_big$scale)
-
-var
 ```
 
 ```{r, echo=FALSE}
@@ -1666,7 +1662,6 @@ plant_pca_scores <- data.frame(Provenance="Plantation",
 
 clim_pca_big
 
-install.packages("factoextra")
 library("factoextra")
 
 is.numeric(clim_pca_big$center)
@@ -1704,9 +1699,6 @@ ggplot(data=as.data.frame(clim_pca_big$rotation[,1:3]) %>%
 as.data.frame(clim_pca_big$rotation[,1:3]) %>% 
   tibble::rownames_to_column() %>% 
   arrange(desc(abs(PC1))) %>% dplyr::select(-rowname) %>% abs() %>% colSums()
-
-0.39915335/3.194043
-
 
 pcaplot_big <- autoplot(clim_pca_big,x=1,y=2,colour=NA,loadings.colour="gray80", loadings=T, loadings.label=T, loadings.label.colour="darkgrey", scale=0, loadings.label.size=1.5, loadings.label.hjust=1, loadings.label.vjust=1)+
   geom_point(data=prov_pcapts_big, aes(x=PC1, y=PC2, fill=factor(Provenance, levels=provs_bylat$Provenance)), size=1.5, shape=24)+
@@ -2367,22 +2359,20 @@ AICc(bestmod_dbh_pca_x_randtime_noG, bestmod_dbh_pca_y_randtime_noG)
 summary(bestmod_dbh_pca_y_randtime_noG)
 
 ####make plot for best final model
-bestmod_dbh_pca_y_randtime_lm <- lm(DBH ~ I(scale(y)^2) + PC2, data=dbh_numeric_time)
+bestmod_dbh_pca_y_randtime_noG_lm <- lm(DBH ~ I(scale(y)^2), data=dbh_numeric_time_noG)
 
-newdata_dbh_y <-  expand.grid(y=seq(min(dbh_numeric_time$y), max(dbh_numeric_time$y), length.out=50),
-            PC2=mean(dbh_numeric_time$PC2))
-dbh_predict_y <- predict(bestmod_dbh_pca_y_randtime_lm, newdata = newdata_dbh_y, interval="confidence")
+newdata_dbh_y <-  expand.grid(y=seq(min(dbh_numeric_time_noG$y), max(dbh_numeric_time_noG$y), length.out=50))
+dbh_predict_y <- predict(bestmod_dbh_pca_y_randtime_noG_lm, newdata = newdata_dbh_y, interval="confidence")
 
-predictdatadbh_y <- cbind(newdata_dbh_y, dbh_predict_y)
+predictdatadbh_y <- cbind(newdata_dbh_y, dbh_predict_y) %>% mutate(var="Latitude")
 
 dbh_y_plot <- ggplot()+
-  geom_jitter(data=dbh_numeric_time, aes(x=y, y=DBH, col=factor(Provenance, levels=provs_bylat$Provenance), alpha=year), width=.3,height=0)+
-  geom_ribbon(data=predictdatadbh_y, aes(x=y, ymin=lwr, ymax=upr), fill="black", alpha=0.2)+
+  geom_ribbon(data=predictdatadbh_y, aes(x=y, ymin=lwr, ymax=upr), alpha=0.2)+
   geom_line(data=predictdatadbh_y, aes(x=y,y=fit), color="black")+
-  xlab("Latitude")+
-  scale_color_manual(values=unname(stepped()),name="Provenance")+
-  #facet_wrap(~year, scales="free")+
-  #geom_text(data= data.frame(x=32.99908, year=c(1991,1996,2006,2014), y=c(5,8,13,17)), aes(x=x, y=y, label="*"), size=10, col=unname(stepped(n=9))[1])+
+  geom_rug(data=dbh_numeric_time_noG %>% mutate(fit=9), aes(x=y,y=fit), linewidth=1, col="black", sides="b")+
+  xlab("Provenance Latitude")+
+  ylab("DBH (cm)")+
+  facet_grid(~var)+
   theme_bw()+
   theme(legend.position="none")
 dbh_y_plot
@@ -3061,16 +3051,15 @@ bestmod_ht_pca_y_randtime_lm <- lm(log(value) ~ y + I(y^2), data=ht_data_year_cl
 newdata_ht_y <-  expand.grid(y=seq(min(ht_data_year_clim_noG$y), max(ht_data_year_clim_noG$y), length.out=50))
 ht_predict_y <- predict(bestmod_ht_pca_y_randtime_lm, newdata = newdata_ht_y, interval="confidence")
 
-predictdataht_y <- cbind(newdata_ht_y, ht_predict_y)
+predictdataht_y <- cbind(newdata_ht_y, ht_predict_y) %>% mutate(var="Latitude")
 
 ht_y_plot <- ggplot()+
-  geom_point(data=ht_data_year_clim, aes(x=y, y=value, col=factor(Provenance, levels=provs_bylat$Provenance)))+
   geom_ribbon(data=predictdataht_y, aes(x=y, ymin=lwr, ymax=upr), fill="black", alpha=0.2)+
   geom_line(data=predictdataht_y, aes(x=y,y=fit), color="black")+
-  xlab("Latitude")+
-  scale_color_manual(values=unname(stepped()),name="Provenance")+
-  facet_wrap(~year, scales="free")+
-  #geom_text(data= data.frame(x=32.99908, year=c(1991,1996,2006,2014), y=c(5,8,13,17)), aes(x=x, y=y, label="*"), size=10, col=unname(stepped(n=9))[1])+
+    geom_rug(data=ht_data_year_clim_noG %>% mutate(fit=.9), aes(x=y,y=fit), linewidth=1, col="black", sides="b")+
+  xlab("Provenance Latitude")+
+  ylab("Height (m)")+
+  facet_grid(~var)+
   theme_bw()+
   theme(legend.position="none")
 ht_y_plot
@@ -3319,12 +3308,6 @@ summary(cone_clim_mod_dbhy)
 
 AICc(cone_clim_mod_hty, cone_clim_mod_dbhx, cone_clim_mod_dbhy,cone_clim_mod_htx) #htx is lowest
 
-# dredge.cone.clim.hty <- dredge(cone_clim_mod_hty)
-# saveRDS(dredge.cone.clim.hty, "dredge.cone.clim.hty.RDS")
-dredge.cone.clim.hty <- readRDS("dredge.cone.clim.hty.RDS")
-bestmod_cone_clim_hty <- glmmTMB(cbind(n_cones, total-n_cones) ~ PC1 + I(PC1^2) + scale(height) + (1|code) + (1|year) + (1|BLK), data=moniger_subset, family=binomial)
-summary(bestmod_cone_clim_hty)
-
  # dredge.cone.clim <- dredge(cone_clim_mod_htx)
  # saveRDS(dredge.cone.clim, "dredge.cone.clim.RDS")
 dredge.cone.clim <- readRDS("dredge.cone.clim.RDS")
@@ -3333,7 +3316,6 @@ dredge.cone.clim
 best.mod.cone.clim <- glmmTMB(cbind(n_cones, total-n_cones) ~ scale(height) + PC1 + I(PC1^2) + (1|code) + (1|year) + (1|BLK), data= moniger_subset, family = binomial)
 summary(best.mod.cone.clim)
 
-AICc(best.mod.cone.clim, bestmod_cone_clim_hty)
 
 ##predictions
 CCnewdata1_cone <- expand.grid(height=c(3,6,9),
@@ -3376,45 +3358,58 @@ dredge.cone.clim.nog
 best.mod.cone.clim_nog <- glmmTMB(cbind(n_cones, total-n_cones) ~ scale(height) + scale(x) + (1|code) + (1|year) + (1|BLK), data= moniger_subset %>% filter(!code=="GiNF"), family = binomial)
 summary(best.mod.cone.clim_nog)
 
-cone_clim_mod_hty_nog <- glmmTMB(cbind(n_cones, total-n_cones) ~ scale(height)*PC1 + I(PC1^2) + scale(height)*PC2 + I(PC2^2) + scale(height)*scale(y) + I(scale(y)^2)+ (1|code) + (1|year) + (1|BLK), data=moniger_subset_nog, family=binomial)
-summary(cone_clim_mod_hty_nog)
 
-# dredge.cone.clim.nog.y <- dredge(cone_clim_mod_hty_nog)
-# saveRDS(dredge.cone.clim.nog.y, "dredge.cone.clim.nog.y.RDS")
-dredge.cone.clim.nog.y <- readRDS("dredge.cone.clim.nog.y.RDS")
-dredge.cone.clim.nog.y
-
-best.mod.cone.clim_y_nog <- glmmTMB(cbind(n_cones, total-n_cones) ~ scale(height) + scale(y) + I(scale(y)^2) + (1|code) + (1|year) + (1|BLK), data= moniger_subset %>% filter(!code=="GiNF"), family = binomial)
-summary(best.mod.cone.clim_y_nog)
-
-AICc(cone_clim_mod_htx_nog, cone_clim_mod_hty_nog)
-AICc(best.mod.cone.clim_y_nog, best.mod.cone.clim_nog) ##long model is better
-
-##predictions - no gila 
-CCnewdata1 <- expand.grid(height=seq(min(moniger_subset %>% filter(!code=="GiNF") %>% pull(height)),max(moniger_subset %>% filter(!code=="GiNF") %>% pull(height)),1),
-                          x=seq(min(moniger_subset %>% filter(!code=="GiNF") %>% pull(x)),max(moniger_subset %>% filter(!code=="GiNF") %>% pull(x)),1))
+##predictions - no gila - longitude
+CCnewdata1_cone_nog_long <- expand.grid(height=mean(moniger_subset_nog$height),
+                          x=seq(min(moniger_subset_nog$x),max(moniger_subset_nog$x),1))
 
 
-cone_clim_mod_glm <- glmmTMB(cbind(n_cones, total-n_cones) ~ scale(height) + scale(x), data= moniger_subset %>% filter(!code=="GiNF"), family = binomial)
+cone_clim_mod_nog_glm <- glmmTMB(cbind(n_cones, total-n_cones) ~ scale(height) + scale(x), data= moniger_subset_nog, family = binomial)
 
-CCnewdata2 <- cbind(CCnewdata1, predict(cone_clim_mod_glm, newdata = CCnewdata1, type = "link", se=TRUE))
-CCnewdata3 <- within(CCnewdata2, {
+CCnewdata2_cone_nog_long <- cbind(CCnewdata1_cone_nog_long, predict(cone_clim_mod_nog_glm, newdata = CCnewdata1_cone_nog_long, type = "link", se=TRUE))
+CCnewdata3_cone_nog_long <- within(CCnewdata2_cone_nog_long, {
     PredictedProb <- plogis(fit)
     LL <- plogis(fit - (1.96 * se.fit))
     UL <- plogis(fit + (1.96 * se.fit))
 })
 
-ggplot(CCnewdata3, aes(x = height, y = PredictedProb, col= factor(x))) + 
+cone_plot_long<- ggplot(CCnewdata3_cone_nog_long %>% mutate(var="Longitude"), aes(x = x, y = PredictedProb)) + 
   geom_ribbon(aes(ymin = LL,
-    ymax = UL, fill = factor(x)), alpha = 0.2, col=NA) + geom_line(aes(colour = factor(x)),
-    linewidth = 1)+
-  geom_line(aes(x=height, y=PredictedProb, col=factor(x)))+
-  scale_color_manual(values=viridis::mako(n=17), name = "x")+
-  scale_fill_manual(values=viridis::mako(n=17),name="x")+
+    ymax = UL), alpha = 0.2, col=NA) + geom_line(linewidth = 1)+
+  geom_line(aes(x=x, y=PredictedProb))+
+  geom_rug(data=moniger_subset_nog%>% mutate(PredictedProb=.8), aes(x=x, y=PredictedProb), sides="b", linewidth=1, col="black", alpha=0.5)+
   theme_bw()+
+  ylim(c(0,1))+
+  xlab("Longitude")+
+  ylab("Predicted Probability of Cones")+
+  theme(legend.position = "bottom")+
+  facet_grid(~var)
+
+##predictions - no gila - heightitude
+CCnewdata1_cone_nog_height <- expand.grid(x=mean(moniger_subset_nog$x),
+                          height=seq(min(moniger_subset_nog$height),max(moniger_subset_nog$height),0.1))
+
+CCnewdata2_cone_nog_height <- cbind(CCnewdata1_cone_nog_height, predict(cone_clim_mod_nog_glm, newdata = CCnewdata1_cone_nog_height, type = "link", se=TRUE))
+CCnewdata3_cone_nog_height <- within(CCnewdata2_cone_nog_height, {
+    PredictedProb <- plogis(fit)
+    LL <- plogis(fit - (1.96 * se.fit))
+    UL <- plogis(fit + (1.96 * se.fit))
+})
+
+cone_plot_height<- ggplot(CCnewdata3_cone_nog_height %>% mutate(var="Height"), aes(x = height, y = PredictedProb)) + 
+  geom_ribbon(aes(ymin = LL,
+    ymax = UL), alpha = 0.2, col=NA) + geom_line(linewidth = 1)+
+  geom_line(aes(x=height, y=PredictedProb))+
+    geom_rug(data=moniger_subset_nog%>% mutate(PredictedProb=.8), aes(x=height, y=PredictedProb), sides="b", linewidth=1, col="black", alpha=0.5)+
+  theme_bw()+
+  ylim(c(0,1))+
   xlab("Height (m)")+
   ylab("Predicted Probability of Cones")+
-  theme(legend.position = "bottom")
+  theme(legend.position = "bottom")+
+  facet_grid(~var)
+
+ggarrange(cone_plot_long, cone_plot_height)
+
 ```
 
 ####distance - cut
@@ -3566,8 +3561,25 @@ smrpb_cone_plot_nog <- ggplot(conesmrpb_nog_newdata3, aes(x = climvar.value, y =
   geom_line(linewidth = 1)+
   xlab("Summer/Spring precip ratio")+
   ylab("Predicted Probability")+
+  theme_bw()
+
+cone_smrpb_plot_data<- conesmrpb_newdata3 %>% 
+  mutate(model="with Gila NF") %>% 
+  bind_rows(conesmrpb_nog_newdata3 %>% mutate(model="without Gila NF")) %>% 
+  mutate(var="Summer Precip Ratio")
+
+cone_smrpb_plot<- ggplot(cone_smrpb_plot_data, aes(x = climvar.value, y = PredictedProb)) + 
+  geom_ribbon(aes(ymin = LL,ymax = UL, fill=model), alpha = 0.2) + 
+  geom_line(linewidth = 1, aes(linetype=model))+
+  geom_rug(data=moniger_provclim %>% filter(climvar.name=="smrpb") %>% mutate(PredictedProb=0.6), sides="b", linewidth=1, color="black", alpha=0.5)+
+  scale_linetype_manual(values=c(2,1))+
+  scale_fill_manual(values=c("darkgray","black"))+
+  ylim(c(0,1))+
+  xlab("Provenance summer/spring precip ratio")+
+  ylab("Predicted Probability of Cones")+
   theme_bw()+
-  ggtitle("Cones")
+  facet_grid(~var)
+
 
 ###quadratic
 
@@ -3584,6 +3596,17 @@ cone_mods_quad <- bind_rows(cone_mods_quad, data.frame(var=provenance_climvars[i
 }
 
 cone_mods_quad %>% arrange(pvalue2_nog) ##none significant 
+```
+
+###plots
+```{r}
+
+cone_plot<- ggarrange(ggarrange(cone_plot_long, cone_plot_height, nrow=1), cone_smrpb_plot, nrow=2)
+
+png("figures/cone_plot.png", width=5, height=6, units="in", res=300)
+cone_plot
+dev.off()
+
 ```
 
 ##Survival
@@ -3837,21 +3860,45 @@ summary(bestsurvmod_pcy_nog)
 #predict
 bestsurvmod_pcy_nog_glm <- glmmTMB(cbind(alive,died) ~ scale(y) + I(scale(y)^2), data=moniger_survival_nog, family=binomial)
 
-newdata1 <- expand.grid(y = seq(min(moniger_survival_nog$y),max(moniger_survival_nog$y),1),
-                        BLK= "C",
-                        Provenance="Pike NF")
+newdata1 <- expand.grid(y = seq(min(moniger_survival_nog$y),max(moniger_survival_nog$y),.5))
 newdata2_nog <- cbind(newdata1, predict(bestsurvmod_pcy_nog_glm, newdata = newdata1, type = "link", se=TRUE))
 newdata3_nog <- within(newdata2_nog, {
     PredictedProb <- plogis(fit)
     LL <- plogis(fit - (1.96 * se.fit))
     UL <- plogis(fit + (1.96 * se.fit))
-})
+}) %>% 
+  mutate(var="Latitude")
 
 
-ggplot(data=newdata3_nog, aes(x = y, y = PredictedProb)) + 
-  geom_line()+
-  geom_ribbon(aes(ymin = LL, ymax = UL), alpha=0.5) +
-  theme(axis.text.x = element_text(angle=45, hjust=1))
+surv_y_plot<- ggplot() + 
+  geom_ribbon(data=newdata3_nog, aes(x=y, ymin = LL, ymax = UL), alpha=0.2) +
+  geom_line(data=newdata3_nog, aes(x = y, y = PredictedProb))+
+  geom_rug(data=moniger_survival_nog %>% mutate(PredictedProb=.8), aes(x=y, y=PredictedProb), sides="b", linewidth=1, col="black")+
+  xlab("Provenance Latitude")+
+  ylab("Survival Probability")+
+  facet_grid(~var)+
+  theme_bw()+
+  theme(legend.position="none")
+surv_y_plot
+
+lat_plot_data<- bind_rows(
+newdata3_nog %>% 
+  mutate(var="Survival Probability") %>% 
+  rename(lwr=LL, upr=UL),
+predictdataht_y %>% 
+  mutate(var="Height (m)", PredictedProb=fit),
+predictdatadbh_y %>% 
+   mutate(var="DBH (cm)", PredictedProb=fit))
+
+lat_plot <- ggplot() + 
+  geom_ribbon(data=lat_plot_data, aes(x=y, ymin = lwr, ymax = upr), alpha=0.5) +
+  geom_line(data=lat_plot_data, aes(x = y, y = PredictedProb))+
+  xlab("Latitude")+
+  ylab("")+
+  facet_wrap(~var, scale="free")+
+  theme_bw()+
+  theme(legend.position="none")
+lat_plot
 
 ##with gila
 newdata2 <- cbind(newdata1, predict(bestsurvmod_pcy_glm, newdata = newdata1, type = "link", se=TRUE))
@@ -3979,12 +4026,12 @@ newdata_FFP_surv <- data.frame(
                       ))
 
 ##predictions
-survFFP_newdata1 <-  expand.grid(climvar.value = seq(min(newdata_FFP_surv$climvar.value),max(newdata_FFP_surv$climvar.value),length.out=50),
-                                 Provenance = "Pike NF",
-                                 BLK = "C",
-                                 year=2006)
+survFFP_newdata1 <-  expand.grid(climvar.value = seq(min(newdata_FFP_surv$climvar.value),max(newdata_FFP_surv$climvar.value),length.out=50))
 
-survFFP_newdata2 <- cbind(survFFP_newdata1, predict(surv_FFP_mod, newdata = survFFP_newdata1, type = "link", se=TRUE))
+surv_FFP_mod_glm <- glmmTMB(cbind(alive,died) ~ scale(climvar.value), data=moniger_survival_long %>% filter(climvar.name=="FFP"), family="binomial")
+
+
+survFFP_newdata2 <- cbind(survFFP_newdata1, predict(surv_FFP_mod_glm, newdata = survFFP_newdata1, type = "link", se=TRUE))
 survFFP_newdata3 <- within(survFFP_newdata2, {
     PredictedProb <- plogis(fit)
     LL <- plogis(fit - (1.96 * se.fit))
@@ -3994,8 +4041,7 @@ survFFP_newdata3 <- within(survFFP_newdata2, {
 ggplot(survFFP_newdata3, aes(x = climvar.value, y = PredictedProb)) + geom_ribbon(aes(ymin = LL,
     ymax = UL), alpha = 0.2) + 
   geom_line(linewidth = 1)+
-  geom_point(aes(x=climvar.value, y=PredictedProb))+
-  xlab("FFP")
+  xlab("Frost-Free Period (days)")
 
 #without Gila is still significant
 surv_FFP_mod_nog <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + (1|Provenance)+ (1|BLK) + (1|year), data=moniger_survival_long %>% filter(climvar.name=="FFP") %>% filter(!Provenance=="Gila NF"), family="binomial")
@@ -4086,12 +4132,11 @@ newdata_smrpb_surv <- data.frame(
                       ))
 
 ##predictions
-survsmrpb_newdata1 <-  expand.grid(climvar.value = seq(min(newdata_smrpb_surv$climvar.value),max(newdata_smrpb_surv$climvar.value),length.out=50),
-                                 Provenance = "Pike NF",
-                                 BLK = "C",
-                                 year=2006)
+survsmrpb_newdata1 <-  expand.grid(climvar.value = seq(min(newdata_smrpb_surv$climvar.value),max(newdata_smrpb_surv$climvar.value),length.out=50))
 
-survsmrpb_newdata2 <- cbind(survsmrpb_newdata1, predict(surv_smrpb_mod, newdata = survsmrpb_newdata1, type = "link", se=TRUE))
+surv_smrpb_mod_glm <- glmmTMB(cbind(alive,died) ~ scale(climvar.value), data=moniger_survival_long %>% filter(climvar.name=="smrpb"), family="binomial")
+
+survsmrpb_newdata2 <- cbind(survsmrpb_newdata1, predict(surv_smrpb_mod_glm, newdata = survsmrpb_newdata1, type = "link", se=TRUE))
 survsmrpb_newdata3 <- within(survsmrpb_newdata2, {
     PredictedProb <- plogis(fit)
     LL <- plogis(fit - (1.96 * se.fit))
@@ -4101,7 +4146,6 @@ survsmrpb_newdata3 <- within(survsmrpb_newdata2, {
 ggplot(survsmrpb_newdata3, aes(x = climvar.value, y = PredictedProb)) + geom_ribbon(aes(ymin = LL,
     ymax = UL), alpha = 0.2) + 
   geom_line(linewidth = 1)+
-  geom_point(aes(x=climvar.value, y=PredictedProb))+
   xlab("smrpb")
 
 #without Gila is still significant
@@ -4154,12 +4198,11 @@ summary(surv_Eref_mod)
 surv_Eref_data <- moniger_survival_long %>% filter(climvar.name=="Eref")
 
 ##predictions
-survEref_newdata1 <- expand.grid(climvar.value = seq(min(surv_Eref_data$climvar.value),max(surv_Eref_data$climvar.value),length.out=50),
-                                 Provenance = "Pike NF",
-                                 BLK = "C",
-                                 year=2006)
+survEref_newdata1 <- expand.grid(climvar.value = seq(min(surv_Eref_data$climvar.value),max(surv_Eref_data$climvar.value),length.out=50))
 
-survEref_newdata2 <- cbind(survEref_newdata1, predict(surv_Eref_mod, newdata = survEref_newdata1, type = "link", se=TRUE))
+surv_Eref_mod_glm <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2), data=moniger_survival_long %>% filter(climvar.name=="Eref"), family="binomial")
+
+survEref_newdata2 <- cbind(survEref_newdata1, predict(surv_Eref_mod_glm, newdata = survEref_newdata1, type = "link", se=TRUE))
 survEref_newdata3 <- within(survEref_newdata2, {
     PredictedProb <- plogis(fit)
     LL <- plogis(fit - (1.96 * se.fit))
@@ -4169,6 +4212,7 @@ survEref_newdata3 <- within(survEref_newdata2, {
 surv_Eref_plot<- ggplot(survEref_newdata3, aes(x = climvar.value, y = PredictedProb)) + geom_ribbon(aes(ymin = LL,
     ymax = UL), alpha = 0.2) + 
   geom_line(linewidth = 1)+
+  geom_point()+
   xlab("Eref")+
     ylab("Predicted Probability")+
   ggtitle("Survival")+
@@ -4186,12 +4230,11 @@ summary(surv_cmd_mod)
 surv_cmd_data <- moniger_survival_long %>% filter(climvar.name=="CMD")
 
 ##predictions
-survcmd_newdata1 <- expand.grid(climvar.value = seq(min(surv_cmd_data$climvar.value),max(surv_cmd_data$climvar.value),length.out=50),
-                                 Provenance = "Pike NF",
-                                 BLK = "C",
-                                year=2006)
+survcmd_newdata1 <- expand.grid(climvar.value = seq(min(surv_cmd_data$climvar.value),max(surv_cmd_data$climvar.value),length.out=50))
 
-survcmd_newdata2 <- cbind(survcmd_newdata1, predict(surv_cmd_mod, newdata = survcmd_newdata1, type = "link", se=TRUE))
+surv_cmd_mod_glm <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2), data=moniger_survival_long %>% filter(climvar.name=="CMD"), family="binomial")
+
+survcmd_newdata2 <- cbind(survcmd_newdata1, predict(surv_cmd_mod_glm, newdata = survcmd_newdata1, type = "link", se=TRUE))
 survcmd_newdata3 <- within(survcmd_newdata2, {
     PredictedProb <- plogis(fit)
     LL <- plogis(fit - (1.96 * se.fit))
@@ -4227,45 +4270,33 @@ surv_cmd_plot<- ggplot(survcmd_newdata3, aes(x = climvar.value, y = PredictedPro
 surv_cmd_mod_nog <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance) + (1|BLK) + (1|year), data=moniger_survival_long %>% filter(climvar.name=="CMD") %>% filter(!Provenance=="Gila NF"), family="binomial")
 summary(surv_cmd_mod_nog)
 
-
-##Eref
-surv_Eref_mod <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance) + (1|BLK), data=moniger_survival_long %>% filter(climvar.name=="Eref"), family="binomial")
-summary(surv_Eref_mod)
-
-surv_Eref_data <- moniger_survival_long %>% filter(climvar.name=="Eref")
-
-##predictions
-survEref_newdata1 <-  expand.grid(climvar.value = seq(min(surv_Eref_data$climvar.value),max(surv_Eref_data$climvar.value),length.out=50),
-                                 Provenance = "Pike NF",
-                                 BLK = "C",
-                                 year=2006)
-
-survEref_newdata2 <- cbind(survEref_newdata1, predict(surv_Eref_mod, newdata = survEref_newdata1, type = "link", se=TRUE))
-survEref_newdata3 <- within(survEref_newdata2, {
-    PredictedProb <- plogis(fit)
-    LL <- plogis(fit - (1.96 * se.fit))
-    UL <- plogis(fit + (1.96 * se.fit))
-})
-
-surv_Eref_plot<- ggplot(survEref_newdata3, aes(x = climvar.value, y = PredictedProb)) + geom_ribbon(aes(ymin = LL,
-    ymax = UL), alpha = 0.2) + 
-  geom_line(linewidth = 1)+
-  xlab("Eref")+
-    ylab("Predicted Probability")+
-  ggtitle("Survival")+
-  theme_bw()
-
-#without Gila is still significant
-surv_Eref_mod_nog <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance) + (1|BLK), data=moniger_survival_long %>% filter(climvar.name=="Eref") %>% filter(!Provenance=="Gila NF"), family="binomial")
-summary(surv_Eref_mod_nog)
-#########
-
 ```
 
 ####plots
 
 ```{r}
 #plots
+
+surv_ind_plot_data<- bind_rows(survcmd_newdata3 %>% mutate(climvar.name="CMD"),
+survFFP_newdata3 %>% mutate(climvar.name="FFP"),
+survEref_newdata3 %>% mutate(climvar.name="Eref"),
+survsmrpb_newdata3 %>% mutate(climvar.name="smrpb"))
+
+surv_ind_plot<- ggplot(surv_ind_plot_data, aes(x = climvar.value, y = PredictedProb)) + 
+  geom_ribbon(aes(ymin = LL, ymax = UL), alpha = 0.2) + 
+  geom_line(linewidth = .5)+
+  geom_rug(data=moniger_survival_long %>% filter(climvar.name%in%c("Eref","CMD","FFP","smrpb")) %>% mutate(PredictedProb=.7), sides="b", linewidth=1)+
+  ylab("Survival Probability")+
+  xlab("Provenance Climate Value")+
+  facet_wrap(~factor(climvar.name, levels=c("FFP","smrpb","CMD","Eref"), labels=c("Frost-Free Period (days)","Summer Precip Ratio","Climate Moisture Deficit (mm)","Hargreave's reference evaporation")), scales="free")+
+  theme_bw()
+
+ht_dbh_surv_plot<- ggarrange(ggarrange(dbh_y_plot,ht_y_plot,surv_y_plot, nrow=1),surv_ind_plot,nrow=2)
+ht_dbh_surv_plot
+
+png("figures/ht_dbh_surv_plot.png", width=7, height=7, units="in", res=300)
+ht_dbh_surv_plot
+dev.off()
 
 #png("figures/survival_plot.png", width=9.5, height=7.5, units = "in", res=500)
 #ggarrange(ggarrange(surv_byprov, surv_dist_plot, ncol=2, labels=c("A)","B)")),surv_sig_clim_plot,nrow=2, labels = c("","C)"), heights=c(1,0.8))
@@ -4518,13 +4549,13 @@ plantation_clim_cut<- plantation_clim_cut %>%
 
 ggplot(growth.detrended.byprov, aes(x=year, y=meanrwi-1))+
   geom_bar(data=plantation_clim_cut, aes(x=year, y=aet_scale_1), stat="identity")+
-  geom_point(aes( col=Provenance), size=2)+
-  geom_ribbon(aes(x=year, ymin=meanrwi-se-1, ymax=meanrwi+se-1, fill=Provenance), alpha=0.3)+
+  geom_point(aes( col=factor(Provenance, levels=provs_bylat$Provenance)), size=2)+
+  geom_ribbon(aes(x=year, ymin=meanrwi-se-1, ymax=meanrwi+se-1, fill=factor(Provenance, levels=provs_bylat$Provenance)), alpha=0.3)+
   scale_y_continuous(name="AET (scaled)", sec.axis = sec_axis(~.+1, name="RWI"))+
   #geom_errorbar(width=0.2,aes(x=year, ymin=meanrwi-se-1, ymax=meanrwi+se-1, col=Provenance), linewidth=1)+
-  scale_color_manual(values=unname(stepped()))+
-  scale_fill_manual(values=unname(stepped()))+
-  geom_line(aes( col=Provenance), linewidth=1)+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  scale_fill_manual(values=unname(stepped()), name="Provenance")+
+  geom_line(aes( col=factor(Provenance, levels=provs_bylat$Provenance)), linewidth=1)+
   geom_hline(yintercept=0, linetype=2)+
   theme_bw()+
   theme(axis.text = element_text(color="black",size=10), axis.title = element_text(color="black", size=12), panel.grid = element_blank())
@@ -4572,6 +4603,40 @@ ggplot(gini_byprov, aes(x=factor(Provenance, levels = provs_bylat$Provenance), y
   theme_bw()+
   theme(axis.text.x = element_text(angle=45, hjust=1), legend.position = "none",
         axis.title = element_text(size=12, color="black"), axis.text = element_text(size = 12, color="black"))
+
+gini_sum<- gini_byprov %>% 
+  group_by(Provenance) %>% 
+  summarise(mean=mean(gini), sd=sd(gini), se=sd(gini)/sqrt(n()))
+
+gini_plot<- ggplot(gini_sum, aes(x=factor(Provenance, levels = provs_bylat$Provenance, labels=provs_bylat$code), y=mean, fill=factor(Provenance, levels = provs_bylat$Provenance, labels=provs_bylat$code), color=factor(Provenance, levels = provs_bylat$Provenance, labels=provs_bylat$code)))+
+  geom_point(size=3)+
+  geom_errorbar(aes(ymin=mean-se, ymax=mean+se), linewidth=1, width=0.5)+
+  scale_fill_manual(values=unname(stepped()), name="Provenance")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  scale_y_continuous(breaks=c(0.1,0.2))+
+  ylab("Gini coefficient")+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle=45, hjust=1, size=8), legend.position = "none",
+        axis.title = element_text(color="black"), axis.text = element_text(color="black"), axis.title.x = element_blank(),panel.grid.major = element_blank(),panel.grid.minor = element_blank())
+
+
+rwi_gini_plot<- ggplot(growth.detrended.byprov, aes(x=year, y=meanrwi-1))+
+  geom_bar(data=plantation_clim_cut, aes(x=year, y=aet_scale_1), stat="identity")+
+  geom_point(aes( col=factor(Provenance, levels=provs_bylat$Provenance)), size=2)+
+  geom_ribbon(aes(x=year, ymin=meanrwi-se-1, ymax=meanrwi+se-1, fill=factor(Provenance, levels=provs_bylat$Provenance)), alpha=0.3)+
+  scale_y_continuous(name="AET (scaled)", sec.axis = sec_axis(~.+1, name="RWI"))+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  scale_fill_manual(values=unname(stepped()), name="Provenance")+
+  geom_line(aes( col=factor(Provenance, levels=provs_bylat$Provenance)), linewidth=1)+
+  geom_hline(yintercept=0, linetype=2)+
+  theme_bw()+
+  theme(axis.text = element_text(color="black",size=10), axis.title = element_text(color="black", size=12), panel.grid = element_blank())+
+  annotation_custom(ggplotGrob(gini_plot), xmin=1983, xmax=1997, ymin=0.35, ymax=1.1)
+
+png("figures/rwi_gini_plot.png", width=11,height=6, unit="in", res=300)
+rwi_gini_plot
+dev.off()
+
 
 ##ANOVA
 
@@ -5026,7 +5091,7 @@ colnames(aet_date_wide)=c("YEAR","JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG"
 ```
 
 ######aet - cwd
-```{r}
+```{r, eval=FALSE}
 
 aet_cwd_list <- list()
 for(i in 1:length(provs_arranged_lat[-9])){
@@ -5141,7 +5206,7 @@ skills(object = aet_cwd_list[[20]],
 
 ######aet - spei
 
-```{r}
+```{r, eval=FALSE}
 
 aet_spei_list <- list()
 for(i in 1:length(provs_arranged_lat[-9])){
@@ -5237,7 +5302,7 @@ cor_analysis_plot_pc1_aet_spei<- ggplot(timeline_aet_spei, aes(y=factor(Provenan
 
 #####precip & temp seasons
 
-```{r}
+```{r, eval=FALSE}
 
 temp_precip_list <- list()
 for(i in 1:length(provs_arranged_lat[-9])){
@@ -5354,7 +5419,7 @@ ggplot(timeline_temp_precip, aes(y=factor(Provenance, levels=prov_pcapts %>% arr
 ```
 
 
-```{r}
+```{r, eval=FALSE}
 
 precip_temp_list <- list()
 for(i in 1:length(provs_arranged_lat[-9])){
@@ -7487,7 +7552,9 @@ recover_time<- growth.detrended.df %>%
   mutate(recoverytime = as.numeric(minyr) - 2002) %>% 
   left_join(dbh_age %>%dplyr::select(tree,Provenance) %>% unique(), by="tree")
 
-aov.recover <- aov(recoverytime ~ Provenance, data=recover_time)
+aov.recover <- aov(log(recoverytime) ~ Provenance, data=recover_time)
+par(mfrow=c(2,2))
+plot(aov.recover)
 summary(aov.recover)  #no difference in recovery time
 
 ggplot(recover_time, aes(x=Provenance, y=recoverytime))+
@@ -7943,6 +8010,9 @@ allanovas %>% mutate(diff = residMS - provMS) %>% arrange(diff) ##when residMS i
 allanovas %>% mutate(diff = residMS - provMS) %>% filter(diff>0) %>% nrow()
 allanovas %>% mutate(diff = residMS - provMS) %>% filter(diff<0) %>% nrow()
 
+allanovas %>% mutate(diff = residMS - provMS) %>% filter(diff>0)
+allanovas %>% mutate(diff = residMS - provMS) %>% filter(diff<0) 
+
 allanovas %>% filter(pvalue<0.05) #no significant differences between provenances in how correlated RWI is to climate vars
 min(allanovas$pvalue)
 max(allanovas$pvalue)
@@ -8301,6 +8371,39 @@ ggplot(data=left_join(correlation_strength_results %>%
   facet_grid(annual_climvar~prov_climvar, scales="free")+
   geom_hline(yintercept=0, col="red")
 
+##########individual model results
+
+### WY CWD -- ppt_wt
+wycwd_pptwt_mod<- lmer(cor ~ value + (1|Provenance), data=cor_provclim_long %>% filter(climvar=="cwd_wy" & name=="PPTwt") %>% filter(!Provenance=="Gila NF"))
+plot(wycwd_pptwt_mod)
+qqmath(wycwd_pptwt_mod)
+summary(wycwd_pptwt_mod)
+
+### First fall frost -- TD
+fff_td_mod<- lmer(cor ~ value + (1|Provenance), data=cor_provclim_long %>% filter(climvar=="day_of_first_fall_frost" & name=="TD") %>% filter(!Provenance=="Gila NF"))
+plot(fff_td_mod)
+qqmath(fff_td_mod)
+summary(fff_td_mod)
+
+### Winter tmean -- CMD
+wt_tmean_td_mod<- lmer(cor ~ value + (1|Provenance), data=cor_provclim_long %>% filter(climvar=="value_wt_tmean" & name=="CMD") %>% filter(!Provenance=="Gila NF"))
+plot(wt_tmean_td_mod)
+qqmath(wt_tmean_td_mod)
+summary(wt_tmean_td_mod)
+
+
+### Summer VPD -- MCMT
+vpd_sm_td_mod<- lmer(cor ~ value + (1|Provenance), data=cor_provclim_long %>% filter(climvar=="vpdmax_sm" & name=="MCMT") %>% filter(!Provenance=="Gila NF"))
+plot(vpd_sm_td_mod)
+qqmath(vpd_sm_td_mod)
+summary(vpd_sm_td_mod)
+
+
+### Last spring frost -- bFFP
+lsf_td_mod<- lmer(cor ~ value + (1|Provenance), data=cor_provclim_long %>% filter(climvar=="day_of_last_spring_frost" & name=="bFFP") %>% filter(!Provenance=="Gila NF"))
+plot(lsf_td_mod)
+qqmath(lsf_td_mod)
+summary(lsf_td_mod)
 
 ```
 
