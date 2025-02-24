@@ -747,7 +747,6 @@ falltemps <- all_temps %>% filter(month %in% c(9,10,11)) %>%
   summarise(value_fa =mean(value))
 wintertemps <- all_temps %>% filter(month %in% c(12,1,2)) %>% 
   mutate(year = ifelse(month=="12",year+1,year)) %>% 
-  filter(!year %in% c(1970,2017)) %>% 
   group_by(CN, year, name) %>% 
   summarise(value_wt =mean(value))
 springtemps <- all_temps %>% filter(month %in% c(3,4,5)) %>% 
@@ -1039,6 +1038,58 @@ ggplot(plantation_clim_long %>% filter(name %in% c("PPTsp","PPTsm","PPT_at","ppt
   facet_wrap(type~factor(season,levels=c("Spring","Summer","Fall","Winter")), scales="free", nrow=2)+
   theme_bw()+
   theme(axis.text=element_text(angle=45, hjust=1))
+
+###models
+
+##spring ppt
+
+spppt_mod <- lm(value~year, data=plantation_clim_long %>% filter(name=="PPTsp"))
+plot(spppt_mod)
+summary(spppt_mod) #NS
+
+##summer ppt
+
+smppt_mod <- lm(value~year, data=plantation_clim_long %>% filter(name=="PPTsm"))
+plot(smppt_mod)
+summary(smppt_mod) #NS
+
+##fall ppt
+
+atppt_mod <- lm(value~year, data=plantation_clim_long %>% filter(name=="PPT_at"))
+plot(atppt_mod)
+summary(atppt_mod) #NS
+
+##winter ppt
+
+wtppt_mod <- lm(value~year, data=plantation_clim_long %>% filter(name=="ppt_wt"))
+plot(wtppt_mod)
+summary(wtppt_mod) #NS
+
+##spring tmean
+
+sptmean_mod <- lm(value~year, data=plantation_clim_long %>% filter(name=="value_sp_tmean"))
+plot(sptmean_mod)
+summary(sptmean_mod) #NS
+
+##summer tmean
+
+smtmean_mod <- lm(value~year, data=plantation_clim_long %>% filter(name=="value_sm_tmean"))
+plot(smtmean_mod)
+summary(smtmean_mod) #Significant
+
+##fall tmean
+
+attmean_mod <- lm(value~year, data=plantation_clim_long %>% filter(name=="value_fa_tmean"))
+plot(attmean_mod)
+summary(attmean_mod) #Significant
+
+##winter tmean
+
+wttmean_mod <- lm(value~year, data=plantation_clim_long %>% filter(name=="value_wt_tmean"))
+plot(wttmean_mod)
+summary(wttmean_mod) #NS
+
+
 ```
 
 ##Climate extremes
@@ -3926,10 +3977,20 @@ predictdatadbh_y %>%
 
 sig.values.lat.plot <- data.frame(var=c("Survival Probability", "Height (m)", "DBH (cm)"), pvalue = c("p = 0.06", "p < 0.05","p < 0.01"), x=47.5, y=c(0.83,1.1,11.5))
 
+lat_plot_rug_data<- bind_rows(
+moniger_survival_nog %>% 
+  mutate(var="Survival Probability"),
+ht_data_year_clim_noG %>% 
+  mutate(var="Height (m)"),
+dbh_numeric_time_noG %>% 
+   mutate(var="DBH (cm)"))
+
+
 lat_plot <- ggplot() + 
   geom_ribbon(data=lat_plot_data, aes(x=y, ymin = lwr, ymax = upr), alpha=0.2) +
   geom_line(data=lat_plot_data, aes(x = y, y = PredictedProb))+
   geom_text(data=sig.values.lat.plot, aes(x=x,y=y,label=pvalue))+
+  geom_rug(data=lat_plot_rug_data, aes(x=y), sides="b", linewidth=1)+
   xlab("Latitude")+
   ylab("")+
   facet_wrap(~var, scale="free")+
@@ -8101,7 +8162,7 @@ nonsig.provs <- cor_clean %>% left_join(ttestdata %>% filter(pvalue < 0.05)) %>%
   filter(sum==0)%>% 
   left_join(name_conversion, by=c("Provenance"="oldname"))
 
-selected_climvars <-  c("vpdmax_wt","value_wt_tmean", "aet_sum","prior_PPTsm")
+selected_climvars <-  c("vpdmax_wt","value_wt_tmean", "aet_sum")
 
 correlation_plot<- ggplot(data=sig.cors.byprov %>% filter(climvar %in% selected_climvars) %>% left_join(prov_names, by=c("newname"="Provenance")), aes(x=factor(code, levels=provs_bylat$code), y=estimate))+
     geom_jitter(data= cor_clean %>% filter(climvar %in% selected_climvars) %>% left_join(name_conversion, by=c("Provenance"="oldname")) %>% dplyr::select(-Provenance) %>% left_join(prov_names, by=c("newname"="Provenance")), aes(x=factor(code, levels=provs_bylat$code), y=cor), fill="gray", color="black", size=2, height=0, width=0.1, alpha=0.2)+
@@ -8111,20 +8172,20 @@ correlation_plot<- ggplot(data=sig.cors.byprov %>% filter(climvar %in% selected_
   scale_color_manual(values=unname(stepped()), name="Provenance")+
   scale_fill_manual(values=unname(stepped()), name="Provenance")+
   geom_hline(yintercept=0, col="black")+
-  facet_wrap(~factor(climvar, levels=selected_climvars),ncol=1)+
+  facet_wrap(~factor(climvar, levels=selected_climvars, labels=c("VPDmax WT", "TMEAN WT", "AET annual")),ncol=1)+
   xlab("")+
   theme_bw()+
-  theme(axis.text.x = element_text(angle=45, hjust=1, size=8, color="black"),
-        axis.text.y = element_text(size=10, color="black"),
-        axis.title = element_text(size=10, color="black"),
+  theme(axis.text.x = element_text(angle=45, hjust=1, size=12, color="black"),
+        axis.text.y = element_text(size=12, color="black"),
+        axis.title = element_text(size=12, color="black"),
         legend.position = "none",
-        strip.text = element_text(color="black", size=10),
+        strip.text = element_text(color="black", size=12),
         panel.grid = element_blank())
 
-# png("figures/correlation_plot.png", width=6.5, height=5, res = 300, units = "in")
- correlation_plot
-# dev.off()
- 
+ # png("figures/correlation_plot.png", width=6.5, height=5, res = 300, units = "in")
+ # correlation_plot
+ # dev.off()
+ # 
 ##correlation plot for current year variables
  
 sig.cors.byprov.all <- cor_clean %>% left_join(ttestdata %>% filter(pvalue < 0.05)) %>% 
@@ -8218,6 +8279,21 @@ ggplot(data=sig.cors.byprov.all%>% filter(climvar %in% prior_climvars) %>% left_
         strip.text = element_text(color="black", size=10),
         panel.grid = element_blank())
 ```
+
+```{r}
+climate_growth_table<- ttestdata %>% 
+  left_join(prov_names) %>% 
+  dplyr::select(climvar, code, estimate, pvalue) %>% 
+  mutate(pvalue=ifelse(pvalue<0.05, "X", ""), estimate=ifelse(estimate > 0 , "+", "-")) %>% 
+  mutate(estimate=ifelse(pvalue=="X", estimate, "")) %>% 
+  dplyr::select(-pvalue) %>% 
+  pivot_wider(names_from=code, values_from=estimate) %>% 
+  dplyr::select(c("climvar", provs_bylat$code))
+
+write.csv(climate_growth_table, "climate_growth_table.csv")
+
+```
+
 
 ###linear models G x C
 ```{r}
