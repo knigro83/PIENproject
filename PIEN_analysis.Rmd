@@ -159,6 +159,40 @@ ggplot()+
 
 ```
 
+###Rehfeldt comparison
+
+```{r}
+##compare White River to Rehfeldt 2004 planting sites
+idacreek<- c(48.364002, -116.822747)
+canyoncreek<- c(48.370716, -116.799922)
+high <- c(48.353759, -116.760290)
+highest <- c(48.344491, -116.714165)
+preistriver<- data.frame(rbind(idacreek, canyoncreek, high,highest))
+colnames(preistriver)<- c("y","x")
+
+preistriver_vect <- vect(preistriver, geom=c("x","y"), crs=crs(us))
+plot(preistriver_vect)
+
+preistriver_clim <- terra::extract(clim_raster_stack, preistriver_vect, method="simple", df=TRUE)
+preistriver_clim
+
+prov_clim_adjusted_bi %>% 
+  filter(Provenance=="Plantation")
+
+ggplot()+
+  geom_point(data=preistriver_clim, aes(x=MAT, y=MAP), col="red", size=3)+
+  geom_point(data=prov_clim_adjusted_bi %>% filter(Provenance=="Plantation"), aes(x=MAT, y=MAP), col="black", size=3)
+
+ggplot()+
+  geom_point(data=preistriver_clim, aes(x=NFFD, y=SHM), col="red", size=3)+
+  geom_point(data=prov_clim_adjusted_bi %>% filter(Provenance=="Plantation"), aes(x=NFFD, y=SHM), col="black", size=3)
+
+ggplot()+
+  geom_point(data=preistriver_clim, aes(x=MCMT, y=RH), col="red", size=3)+
+  geom_point(data=prov_clim_adjusted_bi %>% filter(Provenance=="Plantation"), aes(x=MCMT, y=RH), col="black", size=3)
+
+```
+
 ```{r}
 #monthly normals
 
@@ -1024,17 +1058,32 @@ plantation_clim_long <- plantation_clim %>%
 dplyr::select(c(CN:vpdmax_sp, FDSI, aet_sum, cwd_sum, cwd_wy, spei_sum)) %>% 
   pivot_longer(PPTsm:spei_sum) %>% 
   mutate(type = ifelse(name %in% c("PPTsp","PPTsm","PPT_at","ppt_wt"), "PPT",
-                       ifelse(name %in% c("value_sp_tmean","value_sm_tmean","value_fa_tmean","value_wt_tmean"),"TEMP",NA)),
-         season = ifelse(name %in% c("PPTsp","value_sp_tmean"), "Spring", 
-                         ifelse(name %in% c("PPTsm","value_sm_tmean"), "Summer",
-                                ifelse(name %in% c("ppt_wt","value_wt_tmean"),"Winter",
-                                                   ifelse(name %in% c("PPT_at","value_fa_tmean"),"Fall",NA)))))
+                       ifelse(name %in% c("value_sp_tmean","value_sm_tmean","value_fa_tmean","value_wt_tmean","value_sp_tmin","value_sm_tmin","value_fa_tmin","value_wt_tmin","value_sp_tmax","value_sm_tmax","value_fa_tmax","value_wt_tmax"),"TEMP",NA)),
+         season = ifelse(name %in% c("PPTsp","value_sp_tmean","value_sp_tmin","value_sp_tmax"), "Spring", 
+                         ifelse(name %in% c("PPTsm","value_sm_tmean","value_sm_tmin","value_sm_tmax"), "Summer",
+                                ifelse(name %in% c("ppt_wt","value_wt_tmean","value_wt_tmin","value_wt_tmax"),"Winter",
+                                                   ifelse(name %in% c("PPT_at","value_fa_tmean","value_fa_tmin","value_fa_tmax"),"Fall",NA))))) %>% 
+  separate(name, into=c("name1","name2","name3"), sep="_",remove=FALSE) %>% 
+  mutate(statistic = case_when(name3=="tmax" ~ "max",
+                               name3=="tmin"~ "min",
+                               name3=="tmean" ~ "mean",
+                               type=="PPT" ~ "sum",
+                               TRUE ~ NA))
 
 ggplot(plantation_clim_long %>% filter(name %in% c("PPTsp","PPTsm","PPT_at","ppt_wt","value_sp_tmean","value_sm_tmean","value_fa_tmean","value_wt_tmean")), aes(x=year, y=value, col=type))+
   scale_color_manual(values=c("skyblue4","firebrick"))+
   geom_line(aes(lty=factor(season,levels=c("Spring","Summer","Fall","Winter"))))+
   scale_linetype(name="Season")+
   geom_smooth(method="lm")+
+  facet_wrap(type~factor(season,levels=c("Spring","Summer","Fall","Winter")), scales="free", nrow=2)+
+  theme_bw()+
+  theme(axis.text=element_text(angle=45, hjust=1))
+
+ggplot(plantation_clim_long %>% filter(name %in% c("PPTsp","PPTsm","PPT_at","ppt_wt","value_sp_tmean","value_sm_tmean","value_fa_tmean","value_wt_tmean","value_sp_tmin","value_sm_tmin","value_fa_tmin","value_wt_tmin","value_sp_tmax","value_sm_tmax","value_fa_tmax","value_wt_tmax")), aes(x=year, y=value, col=type))+
+  scale_color_manual(values=c("skyblue4","firebrick"))+
+  geom_line(aes(lty=factor(statistic, levels=c("mean","max","min","sum"))))+
+  scale_linetype(name="Statistic")+
+  geom_smooth(method="lm", aes(lty=factor(statistic, levels=c("mean","max","min","sum"))))+
   facet_wrap(type~factor(season,levels=c("Spring","Summer","Fall","Winter")), scales="free", nrow=2)+
   theme_bw()+
   theme(axis.text=element_text(angle=45, hjust=1))
@@ -1071,11 +1120,27 @@ sptmean_mod <- lm(value~year, data=plantation_clim_long %>% filter(name=="value_
 plot(sptmean_mod)
 summary(sptmean_mod) #NS
 
+sptmin_mod <- lm(value~year, data=plantation_clim_long %>% filter(name=="value_sp_tmin"))
+plot(sptmin_mod)
+summary(sptmin_mod) #significant
+
+sptmax_mod <- lm(value~year, data=plantation_clim_long %>% filter(name=="value_sp_tmax"))
+plot(sptmax_mod)
+summary(sptmax_mod) #NS
+
 ##summer tmean
 
 smtmean_mod <- lm(value~year, data=plantation_clim_long %>% filter(name=="value_sm_tmean"))
 plot(smtmean_mod)
 summary(smtmean_mod) #Significant
+
+smtmin_mod <- lm(value~year, data=plantation_clim_long %>% filter(name=="value_sm_tmin"))
+plot(smtmin_mod)
+summary(smtmin_mod) #significant
+
+smtmax_mod <- lm(value~year, data=plantation_clim_long %>% filter(name=="value_sm_tmax"))
+plot(smtmax_mod)
+summary(smtmax_mod) #significant
 
 ##fall tmean
 
@@ -1083,13 +1148,39 @@ attmean_mod <- lm(value~year, data=plantation_clim_long %>% filter(name=="value_
 plot(attmean_mod)
 summary(attmean_mod) #Significant
 
+fatmin_mod <- lm(value~year, data=plantation_clim_long %>% filter(name=="value_fa_tmin"))
+plot(fatmin_mod)
+summary(fatmin_mod) #significant
+
+fatmax_mod <- lm(value~year, data=plantation_clim_long %>% filter(name=="value_fa_tmax"))
+plot(fatmax_mod)
+summary(fatmax_mod) #significant
+
 ##winter tmean
 
 wttmean_mod <- lm(value~year, data=plantation_clim_long %>% filter(name=="value_wt_tmean"))
 plot(wttmean_mod)
 summary(wttmean_mod) #NS
 
+wttmin_mod <- lm(value~year, data=plantation_clim_long %>% filter(name=="value_wt_tmin"))
+plot(wttmin_mod)
+summary(wttmin_mod) #NS
 
+wttmax_mod <- lm(value~year, data=plantation_clim_long %>% filter(name=="value_wt_tmax"))
+plot(wttmax_mod)
+summary(wttmax_mod) #NS
+
+
+```
+
+```{r}
+##how does mean annual temperature at the plantation during the study compare to future projections?
+
+ggplot(data=tmean_comb_plantation %>% 
+  group_by(year) %>% 
+  summarise(tmean=mean(tmean)), aes(x=year, y=tmean))+
+    geom_point()+
+  geom_point(data=plantation_all, aes(x=c(1975,2025,2055,2085), y=MAT), col="red")
 ```
 
 ##Climate extremes
@@ -1636,6 +1727,11 @@ clim_pien_cor<- clim_pien %>%
   cor()
 
 ggcorrplot(clim_pien_cor, outline.color="white", type="lower", hc.order=TRUE)
+
+ggplot(prov_clim_adjusted_bi, aes(x=y, y=FFP))+
+  geom_point()
+
+cor.test(prov_clim_adjusted_bi %>% filter(!Provenance=="Gila NF") %>% pull(y), prov_clim_adjusted_bi %>% filter(!Provenance=="Gila NF") %>% pull(NFFD))
 
 pca2_clim_vars <- c("CMD","MCMT","MWMT","NFFD","PAS","PPTsm","PPTsp","PPTat","PPTwt","RH","TD","SMRPB_NA")
 
@@ -2505,6 +2601,108 @@ ggplot(dbh_num14_long %>% filter(!Provenance=="Gila NF"), aes(x=value, y=DBH, co
 dbh_mods_quad %>% arrange(pvalue2_nog) #nothing significant
 ```
 
+```{r}
+##testing for each year separately
+
+##1991
+dbh_mods91<- data.frame()
+
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(DBH ~ value + (1|Provenance)+(1|BLK) , data=dbh_numeric_time_long %>% filter(name==provenance_climvars[i] & year=="1991"))
+pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
+
+mod_nog <- lmer(DBH ~ value + (1|Provenance) + (1|BLK) , data=dbh_numeric_time_long %>% filter(!Provenance=="Gila NF") %>% filter(name==provenance_climvars[i]& year=="1991"))
+pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|t|)`
+
+dbh_mods91 <- bind_rows(dbh_mods91, data.frame(var=provenance_climvars[i], pvalue = pvalue, pvalue_nog = pvalue_nog))
+
+}
+
+dbh_mods91 %>% arrange(pvalue_nog) 
+###quadratic
+
+dbh_mods_quad91<- data.frame()
+
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(DBH ~ value + I(value^2) + (1|Provenance) + (1|BLK), data=dbh_numeric_time_long %>% filter(name==provenance_climvars[i]& year=="1991"))
+pvalues<- as.data.frame(summary(mod)$coefficients)[2:3,]$`Pr(>|t|)`
+
+mod_nog <- lmer(DBH ~ value + I(value^2) + (1|Provenance) + (1|BLK), data=dbh_numeric_time_long %>% filter(!Provenance=="Gila NF")  %>% filter(name==provenance_climvars[i]& year=="1991"))
+pvalues_nog<- as.data.frame(summary(mod_nog)$coefficients)[2:3,]$`Pr(>|t|)`
+
+dbh_mods_quad91 <- bind_rows(dbh_mods_quad91, data.frame(var=provenance_climvars[i], pvalue1 = pvalues[1], pvalue2 = pvalues[2], pvalue1_nog = pvalues_nog[1], pvalue2_nog = pvalues_nog[2]))
+
+}
+
+dbh_mods_quad91 %>% arrange(pvalue2_nog) 
+##1996
+dbh_mods96<- data.frame()
+
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(DBH ~ value + (1|Provenance)+(1|BLK) , data=dbh_numeric_time_long %>% filter(name==provenance_climvars[i] & year=="1996"))
+pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
+
+mod_nog <- lmer(DBH ~ value + (1|Provenance) + (1|BLK) , data=dbh_numeric_time_long %>% filter(!Provenance=="Gila NF")  %>% filter(name==provenance_climvars[i]& year=="1996"))
+pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|t|)`
+
+dbh_mods96 <- bind_rows(dbh_mods96, data.frame(var=provenance_climvars[i], pvalue = pvalue, pvalue_nog = pvalue_nog))
+
+}
+
+dbh_mods96 %>% arrange(pvalue) 
+###quadratic
+
+dbh_mods_quad96<- data.frame()
+
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(DBH ~ value + I(value^2) + (1|Provenance) + (1|BLK), data=dbh_numeric_time_long %>% filter(name==provenance_climvars[i]& year=="1996"))
+pvalues<- as.data.frame(summary(mod)$coefficients)[2:3,]$`Pr(>|t|)`
+
+mod_nog <- lmer(DBH ~ value + I(value^2) + (1|Provenance) + (1|BLK), data=dbh_numeric_time_long %>% filter(!Provenance=="Gila NF")  %>% filter(name==provenance_climvars[i]& year=="1996"))
+pvalues_nog<- as.data.frame(summary(mod_nog)$coefficients)[2:3,]$`Pr(>|t|)`
+
+dbh_mods_quad96 <- bind_rows(dbh_mods_quad96, data.frame(var=provenance_climvars[i], pvalue1 = pvalues[1], pvalue2 = pvalues[2], pvalue1_nog = pvalues_nog[1], pvalue2_nog = pvalues_nog[2]))
+
+}
+
+dbh_mods_quad96 %>% arrange(pvalue2_nog) 
+
+
+
+##2006
+dbh_mods06<- data.frame()
+
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(DBH ~ value + (1|Provenance)+(1|BLK) , data=dbh_numeric_time_long %>% filter(name==provenance_climvars[i] & year=="2006"))
+pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
+
+mod_nog <- lmer(DBH ~ value + (1|Provenance) + (1|BLK) , data=dbh_numeric_time_long %>% filter(!Provenance=="Gila NF")  %>% filter(name==provenance_climvars[i]& year=="2006"))
+pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|t|)`
+
+dbh_mods06 <- bind_rows(dbh_mods06, data.frame(var=provenance_climvars[i], pvalue = pvalue, pvalue_nog = pvalue_nog))
+
+}
+
+dbh_mods06 %>% arrange(pvalue)
+###quadratic
+
+dbh_mods_quad06<- data.frame()
+
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(DBH ~ value + I(value^2) + (1|Provenance) + (1|BLK), data=dbh_numeric_time_long %>% filter(name==provenance_climvars[i]& year=="2006"))
+pvalues<- as.data.frame(summary(mod)$coefficients)[2:3,]$`Pr(>|t|)`
+
+mod_nog <- lmer(DBH ~ value + I(value^2) + (1|Provenance) + (1|BLK), data=dbh_numeric_time_long %>% filter(!Provenance=="Gila NF")  %>% filter(name==provenance_climvars[i]& year=="2006"))
+pvalues_nog<- as.data.frame(summary(mod_nog)$coefficients)[2:3,]$`Pr(>|t|)`
+
+dbh_mods_quad06 <- bind_rows(dbh_mods_quad06, data.frame(var=provenance_climvars[i], pvalue1 = pvalues[1], pvalue2 = pvalues[2], pvalue1_nog = pvalues_nog[1], pvalue2_nog = pvalues_nog[2]))
+
+}
+
+dbh_mods_quad06 %>% arrange(pvalue2_nog) 
+
+```
+
 ##Height Growth
 
 ```{r}
@@ -3165,6 +3363,215 @@ ht_mods_quad <- bind_rows(ht_mods_quad, data.frame(var=provenance_climvars[i], p
 ht_mods_quad %>% arrange(pvalue2_nog) #nothing significant when Gila is taken out
 ```
 
+```{r}
+##testing for each year separately
+
+##1974
+ht_mods74<- data.frame()
+
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(log(value) ~ climvar.value + (1|Provenance)+(1|BLK) , data=ht_data_year_clim_long %>% filter(climvar.name==provenance_climvars[i] & name=="HT74"))
+pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
+
+mod_nog <- lmer(log(value) ~ climvar.value + (1|Provenance) + (1|BLK) , data=ht_data_year_clim_long_noG %>% filter(climvar.name==provenance_climvars[i]& name=="HT74"))
+pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|t|)`
+
+ht_mods74 <- bind_rows(ht_mods74, data.frame(var=provenance_climvars[i], pvalue = pvalue, pvalue_nog = pvalue_nog))
+
+}
+
+ht_mods74 %>% arrange(pvalue) 
+###quadratic
+
+ht_mods_quad74<- data.frame()
+
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(log(value) ~ climvar.value + I(climvar.value^2) + (1|Provenance) + (1|BLK), data=ht_data_year_clim_long %>% filter(climvar.name==provenance_climvars[i]& name=="HT74"))
+pvalues<- as.data.frame(summary(mod)$coefficients)[2:3,]$`Pr(>|t|)`
+
+mod_nog <- lmer(log(value) ~ climvar.value + I(climvar.value^2) + (1|Provenance) + (1|BLK), data=ht_data_year_clim_long_noG %>% filter(climvar.name==provenance_climvars[i]& name=="HT74"))
+pvalues_nog<- as.data.frame(summary(mod_nog)$coefficients)[2:3,]$`Pr(>|t|)`
+
+ht_mods_quad74 <- bind_rows(ht_mods_quad74, data.frame(var=provenance_climvars[i], pvalue1 = pvalues[1], pvalue2 = pvalues[2], pvalue1_nog = pvalues_nog[1], pvalue2_nog = pvalues_nog[2]))
+
+}
+
+ht_mods_quad74 %>% arrange(pvalue2_nog) 
+
+summary(lmer(log(value) ~ climvar.value + I(climvar.value^2) + (1|Provenance) + (1|BLK), data=ht_data_year_clim_long_noG %>% filter(climvar.name=="Eref"& name=="HT74")))
+
+
+##1979
+ht_mods79<- data.frame()
+
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(log(value) ~ climvar.value + (1|Provenance)+(1|BLK) , data=ht_data_year_clim_long %>% filter(climvar.name==provenance_climvars[i] & name=="HT79"))
+pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
+
+mod_nog <- lmer(log(value) ~ climvar.value + (1|Provenance) + (1|BLK) , data=ht_data_year_clim_long_noG %>% filter(climvar.name==provenance_climvars[i]& name=="HT79"))
+pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|t|)`
+
+ht_mods79 <- bind_rows(ht_mods79, data.frame(var=provenance_climvars[i], pvalue = pvalue, pvalue_nog = pvalue_nog))
+
+}
+
+ht_mods79 %>% arrange(pvalue_nog) 
+
+summary(lmer(log(value) ~ climvar.value + (1|Provenance) + (1|BLK) , data=ht_data_year_clim_long_noG %>% filter(climvar.name=="RH" & name=="HT79"))) #greater RH = greater DBH
+
+###quadratic
+
+ht_mods_quad79<- data.frame()
+
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(log(value) ~ climvar.value + I(climvar.value^2) + (1|Provenance) + (1|BLK), data=ht_data_year_clim_long %>% filter(climvar.name==provenance_climvars[i]& name=="HT79"))
+pvalues<- as.data.frame(summary(mod)$coefficients)[2:3,]$`Pr(>|t|)`
+
+mod_nog <- lmer(log(value) ~ climvar.value + I(climvar.value^2) + (1|Provenance) + (1|BLK), data=ht_data_year_clim_long_noG %>% filter(climvar.name==provenance_climvars[i]& name=="HT79"))
+pvalues_nog<- as.data.frame(summary(mod_nog)$coefficients)[2:3,]$`Pr(>|t|)`
+
+ht_mods_quad79 <- bind_rows(ht_mods_quad79, data.frame(var=provenance_climvars[i], pvalue1 = pvalues[1], pvalue2 = pvalues[2], pvalue1_nog = pvalues_nog[1], pvalue2_nog = pvalues_nog[2]))
+
+}
+
+ht_mods_quad79 %>% arrange(pvalue2_nog) 
+
+
+
+
+##1985
+ht_mods85<- data.frame()
+
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(log(value) ~ climvar.value + (1|Provenance)+(1|BLK) , data=ht_data_year_clim_long %>% filter(climvar.name==provenance_climvars[i] & name=="HT85"))
+pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
+
+mod_nog <- lmer(log(value) ~ climvar.value + (1|Provenance) + (1|BLK) , data=ht_data_year_clim_long_noG %>% filter(climvar.name==provenance_climvars[i]& name=="HT85"))
+pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|t|)`
+
+ht_mods85 <- bind_rows(ht_mods85, data.frame(var=provenance_climvars[i], pvalue = pvalue, pvalue_nog = pvalue_nog))
+
+}
+
+ht_mods85 %>% arrange(pvalue) 
+###quadratic
+
+ht_mods_quad85<- data.frame()
+
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(log(value) ~ climvar.value + I(climvar.value^2) + (1|Provenance) + (1|BLK), data=ht_data_year_clim_long %>% filter(climvar.name==provenance_climvars[i]& name=="HT85"))
+pvalues<- as.data.frame(summary(mod)$coefficients)[2:3,]$`Pr(>|t|)`
+
+mod_nog <- lmer(log(value) ~ climvar.value + I(climvar.value^2) + (1|Provenance) + (1|BLK), data=ht_data_year_clim_long_noG %>% filter(climvar.name==provenance_climvars[i]& name=="HT85"))
+pvalues_nog<- as.data.frame(summary(mod_nog)$coefficients)[2:3,]$`Pr(>|t|)`
+
+ht_mods_quad85 <- bind_rows(ht_mods_quad85, data.frame(var=provenance_climvars[i], pvalue1 = pvalues[1], pvalue2 = pvalues[2], pvalue1_nog = pvalues_nog[1], pvalue2_nog = pvalues_nog[2]))
+
+}
+
+ht_mods_quad85 %>% arrange(pvalue2_nog) 
+
+
+
+
+##1991
+ht_mods91<- data.frame()
+
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(log(value) ~ climvar.value + (1|Provenance)+(1|BLK) , data=ht_data_year_clim_long %>% filter(climvar.name==provenance_climvars[i] & name=="HT91"))
+pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
+
+mod_nog <- lmer(log(value) ~ climvar.value + (1|Provenance) + (1|BLK) , data=ht_data_year_clim_long_noG %>% filter(climvar.name==provenance_climvars[i]& name=="HT91"))
+pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|t|)`
+
+ht_mods91 <- bind_rows(ht_mods91, data.frame(var=provenance_climvars[i], pvalue = pvalue, pvalue_nog = pvalue_nog))
+
+}
+
+ht_mods91 %>% arrange(pvalue) 
+###quadratic
+
+ht_mods_quad91<- data.frame()
+
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(log(value) ~ climvar.value + I(climvar.value^2) + (1|Provenance) + (1|BLK), data=ht_data_year_clim_long %>% filter(climvar.name==provenance_climvars[i]& name=="HT91"))
+pvalues<- as.data.frame(summary(mod)$coefficients)[2:3,]$`Pr(>|t|)`
+
+mod_nog <- lmer(log(value) ~ climvar.value + I(climvar.value^2) + (1|Provenance) + (1|BLK), data=ht_data_year_clim_long_noG %>% filter(climvar.name==provenance_climvars[i]& name=="HT91"))
+pvalues_nog<- as.data.frame(summary(mod_nog)$coefficients)[2:3,]$`Pr(>|t|)`
+
+ht_mods_quad91 <- bind_rows(ht_mods_quad91, data.frame(var=provenance_climvars[i], pvalue1 = pvalues[1], pvalue2 = pvalues[2], pvalue1_nog = pvalues_nog[1], pvalue2_nog = pvalues_nog[2]))
+
+}
+
+ht_mods_quad91 %>% arrange(pvalue2_nog) 
+##1996
+ht_mods96<- data.frame()
+
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(log(value) ~ climvar.value + (1|Provenance)+(1|BLK) , data=ht_data_year_clim_long %>% filter(climvar.name==provenance_climvars[i] & name=="HT96"))
+pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
+
+mod_nog <- lmer(log(value) ~ climvar.value + (1|Provenance) + (1|BLK) , data=ht_data_year_clim_long_noG %>% filter(climvar.name==provenance_climvars[i]& name=="HT96"))
+pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|t|)`
+
+ht_mods96 <- bind_rows(ht_mods96, data.frame(var=provenance_climvars[i], pvalue = pvalue, pvalue_nog = pvalue_nog))
+
+}
+
+ht_mods96 %>% arrange(pvalue) 
+###quadratic
+
+ht_mods_quad96<- data.frame()
+
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(log(value) ~ climvar.value + I(climvar.value^2) + (1|Provenance) + (1|BLK), data=ht_data_year_clim_long %>% filter(climvar.name==provenance_climvars[i]& name=="HT96"))
+pvalues<- as.data.frame(summary(mod)$coefficients)[2:3,]$`Pr(>|t|)`
+
+mod_nog <- lmer(log(value) ~ climvar.value + I(climvar.value^2) + (1|Provenance) + (1|BLK), data=ht_data_year_clim_long_noG %>% filter(climvar.name==provenance_climvars[i]& name=="HT96"))
+pvalues_nog<- as.data.frame(summary(mod_nog)$coefficients)[2:3,]$`Pr(>|t|)`
+
+ht_mods_quad96 <- bind_rows(ht_mods_quad96, data.frame(var=provenance_climvars[i], pvalue1 = pvalues[1], pvalue2 = pvalues[2], pvalue1_nog = pvalues_nog[1], pvalue2_nog = pvalues_nog[2]))
+
+}
+
+ht_mods_quad96 %>% arrange(pvalue2_nog) 
+
+
+
+##2006
+ht_mods06<- data.frame()
+
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(log(value) ~ climvar.value + (1|Provenance)+(1|BLK) , data=ht_data_year_clim_long %>% filter(climvar.name==provenance_climvars[i] & name=="HT06"))
+pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
+
+mod_nog <- lmer(log(value) ~ climvar.value + (1|Provenance) + (1|BLK) , data=ht_data_year_clim_long_noG %>% filter(climvar.name==provenance_climvars[i]& name=="HT06"))
+pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|t|)`
+
+ht_mods06 <- bind_rows(ht_mods06, data.frame(var=provenance_climvars[i], pvalue = pvalue, pvalue_nog = pvalue_nog))
+
+}
+
+ht_mods06 %>% arrange(pvalue)
+###quadratic
+
+ht_mods_quad06<- data.frame()
+
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(log(value) ~ climvar.value + I(climvar.value^2) + (1|Provenance) + (1|BLK), data=ht_data_year_clim_long %>% filter(climvar.name==provenance_climvars[i]& name=="HT06"))
+pvalues<- as.data.frame(summary(mod)$coefficients)[2:3,]$`Pr(>|t|)`
+
+mod_nog <- lmer(log(value) ~ climvar.value + I(climvar.value^2) + (1|Provenance) + (1|BLK), data=ht_data_year_clim_long_noG %>% filter(climvar.name==provenance_climvars[i]& name=="HT06"))
+pvalues_nog<- as.data.frame(summary(mod_nog)$coefficients)[2:3,]$`Pr(>|t|)`
+
+ht_mods_quad06 <- bind_rows(ht_mods_quad06, data.frame(var=provenance_climvars[i], pvalue1 = pvalues[1], pvalue2 = pvalues[2], pvalue1_nog = pvalues_nog[1], pvalue2_nog = pvalues_nog[2]))
+
+}
+
+ht_mods_quad06 %>% arrange(pvalue2_nog) 
+
+```
 
 ```{r}
 ##DBH, Height and survival plots
@@ -3424,7 +3831,8 @@ AICc(cone_clim_mod_htx_nog,cone_clim_mod_hty_nog,cone_clim_mod_dbhx_nog,cone_cli
 
  # dredge.cone.clim.hty.nog <- dredge(cone_clim_mod_hty_nog)
  # saveRDS(dredge.cone.clim.hty.nog, "dredge.cone.clim.hty.nog.RDS")
- dredge.cone.clim.hty.nog
+ dredge.cone.clim.hty.nog <- readRDS("dredge.cone.clim.hty.nog.RDS")
+dredge.cone.clim.hty.nog
 
 best.mod.cone.clim_hty_nog <- glmmTMB(cbind(n_cones, total-n_cones) ~ scale(height) + scale(y) + I(scale(y)^2) + (1|code) + (1|year) + (1|BLK), data= moniger_subset %>% filter(!code=="GiNF"), family = binomial)
 summary(best.mod.cone.clim_hty_nog)
@@ -4868,6 +5276,35 @@ gini_byPC3 <- lmer(log(gini) ~ PC3 + (1|Provenance), data=gini_clim_df)
 plot(gini_byPC3)
 qqmath(gini_byPC3)
 summary(gini_byPC3)
+
+
+###see if gini coefficient is related to survival and growth
+tree_data_all <- growth.detrended.df %>% 
+  dplyr::select(c(tree,SORT,LOC,BLK,REP)) %>% 
+  left_join(moniger_data_comb, by=c("SORT","LOC","BLK","REP"))
+
+gini_all_data<- gini_byprov %>% 
+  left_join(unique(tree_data_all), by="tree")
+
+gini_dbh14_mod <- lmer(DBH14 ~ gini + (1|code) + (1|BLK), data=gini_all_data %>% filter(!is.na(DBH14)))
+plot(gini_dbh14_mod)
+qqmath(gini_dbh14_mod)
+summary(gini_dbh14_mod)
+
+gini_ht14_mod <- lmer(HT14 ~ gini + (1|code) + (1|BLK), data=gini_all_data %>% filter(!is.na(HT14)))
+plot(gini_ht14_mod)
+qqmath(gini_ht14_mod)
+summary(gini_ht14_mod)
+
+gini_surv_df<- survival_means %>% 
+  filter(year==2014) %>% 
+  left_join(gini_sum, by="Provenance")
+
+gini_surv14_mod <- lm(prop.surv.since.1970 ~ mean, data=gini_surv_df)
+par(mfrow=c(2,2))
+plot(gini_surv14_mod)
+summary(gini_surv14_mod)
+
 ```
 
 ####treeclim
@@ -8110,6 +8547,8 @@ allanovas %>% mutate(diff = residMS - provMS) %>% filter(diff<0) %>% nrow()
 
 allanovas %>% mutate(diff = residMS - provMS) %>% filter(diff>0)
 allanovas %>% mutate(diff = residMS - provMS) %>% filter(diff<0) 
+
+write.csv(allanovas %>% mutate(diff = residMS - provMS), "growth_climate_MS.csv")
 
 allanovas %>% filter(pvalue<0.05) #no significant differences between provenances in how correlated RWI is to climate vars
 min(allanovas$pvalue)
