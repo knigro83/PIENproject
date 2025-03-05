@@ -1173,7 +1173,7 @@ summary(wttmax_mod) #NS
 
 ```
 
-```{r}
+```{r, eval=FALSE}
 ##how does mean annual temperature at the plantation during the study compare to future projections?
 
 ggplot(data=tmean_comb_plantation %>% 
@@ -1989,8 +1989,6 @@ dev.off()
 
 ```{r}
 ##DBH data is in centimeters
-dbh <- read.csv("C:/Users/KatherineNigro/Box/Engelmann Spruce Provenance/Analysis/RWI_data/DBH_data.csv")
-
 moniger_data <- read.csv("past_moniger_data.csv")
 moniger_data_ids <- read.csv("past_moniger_data_ids.csv")
 
@@ -2044,6 +2042,101 @@ ggplot(dbh_clim_data, aes(x=factor(CMD), y=DBH, col=Provenance))+
   facet_wrap(~factor(year,levels=c("DBH91","DBH96","DBH06","DBH14")), nrow=1)+
   theme(legend.position = 'none', axis.text.x = element_text(angle=45, hjust=1))
 
+```
+
+###growth each year
+
+```{r}
+
+dbh_growth_data<- dbh %>% 
+  mutate(growth96=DBH96-DBH91, growth06=DBH06-DBH96, growth14=DBH14-DBH06) %>% 
+  pivot_longer(growth96:growth14)
+
+dbh_increment_plot<- ggplot(dbh_growth_data, aes(x=factor(Provenance, provs_bylat$Provenance), y=value, fill=factor(Provenance, provs_bylat$Provenance)))+
+  geom_boxplot()+
+  facet_wrap(~factor(name, levels=c("growth96","growth06","growth14")), scales="free")+
+  ylab("DBH Increment")+
+  xlab("")+
+  scale_fill_manual(values=unname(stepped()), name="Provenance")+
+  theme(axis.text.x=element_text(angle=45, hjust=1))
+
+dbh_growth_rel_data<- dbh %>% 
+  mutate(growth96=DBH96-DBH91, growth06=DBH06-DBH96, growth14=DBH14-DBH06) %>% 
+  mutate(growth96rel=growth96/DBH91*100, growth06rel=growth06/DBH96*100, growth14rel=growth14/DBH06*100) %>% 
+  pivot_longer(growth96rel:growth14rel) %>% 
+  filter(!is.na(value)) %>% 
+  filter(!is.infinite(value))
+
+dbh_increment_rel_plot<- ggplot(dbh_growth_rel_data, aes(x=factor(Provenance, provs_bylat$Provenance), y=value, fill=factor(Provenance, provs_bylat$Provenance)))+
+  geom_boxplot()+
+  facet_wrap(~factor(name, levels=c("growth96rel","growth06rel","growth14rel")), scales="free")+
+  ylab("Relativized DBH Increment")+
+  xlab("")+
+  scale_fill_manual(values=unname(stepped()), name="Provenance")+
+  theme(axis.text.x=element_text(angle=45, hjust=1))
+
+dbh_increment_rel_plot
+dbh_increment_plot
+
+###analyze relativized height growth data
+aov_rDBH <- lmer(value ~ name*Provenance + (1|BLK), data=dbh_growth_rel_data)
+anova(aov_rDBH)
+
+dbh_growth_rel_clim<- dbh_growth_rel_data %>% 
+  left_join(prov_pcapts_big)
+
+
+#y
+mod_reldbh_pca_y_randtime <- lmer(value ~ PC1*PC2 + PC1*scale(y) + PC2*scale(y) + I(PC1^2) + I(PC2^2) + I(scale(y)^2)+ (1|Provenance) + (1|BLK) + (1|name), data=dbh_growth_rel_clim)
+plot(mod_reldbh_pca_y_randtime)
+qqmath(mod_reldbh_pca_y_randtime)
+summary(mod_reldbh_pca_y_randtime)
+mod_reldbh_pca_y_randtime_dredge<- dredge(mod_reldbh_pca_y_randtime)
+mod_reldbh_pca_y_randtime_dredge
+
+bestmod_reldbh_pca_y_randtime <- mod_reldbh_pca_y_randtime
+summary(bestmod_reldbh_pca_y_randtime)
+
+#no gila
+dbh_growth_rel_clim_noG<- dbh_growth_rel_clim %>% filter(!Provenance=="Gila NF")
+
+mod_reldbh_pca_y_randtime_noG <- lmer(value ~ PC1*PC2 + PC1*scale(y) + PC2*scale(y) + I(PC1^2) + I(PC2^2) + I(scale(y)^2)+ (1|Provenance) + (1|BLK) + (1|name), data=dbh_growth_rel_clim_noG)
+plot(mod_reldbh_pca_y_randtime_noG)
+qqmath(mod_reldbh_pca_y_randtime_noG)
+summary(mod_reldbh_pca_y_randtime_noG)
+mod_reldbh_pca_y_randtime_noG_dredge<- dredge(mod_reldbh_pca_y_randtime_noG)
+mod_reldbh_pca_y_randtime_noG_dredge
+
+bestmod_reldbh_pca_y_randtime_noG <- mod_reldbh_pca_y_randtime_noG
+summary(bestmod_reldbh_pca_y_randtime_noG)
+
+#x
+mod_reldbh_pca_x_randtime <- lmer(value ~ PC1*PC2 + PC1*scale(x) + PC2*scale(x) + I(PC1^2) + I(PC2^2) + I(scale(x)^2)+ (1|Provenance) + (1|BLK) + (1|name), data=dbh_growth_rel_clim)
+plot(mod_reldbh_pca_x_randtime)
+qqmath(mod_reldbh_pca_x_randtime)
+summary(mod_reldbh_pca_x_randtime)
+mod_reldbh_pca_x_randtime_dredge<- dredge(mod_reldbh_pca_x_randtime)
+mod_reldbh_pca_x_randtime_dredge
+
+bestmod_reldbh_pca_x_randtime <- mod_reldbh_pca_x_randtime
+summary(bestmod_reldbh_pca_x_randtime)
+
+#no gila
+mod_reldbh_pca_x_randtime_noG <- lmer(value ~ PC1*PC2 + PC1*scale(x) + PC2*scale(x) + I(PC1^2) + I(PC2^2) + I(scale(x)^2)+ (1|Provenance) + (1|BLK) + (1|name), data=dbh_growth_rel_clim_noG)
+plot(mod_reldbh_pca_x_randtime_noG)
+qqmath(mod_reldbh_pca_x_randtime_noG)
+summary(mod_reldbh_pca_x_randtime_noG)
+mod_reldbh_pca_x_randtime_noG_dredge<- dredge(mod_reldbh_pca_x_randtime_noG)
+mod_reldbh_pca_x_randtime_noG_dredge
+
+bestmod_reldbh_pca_x_randtime_noG <- mod_reldbh_pca_x_randtime_noG
+summary(bestmod_reldbh_pca_x_randtime_noG)
+
+
+AICc(mod_reldbh_pca_x_randtime, mod_reldbh_pca_y_randtime) ##long is better
+AICc(mod_reldbh_pca_x_randtime_noG, mod_reldbh_pca_y_randtime_noG) ##without Gila, lat is better
+
+##the best models were the full models but nothing was significant
 ```
 
 ###models
@@ -2703,6 +2796,69 @@ dbh_mods_quad06 %>% arrange(pvalue2_nog)
 
 ```
 
+```{r}
+
+provenance_climvars <- dbh_num14 %>% 
+  dplyr::select(AHM:SHM, smrpb, monsoonality) %>% 
+  colnames()
+
+dbh_growth_rel_clim_long <- dbh_growth_rel_clim %>% 
+  dplyr::rename(year=name, relDBH=value) %>% 
+  pivot_longer(c(AHM:SHM, smrpb, monsoonality))
+
+reldbh_mods<- data.frame()
+dbh_growth_rel_clim_long_nog <- dbh_growth_rel_clim_long %>% filter(!Provenance=="Gila NF")
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(relDBH ~ value + (1|Provenance)+ (1|BLK) + (1|year), data=dbh_growth_rel_clim_long %>% filter(name==provenance_climvars[i]))
+pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
+
+mod_nog <- lmer(relDBH ~ value + (1|Provenance)+ (1|BLK) + (1|year), data=dbh_growth_rel_clim_long_nog %>% filter(name==provenance_climvars[i]) %>% filter(!Provenance=="Gila NF"))
+pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|t|)`
+
+reldbh_mods <- bind_rows(reldbh_mods, data.frame(var=provenance_climvars[i], pvalue = pvalue, pvalue_nog = pvalue_nog))
+
+}
+
+reldbh_mods %>% arrange(pvalue_nog)
+
+######just 2014 #######
+reldbh_mods14<- data.frame()
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(relDBH ~ value + (1|Provenance)+ (1|BLK), data=dbh_growth_rel_clim_long %>% filter(name==provenance_climvars[i]) %>% filter(year=="growth14rel"))
+pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
+
+mod_nog <- lmer(relDBH ~ value + (1|Provenance)+ (1|BLK), data=dbh_growth_rel_clim_long_nog %>% filter(name==provenance_climvars[i])  %>% filter(year=="growth14rel") %>% filter(!Provenance=="Gila NF"))
+pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|t|)`
+
+reldbh_mods14 <- bind_rows(reldbh_mods14, data.frame(var=provenance_climvars[i], pvalue = pvalue, pvalue_nog = pvalue_nog))
+
+}
+
+reldbh_mods14 %>% arrange(pvalue_nog)
+
+summary(lmer(relDBH ~ value + (1|Provenance)+ (1|BLK), data=dbh_growth_rel_clim_long %>% filter(name=="smrpb") %>% filter(year=="growth14rel")))
+
+
+###quadratic
+
+reldbh_mods_quad<- data.frame()
+
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(relDBH ~ value + I(value^2) + (1|Provenance) + (1|BLK) + (1|year), data=dbh_growth_rel_clim_long %>% filter(name==provenance_climvars[i]))
+pvalues<- as.data.frame(summary(mod)$coefficients)[2:3,]$`Pr(>|t|)`
+
+mod_nog <- lmer(relDBH ~ value + I(value^2) + (1|Provenance) + (1|BLK) + (1|year), data=dbh_growth_rel_clim_long_nog %>% filter(name==provenance_climvars[i]) %>% filter(!Provenance=="Gila NF"))
+pvalues_nog<- as.data.frame(summary(mod_nog)$coefficients)[2:3,]$`Pr(>|t|)`
+
+reldbh_mods_quad <- bind_rows(reldbh_mods_quad, data.frame(var=provenance_climvars[i], pvalue1 = pvalues[1], pvalue2 = pvalues[2], pvalue1_nog = pvalues_nog[1], pvalue2_nog = pvalues_nog[2]))
+
+}
+
+reldbh_mods_quad %>% arrange(pvalue2_nog) #nothing significant
+
+```
+
+
 ##Height Growth
 
 ```{r}
@@ -2801,6 +2957,115 @@ ggplot(data=ht_data_aves, aes(x=nursery_ht_m, y=meangrowth))+
 ggplot(data=ht_data_aves, aes(x=nursery_ht_m, y=meantotht))+
   geom_point()
 
+```
+
+###growth each year
+
+```{r}
+ht_growth_data<- moniger_data_comb %>% 
+  dplyr::select(c(LOC,BLK,REP,Provenance,HT74:HT14,Seedling.Ht..from.Nursery)) %>% 
+  mutate(growth79=HT79-HT74, growth85 = HT85-HT79, growth91 = HT91-HT85, growth96=HT96-HT91, growth06=HT06-HT96, growth14=HT14-HT06) %>% 
+  mutate(growth79rel=growth79/HT74*100, growth85rel=growth85/HT79*100, growth91rel=growth91/HT85*100, growth96rel=growth96/HT91, growth06rel=growth06/HT96, growth14rel=growth14/HT06) %>% 
+  pivot_longer(growth79:growth14) %>% 
+  mutate(nursery_ht_m = Seedling.Ht..from.Nursery/39.37)
+
+ht_increment_plot<- ggplot(ht_growth_data, aes(x=factor(Provenance,levels=provs_bylat$Provenance), y=value, fill=factor(Provenance,levels=provs_bylat$Provenance)))+
+  geom_boxplot()+
+  facet_wrap(~factor(name, levels=c("growth79","growth85","growth91","growth96","growth06","growth14")), scales="free")+
+  theme(axis.text.x=element_text(angle=45, hjust=1))+
+  ylab("Height Increment")+ xlab("")+
+  scale_fill_manual(values=unname(stepped()), name="Provenance")
+
+ht_growth_rel_data<- moniger_data_comb %>% 
+  dplyr::select(c(LOC,BLK,REP,Provenance,HT74:HT14,Seedling.Ht..from.Nursery)) %>% 
+  mutate(growth79=HT79-HT74, growth85 = HT85-HT79, growth91 = HT91-HT85, growth96=HT96-HT91, growth06=HT06-HT96, growth14=HT14-HT06) %>% 
+  mutate(growth79rel=growth79/HT74*100, growth85rel=growth85/HT79*100, growth91rel=growth91/HT85*100, growth96rel=growth96/HT91*100, growth06rel=growth06/HT96*100, growth14rel=growth14/HT06*100) %>% 
+  pivot_longer(growth79rel:growth14rel) %>% 
+  mutate(nursery_ht_m = Seedling.Ht..from.Nursery/39.37) %>% 
+  filter(!is.na(value))
+
+ht_increment_rel_plot<- ggplot(ht_growth_rel_data %>% filter(value<1000), aes(x=factor(Provenance,levels=provs_bylat$Provenance), y=value, fill=factor(Provenance,levels=provs_bylat$Provenance)))+
+  geom_boxplot()+
+  facet_wrap(~factor(name, levels=c("growth79rel","growth85rel","growth91rel","growth96rel","growth06rel","growth14rel")), scales="free")+
+  theme(axis.text.x=element_text(angle=45, hjust=1))+
+  ylab("Relativized Height Increment")+ xlab("")+
+  scale_fill_manual(values=unname(stepped()), name="Provenance")
+
+ht_increment_plot
+ht_increment_rel_plot
+
+##analyze relative height increment instead of absolute height each year
+aov_rHT <- lmer(value ~ name*Provenance + (1|BLK), data=ht_growth_rel_data)
+anova(aov_rHT)
+
+```
+
+```{r}
+ht_growth_rel_clim<- ht_growth_rel_data %>% 
+  left_join(prov_pcapts_big)
+
+ht_growth_rel_clim_long <- ht_growth_rel_clim %>% 
+  dplyr::rename(year=name, relht=value) %>% 
+  pivot_longer(c(AHM:SHM, smrpb, monsoonality))
+
+relht_mods<- data.frame()
+ht_growth_rel_clim_long_nog <- ht_growth_rel_clim_long %>% filter(!Provenance=="Gila NF")
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(relht ~ value + (1|Provenance)+ (1|BLK) + (1|year), data=ht_growth_rel_clim_long %>% filter(name==provenance_climvars[i]))
+pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
+
+mod_nog <- lmer(relht ~ value + (1|Provenance)+ (1|BLK) + (1|year), data=ht_growth_rel_clim_long_nog %>% filter(name==provenance_climvars[i]) %>% filter(!Provenance=="Gila NF"))
+pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|t|)`
+
+relht_mods <- bind_rows(relht_mods, data.frame(var=provenance_climvars[i], pvalue = pvalue, pvalue_nog = pvalue_nog))
+
+}
+
+relht_mods %>% arrange(pvalue_nog)
+
+summary(lmer(relht ~ value + (1|Provenance)+ (1|BLK) + (1|year), data=ht_growth_rel_clim_long %>% filter(name=="NFFD")))
+summary(lmer(relht ~ value + (1|Provenance)+ (1|BLK) + (1|year), data=ht_growth_rel_clim_long %>% filter(name=="EXT")))
+
+
+######just 2014 #######
+relht_mods14<- data.frame()
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(relht ~ value + (1|Provenance)+ (1|BLK), data=ht_growth_rel_clim_long %>% filter(name==provenance_climvars[i]) %>% filter(year=="growth14rel"))
+pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
+
+mod_nog <- lmer(relht ~ value + (1|Provenance)+ (1|BLK), data=ht_growth_rel_clim_long_nog %>% filter(name==provenance_climvars[i])  %>% filter(year=="growth14rel") %>% filter(!Provenance=="Gila NF"))
+pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|t|)`
+
+relht_mods14 <- bind_rows(relht_mods14, data.frame(var=provenance_climvars[i], pvalue = pvalue, pvalue_nog = pvalue_nog))
+
+}
+
+relht_mods14 %>% arrange(pvalue_nog)
+
+summary(lmer(relht ~ value + (1|Provenance)+ (1|BLK), data=ht_growth_rel_clim_long %>% filter(name=="smrpb") %>% filter(year=="growth14rel")))
+
+
+###quadratic
+
+relht_mods_quad<- data.frame()
+
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(relht ~ value + I(value^2) + (1|Provenance) + (1|BLK) + (1|year), data=ht_growth_rel_clim_long %>% filter(name==provenance_climvars[i]))
+pvalues<- as.data.frame(summary(mod)$coefficients)[2:3,]$`Pr(>|t|)`
+
+mod_nog <- lmer(relht ~ value + I(value^2) + (1|Provenance) + (1|BLK) + (1|year), data=ht_growth_rel_clim_long_nog %>% filter(name==provenance_climvars[i]) %>% filter(!Provenance=="Gila NF"))
+pvalues_nog<- as.data.frame(summary(mod_nog)$coefficients)[2:3,]$`Pr(>|t|)`
+
+relht_mods_quad <- bind_rows(relht_mods_quad, data.frame(var=provenance_climvars[i], pvalue1 = pvalues[1], pvalue2 = pvalues[2], pvalue1_nog = pvalues_nog[1], pvalue2_nog = pvalues_nog[2]))
+
+}
+
+relht_mods_quad %>% arrange(pvalue2_nog) 
+
+ggplot(data=ht_growth_rel_clim_long %>% pivot_wider(), aes(x=MCMT, y=relht, col=year))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~year, scales="free")
 ```
 
 ##Total Height
@@ -9421,9 +9686,11 @@ plot(ht_TD_mod)
 qqmath(ht_TD_mod)
 summary(ht_TD_mod)
 
-ggplot(data=ht_SR_long %>% filter(climvar.name=="TD"), aes(x=climvar.value, y=value))+
+SR_TD_plot<- ggplot(data=ht_SR_long %>% filter(climvar.name=="TD"), aes(x=climvar.value, y=value))+
   geom_point()+
-  geom_smooth(method="lm")
+  geom_smooth(method="lm")+
+  ylab("2014 Height")+
+  xlab("Provenance Temperature Differential")
 
 ##RH
 ht_RH_mod <- lmer(value ~ climvar.value + (1|Provenance) + (1|BLK), data=ht_SR_long %>% filter(climvar.name=="RH"))
@@ -9431,9 +9698,12 @@ plot(ht_RH_mod)
 qqmath(ht_RH_mod)
 summary(ht_RH_mod)
 
-ggplot(data=ht_SR_long %>% filter(climvar.name=="RH"), aes(x=climvar.value, y=value))+
+SR_RH_plot<- ggplot(data=ht_SR_long %>% filter(climvar.name=="RH"), aes(x=climvar.value, y=value))+
   geom_point()+
-  geom_smooth(method="lm")
+  geom_smooth(method="lm")+
+  ylab("2014 Height")+
+  xlab("Provenance Relative Humidity")
+
 
 ##smrpb
 ht_smrpb_mod <- lmer(value ~ climvar.value + (1|Provenance) + (1|BLK), data=ht_SR_long %>% filter(climvar.name=="smrpb"))
@@ -9441,9 +9711,14 @@ plot(ht_smrpb_mod)
 qqmath(ht_smrpb_mod)
 summary(ht_smrpb_mod)
 
-ggplot(data=ht_SR_long %>% filter(climvar.name=="smrpb"), aes(x=climvar.value, y=value))+
+SR_smrpb_plot <- ggplot(data=ht_SR_long %>% filter(climvar.name=="smrpb"), aes(x=climvar.value, y=value))+
   geom_point()+
-  geom_smooth(method="lm")
+  geom_smooth(method="lm")+
+  ylab("2014 Height")+
+  xlab("Provenance Summer Precip Ratio")
+
+
+ggarrange(SR_TD_plot, SR_RH_plot, SR_smrpb_plot, ncol=3)
 
 ###quadratic
 
@@ -9524,7 +9799,7 @@ dbh_SR_mods <- bind_rows(dbh_SR_mods, data.frame(var=provenance_climvars[i], pva
 
 dbh_SR_mods %>% arrange(pvalue) ##RH, TD, and smrpb significant
 
-ggplot(data=dbh_SR_long %>% filter(climvar.name=="TD"), aes(x=climvar.value, y=DBH))+
+SR_dbh_TD_plot <- ggplot(data=dbh_SR_long %>% filter(climvar.name=="TD"), aes(x=climvar.value, y=DBH))+
   geom_point()+
   geom_smooth(method="lm")
 
