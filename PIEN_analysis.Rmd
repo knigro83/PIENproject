@@ -2085,7 +2085,7 @@ anova(aov_rDBH)
 dbh_growth_rel_clim<- dbh_growth_rel_data %>% 
   left_join(prov_pcapts_big)
 
-
+options(na.action="na.fail")
 #y
 mod_reldbh_pca_y_randtime <- lmer(value ~ PC1*PC2 + PC1*scale(y) + PC2*scale(y) + I(PC1^2) + I(PC2^2) + I(scale(y)^2)+ (1|Provenance) + (1|BLK) + (1|name), data=dbh_growth_rel_clim)
 plot(mod_reldbh_pca_y_randtime)
@@ -2991,8 +2991,122 @@ ht_increment_rel_plot<- ggplot(ht_growth_rel_data %>% filter(value<1000), aes(x=
   ylab("Relativized Height Increment")+ xlab("")+
   scale_fill_manual(values=unname(stepped()), name="Provenance")
 
+ht_growth_rel_data %>% 
+  filter(!is.na(HT14))
+
+ht_increment_rel_plot_survivorsonly<- ggplot(ht_growth_rel_data %>% filter(value<1000) %>% filter(!is.na(HT14)), aes(x=factor(Provenance,levels=provs_bylat$Provenance), y=value, fill=factor(Provenance,levels=provs_bylat$Provenance)))+
+  geom_boxplot()+
+  facet_wrap(~factor(name, levels=c("growth79rel","growth85rel","growth91rel","growth96rel","growth06rel","growth14rel")), scales="free")+
+  theme(axis.text.x=element_text(angle=45, hjust=1))+
+  ylab("Relativized Height Increment")+ xlab("")+
+  scale_fill_manual(values=unname(stepped()), name="Provenance")
+
+
 ht_increment_plot
 ht_increment_rel_plot
+ht_increment_rel_plot_survivorsonly
+
+gila_survivors<- ht_growth_rel_data %>% 
+  filter(!is.na(HT14)) %>% 
+    filter(Provenance=="Gila NF") %>% 
+    mutate(year=case_when(name=="growth79rel" ~ 1979,
+                          name=="growth85rel" ~1985,
+                          name=="growth91rel"~1991,
+                          name=="growth96rel"~1996,
+                          name=="growth06rel"~2006,
+                          name=="growth14rel"~2014),
+           uid=paste(LOC,BLK,REP,sep=""))
+
+ggplot(data=gila_survivors, aes(x=year, y=value, color=uid))+
+  geom_point()+
+  geom_line()+
+  scale_color_manual(values=unname(stepped()))+
+  facet_wrap(~uid)+
+  geom_hline(yintercept=0, color="red")+
+  ylab("Relativized Growth Increment")
+
+survivors_ht_data<- moniger_data_comb %>% 
+  dplyr::select(c(LOC,BLK,REP,Provenance,HT74:HT14,Seedling.Ht..from.Nursery)) %>% 
+  filter(!is.na(HT14)) %>% 
+  filter(!HT14==0) %>% 
+  pivot_longer(HT74:HT14) %>% 
+  mutate(uid=paste(LOC,BLK,REP, sep=""),
+         year=case_when(name=="HT74" ~ 1974,
+                        name=="HT79"~ 1979,
+                        name=="HT85" ~1985,
+                        name=="HT91" ~ 1991,
+                        name=="HT96" ~1996,
+                        name=="HT06" ~ 2006,
+                        name=="HT14" ~ 2014))
+
+ggplot(data=survivors_ht_data %>% filter(Provenance=="Gila NF"), aes(x=year, y=value, color=uid))+
+  geom_point()+
+  geom_line()+
+  facet_wrap(~uid)+
+  theme_bw()+
+  ylab("Height (m)")
+
+ggplot(data=survivors_ht_data %>% filter(Provenance=="Payette NF"), aes(x=year, y=value, color=uid))+
+  geom_point()+
+  geom_line()+
+  facet_wrap(~uid)+
+  geom_hline(yintercept=0, color="red")+
+  theme_bw()
+
+nonsurvivors_ht_data<- moniger_data_comb %>% 
+  dplyr::select(c(LOC,BLK,REP,Provenance,HT74:HT14,Seedling.Ht..from.Nursery)) %>% 
+  filter(is.na(HT14)| HT14==0) %>% 
+  pivot_longer(HT74:HT14) %>% 
+  mutate(uid=paste(LOC,BLK,REP, sep=""),
+         year=case_when(name=="HT74" ~ 1974,
+                        name=="HT79"~ 1979,
+                        name=="HT85" ~1985,
+                        name=="HT91" ~ 1991,
+                        name=="HT96" ~1996,
+                        name=="HT06" ~ 2006,
+                        name=="HT14" ~ 2014))
+
+ggplot(data=nonsurvivors_ht_data %>% filter(Provenance=="Gila NF"), aes(x=year, y=value, color=uid))+
+  geom_point()+
+  geom_line()+
+  facet_wrap(~uid)+
+  geom_hline(yintercept=0, color="red")
+
+ggplot(data=nonsurvivors_ht_data, aes(x=year, y=value, color=uid))+
+  geom_point(alpha=0.4)+
+  geom_line()+
+  facet_wrap(~Provenance)+
+  geom_hline(yintercept=0, color="red")+
+  theme(legend.position = "none")+
+  ylab("Height (m)")
+ggplot(data=survivors_ht_data, aes(x=year, y=value, color=uid))+
+  geom_point(alpha=0.4)+
+  geom_line()+
+  facet_wrap(~Provenance)+
+  geom_hline(yintercept=0, color="red")+
+  theme(legend.position = "none")+
+  ylab("Height (m)")
+
+length(unique(nonsurvivors_ht_data$uid))
+
+
+gila_nonsurvivors<- ht_growth_rel_data %>% 
+  filter(is.na(HT14)) %>% 
+    filter(Provenance=="Gila NF") %>% 
+    mutate(year=case_when(name=="growth79rel" ~ 1979,
+                          name=="growth85rel" ~1985,
+                          name=="growth91rel"~1991,
+                          name=="growth96rel"~1996,
+                          name=="growth06rel"~2006,
+                          name=="growth14rel"~2014),
+           uid=paste(LOC,BLK,REP,sep=""))
+
+ggplot(data=gila_nonsurvivors, aes(x=year, y=value, color=uid))+
+  geom_point()+
+  geom_line()+
+  facet_wrap(~uid)+
+  geom_hline(yintercept=0, color="red")
+
 
 ##analyze relative height increment instead of absolute height each year
 aov_rHT <- lmer(value ~ name*Provenance + (1|BLK), data=ht_growth_rel_data)
