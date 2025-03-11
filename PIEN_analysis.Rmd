@@ -3425,7 +3425,7 @@ predictdata_nffd_relht <- cbind(newdata_nffd_relht, nffd_relht_predict) %>% muta
 nffd_relht_plot <- ggplot()+
   geom_ribbon(data=predictdata_nffd_relht, aes(x=value, ymin=lwr, ymax=upr), alpha=0.2)+
   geom_line(data=predictdata_nffd_relht, aes(x=value,y=fit), color="black")+
-  geom_rug(data=ht_growth_rel_clim_noG %>% dplyr::select("NFFD")%>% mutate(fit=70), aes(x=NFFD,y=fit), linewidth=1, col="black", sides="b")+
+  geom_rug(data=ht_growth_rel_clim_noG %>% dplyr::select("NFFD")%>% mutate(fit=10), aes(x=NFFD,y=fit), linewidth=1, col="black", sides="b")+
   xlab("Provenance NFFD")+
   ylab("Relative Height Growth Rate (%/year)")+
   facet_grid(~var)+
@@ -3450,7 +3450,7 @@ predictdata_shm_relht <- cbind(newdata_shm_relht, shm_relht_predict) %>% mutate(
 shm_relht_plot <- ggplot()+
   geom_ribbon(data=predictdata_shm_relht, aes(x=value, ymin=lwr, ymax=upr), alpha=0.2)+
   geom_line(data=predictdata_shm_relht, aes(x=value,y=fit), color="black")+
-  geom_rug(data=ht_growth_rel_clim_noG %>% dplyr::select("SHM")%>% mutate(fit=70), aes(x=SHM,y=fit), linewidth=1, col="black", sides="b")+
+  geom_rug(data=ht_growth_rel_clim_noG %>% dplyr::select("SHM")%>% mutate(fit=10), aes(x=SHM,y=fit), linewidth=1, col="black", sides="b")+
   xlab("Provenance SHM")+
   ylab("Relative Height Growth Rate (%/year)")+
   facet_grid(~var)+
@@ -3472,7 +3472,7 @@ predictdata_dd5_relht <- cbind(newdata_dd5_relht, dd5_relht_predict) %>% mutate(
 dd5_relht_plot <- ggplot()+
   geom_ribbon(data=predictdata_dd5_relht, aes(x=value, ymin=lwr, ymax=upr), alpha=0.2)+
   geom_line(data=predictdata_dd5_relht, aes(x=value,y=fit), color="black")+
-  geom_rug(data=ht_growth_rel_clim_noG %>% dplyr::select("DD5")%>% mutate(fit=70), aes(x=DD5,y=fit), linewidth=1, col="black", sides="b")+
+  geom_rug(data=ht_growth_rel_clim_noG %>% dplyr::select("DD5")%>% mutate(fit=10), aes(x=DD5,y=fit), linewidth=1, col="black", sides="b")+
   xlab("Provenance DD5")+
   ylab("Relative Height Growth Rate (%/year)")+
   facet_grid(~var)+
@@ -3494,7 +3494,7 @@ predictdata_ext_relht <- cbind(newdata_ext_relht, ext_relht_predict) %>% mutate(
 ext_relht_plot <- ggplot()+
   geom_ribbon(data=predictdata_ext_relht, aes(x=value, ymin=lwr, ymax=upr), alpha=0.2)+
   geom_line(data=predictdata_ext_relht, aes(x=value,y=fit), color="black")+
-  geom_rug(data=ht_growth_rel_clim_noG %>% dplyr::select("EXT")%>% mutate(fit=70), aes(x=EXT,y=fit), linewidth=1, col="black", sides="b")+
+  geom_rug(data=ht_growth_rel_clim_noG %>% dplyr::select("EXT")%>% mutate(fit=10), aes(x=EXT,y=fit), linewidth=1, col="black", sides="b")+
   xlab("Provenance EXT")+
   ylab("Relative Height Growth Rate (%/year)")+
   facet_grid(~var)+
@@ -3516,7 +3516,7 @@ predictdata_mat_relht <- cbind(newdata_mat_relht, mat_relht_predict) %>% mutate(
 mat_relht_plot <- ggplot()+
   geom_ribbon(data=predictdata_mat_relht, aes(x=value, ymin=lwr, ymax=upr), alpha=0.2)+
   geom_line(data=predictdata_mat_relht, aes(x=value,y=fit), color="black")+
-  geom_rug(data=ht_growth_rel_clim_noG %>% dplyr::select("MAT")%>% mutate(fit=70), aes(x=MAT,y=fit), linewidth=1, col="black", sides="b")+
+  geom_rug(data=ht_growth_rel_clim_noG %>% dplyr::select("MAT")%>% mutate(fit=10), aes(x=MAT,y=fit), linewidth=1, col="black", sides="b")+
   xlab("Provenance MAT")+
   ylab("Relative Height Growth Rate (%/year)")+
   facet_grid(~var)+
@@ -3539,7 +3539,7 @@ predictdata_emt_relht <- cbind(newdata_emt_relht, emt_relht_predict) %>% mutate(
 emt_relht_plot <- ggplot()+
   geom_ribbon(data=predictdata_emt_relht, aes(x=value, ymin=lwr, ymax=upr), alpha=0.2)+
   geom_line(data=predictdata_emt_relht, aes(x=value,y=fit), color="black")+
-  geom_rug(data=ht_growth_rel_clim_noG %>% dplyr::select("EMT")%>% mutate(fit=70), aes(x=EMT,y=fit), linewidth=1, col="black", sides="b")+
+  geom_rug(data=ht_growth_rel_clim_noG %>% dplyr::select("EMT")%>% mutate(fit=10), aes(x=EMT,y=fit), linewidth=1, col="black", sides="b")+
   xlab("Provenance EMT")+
   ylab("Relative Height Growth Rate (%/year)")+
   facet_grid(~var)+
@@ -3561,7 +3561,7 @@ predictdata_msp_relht <- cbind(newdata_msp_relht, msp_relht_predict) %>% mutate(
 msp_relht_plot <- ggplot()+
   geom_ribbon(data=predictdata_msp_relht, aes(x=value, ymin=lwr, ymax=upr), alpha=0.2)+
   geom_line(data=predictdata_msp_relht, aes(x=value,y=fit), color="black")+
-  geom_rug(data=ht_growth_rel_clim_noG %>% dplyr::select("MSP")%>% mutate(fit=70), aes(x=MSP,y=fit), linewidth=1, col="black", sides="b")+
+  geom_rug(data=ht_growth_rel_clim_noG %>% dplyr::select("MSP")%>% mutate(fit=10), aes(x=MSP,y=fit), linewidth=1, col="black", sides="b")+
   xlab("Provenance MSP")+
   ylab("Relative Height Growth Rate (%/year)")+
   facet_grid(~var)+
@@ -3628,7 +3628,7 @@ predictdata_pptsp_relht <- cbind(newdata_pptsp_relht, pptsp_relht_predict) %>% m
 pptsp_relht_plot <- ggplot()+
   geom_ribbon(data=predictdata_pptsp_relht, aes(x=value, ymin=lwr, ymax=upr), alpha=0.2)+
   geom_line(data=predictdata_pptsp_relht, aes(x=value,y=fit), color="black")+
-  geom_rug(data=ht_growth_rel_clim_noG %>% dplyr::select("PPTsp")%>% mutate(fit=70), aes(x=PPTsp,y=fit), linewidth=1, col="black", sides="b")+
+  geom_rug(data=ht_growth_rel_clim_noG %>% dplyr::select("PPTsp")%>% mutate(fit=10), aes(x=PPTsp,y=fit), linewidth=1, col="black", sides="b")+
   xlab("Provenance PPTsp")+
   ylab("Relative Height Growth Rate (%/year)")+
   facet_grid(~var)+
@@ -3650,7 +3650,7 @@ predictdata_mcmt_relht <- cbind(newdata_mcmt_relht, mcmt_relht_predict) %>% muta
 mcmt_relht_plot <- ggplot()+
   geom_ribbon(data=predictdata_mcmt_relht, aes(x=value, ymin=lwr, ymax=upr), alpha=0.2)+
   geom_line(data=predictdata_mcmt_relht, aes(x=value,y=fit), color="black")+
-  geom_rug(data=ht_growth_rel_clim_noG %>% dplyr::select("MCMT")%>% mutate(fit=70), aes(x=MCMT,y=fit), linewidth=1, col="black", sides="b")+
+  geom_rug(data=ht_growth_rel_clim_noG %>% dplyr::select("MCMT")%>% mutate(fit=10), aes(x=MCMT,y=fit), linewidth=1, col="black", sides="b")+
   xlab("Provenance MCMT")+
   ylab("Relative Height Growth Rate (%/year)")+
   facet_grid(~var)+
@@ -3672,7 +3672,7 @@ predictdata_tavewt_relht <- cbind(newdata_tavewt_relht, tavewt_relht_predict) %>
 tavewt_relht_plot <- ggplot()+
   geom_ribbon(data=predictdata_tavewt_relht, aes(x=value, ymin=lwr, ymax=upr), alpha=0.2)+
   geom_line(data=predictdata_tavewt_relht, aes(x=value,y=fit), color="black")+
-  geom_rug(data=ht_growth_rel_clim_noG %>% dplyr::select("Tavewt")%>% mutate(fit=70), aes(x=Tavewt,y=fit), linewidth=1, col="black", sides="b")+
+  geom_rug(data=ht_growth_rel_clim_noG %>% dplyr::select("Tavewt")%>% mutate(fit=10), aes(x=Tavewt,y=fit), linewidth=1, col="black", sides="b")+
   xlab("Provenance Tavewt")+
   ylab("Relative Height Growth Rate (%/year)")+
   facet_grid(~var)+
@@ -3680,9 +3680,72 @@ tavewt_relht_plot <- ggplot()+
   theme(legend.position="none")
 tavewt_relht_plot
 
-ggplot(data=ht_growth_rel_clim_long %>% pivot_wider() %>% filter(!relht>1000), aes(x=MCMT, y=relht))+
-  geom_point()+
-  geom_smooth(method="lm")
+summary(lmer(relht ~ value + I(value^2) + (1|Provenance) + (1|BLK) + (1|year), data=ht_growth_rel_clim_long %>% filter(name=="Eref")))
+summary(lmer(relht ~ value + I(value^2) + (1|Provenance) + (1|BLK) + (1|year), data=ht_growth_rel_clim_long_nog %>% filter(name=="Eref") %>% filter(!Provenance=="Gila NF")))
+
+####make plot 
+Eref_relht_mod_lm <- lm(relht ~  value + I(value^2), data=ht_growth_rel_clim_long %>% filter(name=="Eref") %>% filter(!Provenance=="Gila NF"))
+
+newdata_Eref_relht <-  expand.grid(value=seq(min(ht_growth_rel_clim_noG$Eref), max(ht_growth_rel_clim_noG$Eref), length.out=50))
+Eref_relht_predict <- predict(Eref_relht_mod_lm, newdata = newdata_Eref_relht, interval="confidence")
+
+predictdata_Eref_relht <- cbind(newdata_Eref_relht, Eref_relht_predict) %>% mutate(var="Eref")
+
+Eref_relht_plot <- ggplot()+
+  geom_ribbon(data=predictdata_Eref_relht, aes(x=value, ymin=lwr, ymax=upr), alpha=0.2)+
+  geom_line(data=predictdata_Eref_relht, aes(x=value,y=fit), color="black")+
+  geom_rug(data=ht_growth_rel_clim_noG %>% dplyr::select("Eref")%>% mutate(fit=10), aes(x=Eref,y=fit), linewidth=1, col="black", sides="b")+
+  xlab("Provenance Eref")+
+  ylab("Relative Height Growth Rate (%/year)")+
+  facet_grid(~var)+
+  theme_bw()+
+  theme(legend.position="none")
+Eref_relht_plot
+
+summary(lmer(relht ~ value + I(value^2) + (1|Provenance) + (1|BLK) + (1|year), data=ht_growth_rel_clim_long %>% filter(name=="DD0")))
+summary(lmer(relht ~ value + I(value^2) + (1|Provenance) + (1|BLK) + (1|year), data=ht_growth_rel_clim_long_nog %>% filter(name=="DD0") %>% filter(!Provenance=="Gila NF")))
+
+####make plot 
+DD0_relht_mod_lm <- lm(relht ~  value + I(value^2), data=ht_growth_rel_clim_long %>% filter(name=="DD0") %>% filter(!Provenance=="Gila NF"))
+
+newdata_DD0_relht <-  expand.grid(value=seq(min(ht_growth_rel_clim_noG$DD0), max(ht_growth_rel_clim_noG$DD0), length.out=50))
+DD0_relht_predict <- predict(DD0_relht_mod_lm, newdata = newdata_DD0_relht, interval="confidence")
+
+predictdata_DD0_relht <- cbind(newdata_DD0_relht, DD0_relht_predict) %>% mutate(var="DD0")
+
+DD0_relht_plot <- ggplot()+
+  geom_ribbon(data=predictdata_DD0_relht, aes(x=value, ymin=lwr, ymax=upr), alpha=0.2)+
+  geom_line(data=predictdata_DD0_relht, aes(x=value,y=fit), color="black")+
+  geom_rug(data=ht_growth_rel_clim_noG %>% dplyr::select("DD0")%>% mutate(fit=10), aes(x=DD0,y=fit), linewidth=1, col="black", sides="b")+
+  xlab("Provenance DD0")+
+  ylab("Relative Height Growth Rate (%/year)")+
+  facet_grid(~var)+
+  theme_bw()+
+  theme(legend.position="none")
+DD0_relht_plot
+
+summary(lmer(relht ~ value + I(value^2) + (1|Provenance) + (1|BLK) + (1|year), data=ht_growth_rel_clim_long %>% filter(name=="EMT")))
+summary(lmer(relht ~ value + I(value^2) + (1|Provenance) + (1|BLK) + (1|year), data=ht_growth_rel_clim_long_nog %>% filter(name=="EMT") %>% filter(!Provenance=="Gila NF")))
+
+####make plot 
+EMT_relht_mod_lm <- lm(relht ~  value + I(value^2), data=ht_growth_rel_clim_long %>% filter(name=="EMT") %>% filter(!Provenance=="Gila NF"))
+
+newdata_EMT_relht <-  expand.grid(value=seq(min(ht_growth_rel_clim_noG$EMT), max(ht_growth_rel_clim_noG$EMT), length.out=50))
+EMT_relht_predict <- predict(EMT_relht_mod_lm, newdata = newdata_EMT_relht, interval="confidence")
+
+predictdata_EMT_relht <- cbind(newdata_EMT_relht, EMT_relht_predict) %>% mutate(var="EMT")
+
+EMT_relht_plot <- ggplot()+
+  geom_ribbon(data=predictdata_EMT_relht, aes(x=value, ymin=lwr, ymax=upr), alpha=0.2)+
+  geom_line(data=predictdata_EMT_relht, aes(x=value,y=fit), color="black")+
+  geom_rug(data=ht_growth_rel_clim_noG %>% dplyr::select("EMT")%>% mutate(fit=10), aes(x=EMT,y=fit), linewidth=1, col="black", sides="b")+
+  xlab("Provenance EMT")+
+  ylab("Relative Height Growth Rate (%/year)")+
+  facet_grid(~var)+
+  theme_bw()+
+  theme(legend.position="none")
+EMT_relht_plot
+
 ```
 
 
@@ -10336,21 +10399,37 @@ ht_SR_mods <- bind_rows(ht_SR_mods, data.frame(var=provenance_climvars[i], pvalu
 
 ht_SR_mods %>% arrange(pvalue) ##TD, RH, & smrpb are significant
 
-cor(ht_SR %>% dplyr::select(c(AHM:SHM,elev,x,y,smrpb,monsoonality)))
-#TD is the main differentiating climate factor in the southern rockies, this might be why it's coming out. 
-
 ##TD
 ht_TD_mod <- lmer(log(value) ~ climvar.value + (1|Provenance) + (1|BLK) + (1|year), data=ht_SR_long %>% filter(climvar.name=="TD"))
 plot(ht_TD_mod)
 qqmath(ht_TD_mod)
 summary(ht_TD_mod)
 
+####make plot 
+SR_TD_ht_mod_lm <- lm(log(value) ~  climvar.value + I(climvar.value^2), data=ht_SR_long %>% filter(climvar.name=="TD"))
+
+newdata_SR_TD_ht <-  expand.grid(climvar.value=seq(min(ht_SR_long %>% filter(climvar.name=="TD") %>% pull(climvar.value)), max(ht_SR_long %>% filter(climvar.name=="TD") %>% pull(climvar.value))), length.out=50)
+SR_TD_ht_predict <- predict(SR_TD_ht_mod_lm, newdata = newdata_SR_TD_ht, interval="confidence")
+
+predictdata_TD_ht <- cbind(newdata_SR_TD_ht, SR_TD_ht_predict) %>% mutate(var="TD")
+
+TD_ht_plot <- ggplot()+
+  geom_ribbon(data=predictdata_TD_ht, aes(x=climvar.value, ymin=lwr, ymax=upr), alpha=0.2)+
+  geom_line(data=predictdata_TD_ht, aes(x=climvar.value,y=fit), color="black")+
+  geom_rug(data=ht_SR_long %>% filter(climvar.name=="TD")%>% mutate(fit=1), aes(x=climvar.value,y=fit), linewidth=1, col="black", sides="b")+
+  xlab("Provenance TD")+
+  ylab("Height (m)")+
+  facet_grid(~var)+
+  theme_bw()+
+  theme(legend.position="none")
+TD_ht_plot
+
 SR_TD_plot<- ggplot(data=ht_SR_long %>% filter(climvar.name=="TD"), aes(x=climvar.value, y=value))+
   geom_point()+
   geom_smooth(method="lm")+
   ylab("log(Height)")+
   xlab("Provenance Temperature Differential")
-
+SR_TD_plot
 ##RH
 ht_RH_mod <- lmer(log(value) ~ climvar.value + (1|Provenance) + (1|BLK) + (1|year), data=ht_SR_long %>% filter(climvar.name=="RH"))
 plot(ht_RH_mod)
