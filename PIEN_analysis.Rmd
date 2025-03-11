@@ -3006,7 +3006,7 @@ ggplot(data=ht_data_aves, aes(x=nursery_ht_m, y=meantotht))+
 ht_growth_data<- moniger_data_comb %>% 
   dplyr::select(c(LOC,BLK,REP,Provenance,HT74:HT14,Seedling.Ht..from.Nursery)) %>% 
   mutate(growth79=HT79-HT74, growth85 = HT85-HT79, growth91 = HT91-HT85, growth96=HT96-HT91, growth06=HT06-HT96, growth14=HT14-HT06) %>% 
-  mutate(growth79rel=growth79/HT74*100, growth85rel=growth85/HT79*100, growth91rel=growth91/HT85*100, growth96rel=growth96/HT91, growth06rel=growth06/HT96, growth14rel=growth14/HT06) %>% 
+  mutate(growth79rel=(growth79/HT74*100)/5, growth85rel=(growth85/HT79*100)/6, growth91rel=(growth91/HT85*100)/6, growth96rel=(growth96/HT91*100)/5, growth06rel=(growth06/HT96*100)/10, growth14rel=(growth14/HT06*100)/8) %>% 
   pivot_longer(growth79:growth14) %>% 
   mutate(nursery_ht_m = Seedling.Ht..from.Nursery/39.37)
 
@@ -3020,7 +3020,7 @@ ht_increment_plot<- ggplot(ht_growth_data, aes(x=factor(Provenance,levels=provs_
 ht_growth_rel_data<- moniger_data_comb %>% 
   dplyr::select(c(LOC,BLK,REP,Provenance,HT74:HT14,Seedling.Ht..from.Nursery)) %>% 
   mutate(growth79=HT79-HT74, growth85 = HT85-HT79, growth91 = HT91-HT85, growth96=HT96-HT91, growth06=HT06-HT96, growth14=HT14-HT06) %>% 
-  mutate(growth79rel=growth79/HT74*100, growth85rel=growth85/HT79*100, growth91rel=growth91/HT85*100, growth96rel=growth96/HT91*100, growth06rel=growth06/HT96*100, growth14rel=growth14/HT06*100) %>% 
+  mutate(growth79rel=(growth79/HT74*100)/5, growth85rel=(growth85/HT79*100)/6, growth91rel=(growth91/HT85*100)/6, growth96rel=(growth96/HT91*100)/5, growth06rel=(growth06/HT96*100)/10, growth14rel=(growth14/HT06*100)/8) %>% 
   pivot_longer(growth79rel:growth14rel) %>% 
   mutate(nursery_ht_m = Seedling.Ht..from.Nursery/39.37) %>% 
   filter(!is.na(value))
@@ -3029,7 +3029,7 @@ ht_increment_rel_plot<- ggplot(ht_growth_rel_data, aes(x=factor(Provenance,level
   geom_boxplot()+
   facet_wrap(~factor(name, levels=c("growth79rel","growth85rel","growth91rel","growth96rel","growth06rel","growth14rel"), labels=c("1974-79","1979-85","1985-91","1991-96","1996-2006","2006-14")), scales="free")+
   theme(axis.text.x=element_text(angle=45, hjust=1))+
-  ylab("Relativized Height Increment")+ xlab("")+
+  ylab("Relative Height Growth Per Year (%)")+ xlab("")+
   scale_fill_manual(values=unname(stepped()), name="Provenance")
 ht_increment_rel_plot
 ###differences between provenances in height increment each year
@@ -3083,7 +3083,7 @@ HGmod96_marg = lsmeans(HGmod96, ~Provenance)
 CLD_HGmod96 = cld(HGmod96_marg,
                   alpha=0.05,
                   Letters=letters)
-CLD_HGmod96
+CLD_HGmod96 ##Gila no longer in last place by 1996
 
 ##2006
 HGmod06<- lmer(value ~ Provenance + (1|BLK), data = ht_growth_rel_data %>% filter(name=="growth06rel"))
@@ -3096,7 +3096,7 @@ HGmod06_marg = lsmeans(HGmod06, ~Provenance)
 CLD_HGmod06 = cld(HGmod06_marg,
                   alpha=0.05,
                   Letters=letters)
-CLD_HGmod06 ##Gila no longer in last place by 2006
+CLD_HGmod06 
 
 ##2014
 HGmod14<- lmer(value ~ Provenance + (1|BLK), data = ht_growth_rel_data %>% filter(name=="growth14rel"))
@@ -3224,7 +3224,7 @@ ggplot(data=gila_survivors, aes(x=year, y=value, color=uid))+
   scale_color_manual(values=unname(stepped()))+
   facet_wrap(~uid)+
   geom_hline(yintercept=0, color="red")+
-  ylab("Relativized Growth Increment")
+  ylab("Relativized Growth Increment Per Year")
 
 survivors_ht_data<- moniger_data_comb %>% 
   dplyr::select(c(LOC,BLK,REP,Provenance,HT74:HT14,Seedling.Ht..from.Nursery)) %>% 
@@ -3328,7 +3328,7 @@ summary(mod_relht_pca_y_randtime)
 mod_relht_pca_y_randtime_dredge<- dredge(mod_relht_pca_y_randtime)
 mod_relht_pca_y_randtime_dredge
 
-bestmod_relht_pca_y_randtime <- lmer(value ~  PC1*scale(y)+ I(PC1^2) + I(PC2^2) + I(scale(y)^2)+ (1|Provenance) + (1|BLK) + (1|name), data=ht_growth_rel_clim)
+bestmod_relht_pca_y_randtime <- lmer(value ~  PC2 + I(scale(y)^2)+ (1|Provenance) + (1|BLK) + (1|name), data=ht_growth_rel_clim)
 summary(bestmod_relht_pca_y_randtime)
 
 #no gila
@@ -3341,7 +3341,7 @@ summary(mod_relht_pca_y_randtime_noG)
 mod_relht_pca_y_randtime_noG_dredge<- dredge(mod_relht_pca_y_randtime_noG)
 mod_relht_pca_y_randtime_noG_dredge
 
-bestmod_relht_pca_y_randtime_noG <- lmer(value ~  PC2 + scale(y) + I(scale(y)^2)+ (1|Provenance) + (1|BLK) + (1|name), data=ht_growth_rel_clim_noG)
+bestmod_relht_pca_y_randtime_noG <- lmer(value ~  scale(y) + (1|Provenance) + (1|BLK) + (1|name), data=ht_growth_rel_clim_noG)
 summary(bestmod_relht_pca_y_randtime_noG)
 
 #x
@@ -3352,7 +3352,7 @@ summary(mod_relht_pca_x_randtime)
 mod_relht_pca_x_randtime_dredge<- dredge(mod_relht_pca_x_randtime)
 mod_relht_pca_x_randtime_dredge
 
-bestmod_relht_pca_x_randtime <- mod_relht_pca_x_randtime
+bestmod_relht_pca_x_randtime <- lmer(value ~ PC2 + (1|Provenance) + (1|BLK) + (1|name), data=ht_growth_rel_clim)
 summary(bestmod_relht_pca_x_randtime)
 
 #no gila
@@ -3363,7 +3363,7 @@ summary(mod_relht_pca_x_randtime_noG)
 mod_relht_pca_x_randtime_noG_dredge<- dredge(mod_relht_pca_x_randtime_noG)
 mod_relht_pca_x_randtime_noG_dredge
 
-bestmod_relht_pca_x_randtime_noG <- lmer(value ~  PC1 + scale(x) +  I(scale(x)^2)+ (1|Provenance) + (1|BLK) + (1|name), data=ht_growth_rel_clim_noG)
+bestmod_relht_pca_x_randtime_noG <- lmer(value ~  scale(x) +  I(scale(x)^2)+ (1|Provenance) + (1|BLK) + (1|name), data=ht_growth_rel_clim_noG)
 summary(bestmod_relht_pca_x_randtime_noG) 
 
 AICc(mod_relht_pca_x_randtime, mod_relht_pca_y_randtime) ##lat is better
@@ -3371,10 +3371,9 @@ AICc(mod_relht_pca_x_randtime_noG, mod_relht_pca_y_randtime_noG) ##without Gila,
 
 
 ####make plot for best final model
-bestmod_relht_pca_x_randtime_noG_lm <- lm(value ~  PC1 + scale(x) +  I(scale(x)^2), data=ht_growth_rel_clim_noG)
+bestmod_relht_pca_x_randtime_noG_lm <- lm(value ~  scale(x) +  I(scale(x)^2), data=ht_growth_rel_clim_noG)
 
-newdata_relht_x <-  expand.grid(x=seq(min(ht_growth_rel_clim_noG$x), max(ht_growth_rel_clim_noG$x), length.out=50),
-                                PC1=mean(ht_growth_rel_clim_noG$PC1))
+newdata_relht_x <-  expand.grid(x=seq(min(ht_growth_rel_clim_noG$x), max(ht_growth_rel_clim_noG$x), length.out=50))
 relht_predict_x <- predict(bestmod_relht_pca_x_randtime_noG_lm, newdata = newdata_relht_x, interval="confidence")
 
 predictdata_relht_x <- cbind(newdata_relht_x, relht_predict_x) %>% mutate(var="Longitude")
@@ -3382,9 +3381,9 @@ predictdata_relht_x <- cbind(newdata_relht_x, relht_predict_x) %>% mutate(var="L
 relht_x_plot <- ggplot()+
   geom_ribbon(data=predictdata_relht_x, aes(x=x, ymin=lwr, ymax=upr), alpha=0.2)+
   geom_line(data=predictdata_relht_x, aes(x=x,y=fit), color="black")+
-  geom_rug(data=ht_growth_rel_clim_noG %>% mutate(fit=70), aes(x=x,y=fit), linewidth=1, col="black", sides="b")+
+  geom_rug(data=ht_growth_rel_clim_noG %>% mutate(fit=10), aes(x=x,y=fit), linewidth=1, col="black", sides="b")+
   xlab("Provenance Longitude")+
-  ylab("Relativized Height Growth (%)")+
+  ylab("Relative Height Growth Rate (%/year)")+
   facet_grid(~var)+
   theme_bw()+
   theme(legend.position="none")
@@ -3428,7 +3427,7 @@ nffd_relht_plot <- ggplot()+
   geom_line(data=predictdata_nffd_relht, aes(x=value,y=fit), color="black")+
   geom_rug(data=ht_growth_rel_clim_noG %>% dplyr::select("NFFD")%>% mutate(fit=70), aes(x=NFFD,y=fit), linewidth=1, col="black", sides="b")+
   xlab("Provenance NFFD")+
-  ylab("Relativized Height Growth (%)")+
+  ylab("Relative Height Growth Rate (%/year)")+
   facet_grid(~var)+
   theme_bw()+
   theme(legend.position="none")
@@ -3453,7 +3452,7 @@ shm_relht_plot <- ggplot()+
   geom_line(data=predictdata_shm_relht, aes(x=value,y=fit), color="black")+
   geom_rug(data=ht_growth_rel_clim_noG %>% dplyr::select("SHM")%>% mutate(fit=70), aes(x=SHM,y=fit), linewidth=1, col="black", sides="b")+
   xlab("Provenance SHM")+
-  ylab("Relativized Height Growth (%)")+
+  ylab("Relative Height Growth Rate (%/year)")+
   facet_grid(~var)+
   theme_bw()+
   theme(legend.position="none")
@@ -3475,7 +3474,7 @@ dd5_relht_plot <- ggplot()+
   geom_line(data=predictdata_dd5_relht, aes(x=value,y=fit), color="black")+
   geom_rug(data=ht_growth_rel_clim_noG %>% dplyr::select("DD5")%>% mutate(fit=70), aes(x=DD5,y=fit), linewidth=1, col="black", sides="b")+
   xlab("Provenance DD5")+
-  ylab("Relativized Height Growth (%)")+
+  ylab("Relative Height Growth Rate (%/year)")+
   facet_grid(~var)+
   theme_bw()+
   theme(legend.position="none")
@@ -3497,11 +3496,79 @@ ext_relht_plot <- ggplot()+
   geom_line(data=predictdata_ext_relht, aes(x=value,y=fit), color="black")+
   geom_rug(data=ht_growth_rel_clim_noG %>% dplyr::select("EXT")%>% mutate(fit=70), aes(x=EXT,y=fit), linewidth=1, col="black", sides="b")+
   xlab("Provenance EXT")+
-  ylab("Relativized Height Growth (%)")+
+  ylab("Relative Height Growth Rate (%/year)")+
   facet_grid(~var)+
   theme_bw()+
   theme(legend.position="none")
 ext_relht_plot
+
+summary(lmer(relht ~ value + (1|Provenance)+ (1|BLK) + (1|year), data=ht_growth_rel_clim_long %>% filter(name=="MAT")))
+summary(lmer(relht ~ value + (1|Provenance)+ (1|BLK) + (1|year), data=ht_growth_rel_clim_long %>% filter(name=="MAT") %>% filter(!Provenance=="Gila NF")))
+
+####make plot 
+mat_relht_mod_lm <- lm(relht ~  value, data=ht_growth_rel_clim_long %>% filter(name=="MAT") %>% filter(!Provenance=="Gila NF"))
+
+newdata_mat_relht <-  expand.grid(value=seq(min(ht_growth_rel_clim_noG$MAT), max(ht_growth_rel_clim_noG$MAT), length.out=50))
+mat_relht_predict <- predict(mat_relht_mod_lm, newdata = newdata_mat_relht, interval="confidence")
+
+predictdata_mat_relht <- cbind(newdata_mat_relht, mat_relht_predict) %>% mutate(var="MAT")
+
+mat_relht_plot <- ggplot()+
+  geom_ribbon(data=predictdata_mat_relht, aes(x=value, ymin=lwr, ymax=upr), alpha=0.2)+
+  geom_line(data=predictdata_mat_relht, aes(x=value,y=fit), color="black")+
+  geom_rug(data=ht_growth_rel_clim_noG %>% dplyr::select("MAT")%>% mutate(fit=70), aes(x=MAT,y=fit), linewidth=1, col="black", sides="b")+
+  xlab("Provenance MAT")+
+  ylab("Relative Height Growth Rate (%/year)")+
+  facet_grid(~var)+
+  theme_bw()+
+  theme(legend.position="none")
+mat_relht_plot
+
+
+summary(lmer(relht ~ value + (1|Provenance)+ (1|BLK) + (1|year), data=ht_growth_rel_clim_long %>% filter(name=="EMT")))
+summary(lmer(relht ~ value + (1|Provenance)+ (1|BLK) + (1|year), data=ht_growth_rel_clim_long %>% filter(name=="EMT") %>% filter(!Provenance=="Gila NF")))
+
+####make plot 
+emt_relht_mod_lm <- lm(relht ~  value, data=ht_growth_rel_clim_long %>% filter(name=="EMT") %>% filter(!Provenance=="Gila NF"))
+
+newdata_emt_relht <-  expand.grid(value=seq(min(ht_growth_rel_clim_noG$EMT), max(ht_growth_rel_clim_noG$EMT), length.out=50))
+emt_relht_predict <- predict(emt_relht_mod_lm, newdata = newdata_emt_relht, interval="confidence")
+
+predictdata_emt_relht <- cbind(newdata_emt_relht, emt_relht_predict) %>% mutate(var="EMT")
+
+emt_relht_plot <- ggplot()+
+  geom_ribbon(data=predictdata_emt_relht, aes(x=value, ymin=lwr, ymax=upr), alpha=0.2)+
+  geom_line(data=predictdata_emt_relht, aes(x=value,y=fit), color="black")+
+  geom_rug(data=ht_growth_rel_clim_noG %>% dplyr::select("EMT")%>% mutate(fit=70), aes(x=EMT,y=fit), linewidth=1, col="black", sides="b")+
+  xlab("Provenance EMT")+
+  ylab("Relative Height Growth Rate (%/year)")+
+  facet_grid(~var)+
+  theme_bw()+
+  theme(legend.position="none")
+emt_relht_plot
+
+summary(lmer(relht ~ value + (1|Provenance)+ (1|BLK) + (1|year), data=ht_growth_rel_clim_long %>% filter(name=="MSP")))
+summary(lmer(relht ~ value + (1|Provenance)+ (1|BLK) + (1|year), data=ht_growth_rel_clim_long %>% filter(name=="MSP") %>% filter(!Provenance=="Gila NF")))
+
+####make plot 
+msp_relht_mod_lm <- lm(relht ~  value, data=ht_growth_rel_clim_long %>% filter(name=="MSP") %>% filter(!Provenance=="Gila NF"))
+
+newdata_msp_relht <-  expand.grid(value=seq(min(ht_growth_rel_clim_noG$MSP), max(ht_growth_rel_clim_noG$MSP), length.out=50))
+msp_relht_predict <- predict(msp_relht_mod_lm, newdata = newdata_msp_relht, interval="confidence")
+
+predictdata_msp_relht <- cbind(newdata_msp_relht, msp_relht_predict) %>% mutate(var="MSP")
+
+msp_relht_plot <- ggplot()+
+  geom_ribbon(data=predictdata_msp_relht, aes(x=value, ymin=lwr, ymax=upr), alpha=0.2)+
+  geom_line(data=predictdata_msp_relht, aes(x=value,y=fit), color="black")+
+  geom_rug(data=ht_growth_rel_clim_noG %>% dplyr::select("MSP")%>% mutate(fit=70), aes(x=MSP,y=fit), linewidth=1, col="black", sides="b")+
+  xlab("Provenance MSP")+
+  ylab("Relative Height Growth Rate (%/year)")+
+  facet_grid(~var)+
+  theme_bw()+
+  theme(legend.position="none")
+msp_relht_plot
+
 
 ggplot(data=ht_growth_rel_clim_noG, aes(x=factor(EXT), y=HT14))+
   geom_boxplot()
@@ -3511,6 +3578,7 @@ ggplot(data=ht_growth_rel_clim_noG, aes(x=factor(DD5), y=HT14))+
   geom_boxplot()
 ggplot(data=ht_growth_rel_clim_noG, aes(x=factor(SHM), y=HT14))+
   geom_boxplot()
+
 
 ######just 2014 #######
 relht_mods14<- data.frame()
@@ -3562,7 +3630,7 @@ pptsp_relht_plot <- ggplot()+
   geom_line(data=predictdata_pptsp_relht, aes(x=value,y=fit), color="black")+
   geom_rug(data=ht_growth_rel_clim_noG %>% dplyr::select("PPTsp")%>% mutate(fit=70), aes(x=PPTsp,y=fit), linewidth=1, col="black", sides="b")+
   xlab("Provenance PPTsp")+
-  ylab("Relativized Height Growth (%)")+
+  ylab("Relative Height Growth Rate (%/year)")+
   facet_grid(~var)+
   theme_bw()+
   theme(legend.position="none")
@@ -3584,7 +3652,7 @@ mcmt_relht_plot <- ggplot()+
   geom_line(data=predictdata_mcmt_relht, aes(x=value,y=fit), color="black")+
   geom_rug(data=ht_growth_rel_clim_noG %>% dplyr::select("MCMT")%>% mutate(fit=70), aes(x=MCMT,y=fit), linewidth=1, col="black", sides="b")+
   xlab("Provenance MCMT")+
-  ylab("Relativized Height Growth (%)")+
+  ylab("Relative Height Growth Rate (%/year)")+
   facet_grid(~var)+
   theme_bw()+
   theme(legend.position="none")
@@ -3606,7 +3674,7 @@ tavewt_relht_plot <- ggplot()+
   geom_line(data=predictdata_tavewt_relht, aes(x=value,y=fit), color="black")+
   geom_rug(data=ht_growth_rel_clim_noG %>% dplyr::select("Tavewt")%>% mutate(fit=70), aes(x=Tavewt,y=fit), linewidth=1, col="black", sides="b")+
   xlab("Provenance Tavewt")+
-  ylab("Relativized Height Growth (%)")+
+  ylab("Relative Height Growth Rate (%/year)")+
   facet_grid(~var)+
   theme_bw()+
   theme(legend.position="none")
@@ -3617,14 +3685,9 @@ ggplot(data=ht_growth_rel_clim_long %>% pivot_wider() %>% filter(!relht>1000), a
   geom_smooth(method="lm")
 ```
 
-##Total Height
-
-###models
-
-####nursery height
 
 ```{r}
-##effect of initial nursery height
+View(ht_growth_rel_data)
 ht_data_year <-  ht_data %>% mutate(year=case_when(
   name=="HT74" ~ 1974,
   name == "HT79" ~ 1979,
@@ -3633,6 +3696,56 @@ ht_data_year <-  ht_data %>% mutate(year=case_when(
   name == "HT96" ~ 1996,
   name == "HT06" ~ 2006,
   name == "HT14" ~ 2014))
+
+rel_abs_ht_data<- ht_growth_rel_data %>% 
+  dplyr::select(c(LOC,BLK,REP,Provenance,name,value)) %>% 
+  mutate(year=case_when(name == "growth79rel" ~ 1979,
+  name == "growth85rel" ~ 1985,
+  name == "growth91rel" ~ 1991,
+  name == "growth96rel" ~ 1996,
+  name == "growth06rel" ~ 2006,
+  name == "growth14rel" ~ 2014)) %>% 
+  rename(relht=value,period=name) %>% 
+  left_join(ht_data_year %>% 
+              rename(absht=value,measyear=name), by=c("year","LOC","BLK","REP","Provenance")) %>% 
+  mutate(relht_peryr = case_when(year==1979 ~ relht/5,
+                                year==1985 ~ relht/6,
+                                year==1991 ~ relht/6,
+                                year==1996 ~ relht/5,
+                                year==2006 ~ relht/10,
+                                year==2014 ~ relht/8))
+
+rel_abs_ht_data_means<- rel_abs_ht_data %>% 
+  group_by(Provenance, year) %>% 
+  summarise(n=n(), meanabsht=mean(absht), meanrelht=mean(relht), meanrelht_peryr=mean(relht_peryr), seabsht=sd(absht)/sqrt(n()), serelht=sd(relht)/sqrt(n()), serelht_peryr=sd(relht_peryr)/sqrt(n()))
+
+ggplot(rel_abs_ht_data_means)+
+  geom_bar(aes(x=factor(Provenance, levels=ht.order$Provenance), y=meanabsht), stat = "identity")+
+  geom_point(aes(x=factor(Provenance, levels=ht.order$Provenance),y=meanrelht/30, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  scale_color_manual(values=unname(stepped()))+
+  facet_wrap(~year, scales="free")+
+  theme_bw()+
+  theme(axis.text.x=element_text(angle=45, hjust=1), legend.position="none")
+
+ggplot(rel_abs_ht_data_means)+
+  geom_point(aes(x=factor(year),y=meanrelht_peryr, col=factor(Provenance, levels=provs_bylat$Provenance)),position=position_dodge(width=.6))+
+  geom_errorbar(aes(x=factor(year), ymin=meanrelht_peryr-serelht_peryr, ymax=meanrelht_peryr+serelht_peryr,  col=factor(Provenance, levels=provs_bylat$Provenance)), position=position_dodge(width=.6), width=.1)+
+  scale_color_manual(values=unname(stepped()))+
+  ylab("Relative Height Growth Per Year (%)")+
+  theme_bw()+
+  theme(axis.text.x=element_text(angle=45, hjust=1), legend.position="none")
+
+```
+
+##Total Height
+
+###models
+
+####nursery height
+
+```{r}
+##effect of initial nursery height
+
 
 nurse_ht_mod <- lmer(log(value) ~ nursery_ht_m + (1|year) + (1|Provenance) + (1|BLK), data=ht_data_year)
 plot(nurse_ht_mod)
