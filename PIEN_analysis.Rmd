@@ -10565,7 +10565,7 @@ SR_PPTwt_plot
 
 ```
 
-Relative Height
+######relative height
 
 
 ```{r}
@@ -10604,7 +10604,7 @@ plot(SR_relhtMAT_quad)
 qqmath(SR_relhtMAT_quad)
 summary(SR_relhtMAT_quad)
 
-SR_relhtMAT_quad_lm <- lm(log(value) ~ value + I(value^2), data=relht_SR_long %>% filter(name=="MAT"))
+SR_relhtMAT_quad_lm <- lm(relht ~ value + I(value^2), data=relht_SR_long %>% filter(name=="MAT"))
 newdata_SR_relhtMAT <- with(relht_SR_long %>% filter(name=="MAT"), data.frame(value=seq(min(value),max(value),length.out=100)))
 
 SR_relhtMAT_predict <- predict(SR_relhtMAT_quad_lm, newdata = newdata_SR_relhtMAT, interval="confidence")
@@ -10616,12 +10616,145 @@ SR_MAT_plot<- ggplot()+
   geom_line(data=predictdata_SR_relhtMAT, aes(x=value,y=fit), color="black")+
   xlab("MAT")+
   ylab("Relative Height Growth Rate (%/year)")+
-  geom_rug(data=relht_SR_long %>% filter(name=="MAT")%>% mutate(fit=.5), aes(x=value,y=fit), linewidth=1, col="black", sides="b")+
+  geom_rug(data=relht_SR_long %>% filter(name=="MAT")%>% mutate(fit=10), aes(x=value,y=fit), linewidth=1, col="black", sides="b")+
   theme_bw()
 SR_MAT_plot
 
+##Tavewt
+SR_relhtTavewt_quad <- lmer(relht ~ value + I(value^2) + (1|Provenance) + (1|BLK) + (1|year), data=relht_SR_long %>% filter(name=="Tavewt"))
+plot(SR_relhtTavewt_quad)
+qqmath(SR_relhtTavewt_quad)
+summary(SR_relhtTavewt_quad)
+
+SR_relhtTavewt_quad_lm <- lm(relht ~ value + I(value^2), data=relht_SR_long %>% filter(name=="Tavewt"))
+newdata_SR_relhtTavewt <- with(relht_SR_long %>% filter(name=="Tavewt"), data.frame(value=seq(min(value),max(value),length.out=100)))
+
+SR_relhtTavewt_predict <- predict(SR_relhtTavewt_quad_lm, newdata = newdata_SR_relhtTavewt, interval="confidence")
+
+predictdata_SR_relhtTavewt <- cbind(newdata_SR_relhtTavewt, SR_relhtTavewt_predict)
+
+SR_Tavewt_plot<- ggplot()+
+  geom_ribbon(data=predictdata_SR_relhtTavewt, aes(x=value, ymin=lwr, ymax=upr), fill="black", alpha=0.2)+
+  geom_line(data=predictdata_SR_relhtTavewt, aes(x=value,y=fit), color="black")+
+  xlab("Tavewt")+
+  ylab("Relative Height Growth Rate (%/year)")+
+  geom_rug(data=relht_SR_long %>% filter(name=="Tavewt")%>% mutate(fit=10), aes(x=value,y=fit), linewidth=1, col="black", sides="b")+
+  theme_bw()
+SR_Tavewt_plot
+
+##DD0
+SR_relhtDD0_quad <- lmer(relht ~ value + I(value^2) + (1|Provenance) + (1|BLK) + (1|year), data=relht_SR_long %>% filter(name=="DD0"))
+plot(SR_relhtDD0_quad)
+qqmath(SR_relhtDD0_quad)
+summary(SR_relhtDD0_quad)
+
+SR_relhtDD0_quad_lm <- lm(relht ~ value + I(value^2), data=relht_SR_long %>% filter(name=="DD0"))
+newdata_SR_relhtDD0 <- with(relht_SR_long %>% filter(name=="DD0"), data.frame(value=seq(min(value),max(value),length.out=100)))
+
+SR_relhtDD0_predict <- predict(SR_relhtDD0_quad_lm, newdata = newdata_SR_relhtDD0, interval="confidence")
+
+predictdata_SR_relhtDD0 <- cbind(newdata_SR_relhtDD0, SR_relhtDD0_predict)
+
+SR_DD0_plot<- ggplot()+
+  geom_ribbon(data=predictdata_SR_relhtDD0, aes(x=value, ymin=lwr, ymax=upr), fill="black", alpha=0.2)+
+  geom_line(data=predictdata_SR_relhtDD0, aes(x=value,y=fit), color="black")+
+  xlab("DD0")+
+  ylab("Relative Height Growth Rate (%/year)")+
+  geom_rug(data=relht_SR_long %>% filter(name=="DD0")%>% mutate(fit=10), aes(x=value,y=fit), linewidth=1, col="black", sides="b")+
+  theme_bw()
+SR_DD0_plot
+
+##DD18
+SR_relhtDD18_quad <- lmer(relht ~ value + I(value^2) + (1|Provenance) + (1|BLK) + (1|year), data=relht_SR_long %>% filter(name=="DD18"))
+plot(SR_relhtDD18_quad)
+qqmath(SR_relhtDD18_quad)
+summary(SR_relhtDD18_quad)
+
+SR_relhtDD18_quad_lm <- lm(relht ~ value + I(value^2), data=relht_SR_long %>% filter(name=="DD18"))
+newdata_SR_relhtDD18 <- with(relht_SR_long %>% filter(name=="DD18"), data.frame(value=seq(min(value),max(value),length.out=100)))
+
+SR_relhtDD18_predict <- predict(SR_relhtDD18_quad_lm, newdata = newdata_SR_relhtDD18, interval="confidence")
+
+predictdata_SR_relhtDD18 <- cbind(newdata_SR_relhtDD18, SR_relhtDD18_predict)
+
+SR_DD18_plot<- ggplot()+
+  geom_ribbon(data=predictdata_SR_relhtDD18, aes(x=value, ymin=lwr, ymax=upr), fill="black", alpha=0.2)+
+  geom_line(data=predictdata_SR_relhtDD18, aes(x=value,y=fit), color="black")+
+  xlab("DD18")+
+  ylab("Relative Height Growth Rate (%/year)")+
+  geom_rug(data=relht_SR_long %>% filter(name=="DD18")%>% mutate(fit=10), aes(x=value,y=fit), linewidth=1, col="black", sides="b")+
+  theme_bw()
+SR_DD18_plot
+```
+
+######pca models
+
+Absolute Height
+
+```{r}
+SR_ht_data_year_clim<- ht_data_year_clim %>% 
+  filter(y < 44 & y > 33)
+
+###try year as a random effect
+#y
+SR_mod_ht_pca_y_randtime <- lmer(log(value) ~ PC1*PC2 + PC1*scale(y) + PC2*scale(y) + I(PC1^2) + I(PC2^2) + I(scale(y)^2)+ (1|Provenance) + (1|BLK) + (1|year), data=SR_ht_data_year_clim)
+plot(SR_mod_ht_pca_y_randtime)
+qqmath(SR_mod_ht_pca_y_randtime)
+summary(SR_mod_ht_pca_y_randtime)
+SR_mod_ht_pca_y_randtime_dredge<- dredge(SR_mod_ht_pca_y_randtime)
+SR_mod_ht_pca_y_randtime_dredge
+
+bestSR_mod_ht_pca_y_randtime <- lmer(value ~ y + (1|Provenance) + (1|BLK) + (1|year), data=SR_ht_data_year_clim)
+summary(bestSR_mod_ht_pca_y_randtime) #negative effect of latitude
+
+#x
+SR_mod_ht_pca_x_randtime <- lmer(log(value) ~ PC1*PC2 + PC1*scale(x) + PC2*scale(x) + I(PC1^2) + I(PC2^2) + I(scale(x)^2)+ (1|Provenance) + (1|BLK) + (1|year), data=SR_ht_data_year_clim)
+plot(SR_mod_ht_pca_x_randtime)
+qqmath(SR_mod_ht_pca_x_randtime)
+summary(SR_mod_ht_pca_x_randtime)
+SR_mod_ht_pca_x_randtime_dredge<- dredge(SR_mod_ht_pca_x_randtime)
+SR_mod_ht_pca_x_randtime_dredge ##best is null 
+
+bestSR_mod_ht_pca_x_randtime <- lmer(log(value) ~ (1|Provenance) + (1|BLK) + (1|year), data=SR_ht_data_year_clim)
+summary(bestSR_mod_ht_pca_x_randtime)
+
+AICc(bestSR_mod_ht_pca_x_randtime,bestSR_mod_ht_pca_y_randtime) ##null is best
 
 ```
+
+Relative Height Growth
+
+```{r}
+##PC x latitude analysis
+ht_growth_rel_clim_SR <- ht_growth_rel_clim %>% 
+  filter(y < 44 & y > 33)
+#y
+SR_mod_relht_pca_y_randtime <- lmer(value ~ PC1*PC2 + PC1*scale(y) + PC2*scale(y) + I(PC1^2) + I(PC2^2) + I(scale(y)^2)+ (1|Provenance) + (1|BLK) + (1|name), data=ht_growth_rel_clim_SR)
+plot(SR_mod_relht_pca_y_randtime)
+qqmath(SR_mod_relht_pca_y_randtime)
+summary(SR_mod_relht_pca_y_randtime)
+SR_mod_relht_pca_y_randtime_dredge<- dredge(SR_mod_relht_pca_y_randtime)
+SR_mod_relht_pca_y_randtime_dredge ##null model is best
+
+bestSR_mod_relht_pca_y_randtime <- lmer(value ~ (1|Provenance) + (1|BLK) + (1|name), data=ht_growth_rel_clim_SR)
+summary(bestSR_mod_relht_pca_y_randtime)
+
+#x
+SR_mod_relht_pca_x_randtime <- lmer(value ~ PC1*PC2 + PC1*scale(x) + PC2*scale(x) + I(PC1^2) + I(PC2^2) + I(scale(x)^2)+ (1|Provenance) + (1|BLK) + (1|name), data=ht_growth_rel_clim_SR)
+plot(SR_mod_relht_pca_x_randtime)
+qqmath(SR_mod_relht_pca_x_randtime)
+summary(SR_mod_relht_pca_x_randtime)
+SR_mod_relht_pca_x_randtime_dredge<- dredge(SR_mod_relht_pca_x_randtime)
+SR_mod_relht_pca_x_randtime_dredge ##null model is best
+
+bestSR_mod_relht_pca_x_randtime <- lmer(value ~  (1|Provenance) + (1|BLK) + (1|name), data=ht_growth_rel_clim_SR)
+summary(bestSR_mod_relht_pca_x_randtime)
+
+##southern region relative growth not well explained by PC1, PC2, latitude or longitude. 
+
+
+```
+
 
 #####dbh
 ```{r}
@@ -10691,49 +10824,544 @@ ggplot()+
 
 ####Northern Region
 
-#####height
 ```{r}
-##Look at just northern region
-ht_NR <- ht_data_clim14_nog %>% filter(y > 44)
-  
-ht_NR_long <- ht_NR %>% 
-  pivot_longer(c(AHM:SHM, smrpb, monsoonality), names_to="climvar.name", values_to = "climvar.value")
+##Look at just northern Rockies, excluding Gila
+ht_NR_long <- ht_data_year_clim_long_noG %>% filter(y > 44)
 
 ht_NR_mods<- data.frame()
 
 for(i in 1:length(provenance_climvars)){
-mod <- lmer(value ~ climvar.value + (1|Provenance) + (1|BLK), data=ht_NR_long %>% filter(climvar.name==provenance_climvars[i]))
+mod <- lmer(log(value) ~ climvar.value + (1|Provenance) + (1|BLK) + (1|year), data=ht_NR_long %>% filter(climvar.name==provenance_climvars[i]))
 pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
 
 ht_NR_mods <- bind_rows(ht_NR_mods, data.frame(var=provenance_climvars[i], pvalue = pvalue))
 
 }
 
-ht_NR_mods %>% arrange(pvalue) ##eFFP, SHM, EMT, PPTsm, NFFD...and many more
+ht_NR_mods %>% arrange(pvalue) ##a bunch are significant, but not the 3 that were significant for the southern region. 
 
-##TD
-ht_SHM_mod <- lmer(value ~ climvar.value + (1|Provenance) + (1|BLK), data=ht_NR_long %>% filter(climvar.name=="SHM"))
-plot(ht_SHM_mod)
-qqmath(ht_SHM_mod)
-summary(ht_SHM_mod)
+##MAT
+NR_ht_MAT_mod <- lmer(log(value) ~ climvar.value + (1|Provenance) + (1|BLK) + (1|year), data=ht_NR_long %>% filter(climvar.name=="MAT"))
+plot(NR_ht_MAT_mod)
+qqmath(NR_ht_MAT_mod)
+summary(NR_ht_MAT_mod)
 
-ggplot(data=ht_NR_long %>% filter(climvar.name=="SHM"), aes(x=climvar.value, y=value))+
-  geom_point()+
-  geom_smooth(method="lm")
+####make plot 
+NR_MAT_ht_mod_lm <- lm(log(value) ~  climvar.value, data=ht_NR_long %>% filter(climvar.name=="MAT"))
+
+newdata_NR_MAT_ht <-  expand.grid(climvar.value=seq(min(ht_NR_long %>% filter(climvar.name=="MAT") %>% pull(climvar.value)), max(ht_NR_long %>% filter(climvar.name=="MAT") %>% pull(climvar.value)),length.out=50))
+NR_MAT_ht_predict <- predict(NR_MAT_ht_mod_lm, newdata = newdata_NR_MAT_ht, interval="confidence")
+
+predicMATata_MAT_ht <- cbind(newdata_NR_MAT_ht, NR_MAT_ht_predict) %>% mutate(var="MAT")
+
+NR_MAT_ht_plot <- ggplot()+
+  geom_ribbon(data=predicMATata_MAT_ht, aes(x=climvar.value, ymin=lwr, ymax=upr), alpha=0.2)+
+  geom_line(data=predicMATata_MAT_ht, aes(x=climvar.value,y=fit), color="black")+
+  geom_rug(data=ht_NR_long %>% filter(climvar.name=="MAT")%>% mutate(fit=1), aes(x=climvar.value,y=fit), linewidth=1, col="black", sides="b")+
+  xlab("Provenance MAT")+
+  ylab("Height (m)")+
+  facet_grid(~var)+
+  theme_bw()+
+  theme(legend.position="none")
+NR_MAT_ht_plot
+
+##SHM
+NR_ht_SHM_mod <- lmer(log(value) ~ climvar.value + (1|Provenance) + (1|BLK) + (1|year), data=ht_NR_long %>% filter(climvar.name=="SHM"))
+plot(NR_ht_SHM_mod)
+qqmath(NR_ht_SHM_mod)
+summary(NR_ht_SHM_mod)
+
+####make plot 
+NR_SHM_ht_mod_lm <- lm(log(value) ~  climvar.value, data=ht_NR_long %>% filter(climvar.name=="SHM"))
+
+newdata_NR_SHM_ht <-  expand.grid(climvar.value=seq(min(ht_NR_long %>% filter(climvar.name=="SHM") %>% pull(climvar.value)), max(ht_NR_long %>% filter(climvar.name=="SHM") %>% pull(climvar.value)), length.out=50))
+NR_SHM_ht_predict <- predict(NR_SHM_ht_mod_lm, newdata = newdata_NR_SHM_ht, interval="confidence")
+
+predicSHMata_SHM_ht <- cbind(newdata_NR_SHM_ht, NR_SHM_ht_predict) %>% mutate(var="SHM")
+
+NR_SHM_ht_plot <- ggplot()+
+  geom_ribbon(data=predicSHMata_SHM_ht, aes(x=climvar.value, ymin=lwr, ymax=upr), alpha=0.2)+
+  geom_line(data=predicSHMata_SHM_ht, aes(x=climvar.value,y=fit), color="black")+
+  geom_rug(data=ht_NR_long %>% filter(climvar.name=="SHM")%>% mutate(fit=1), aes(x=climvar.value,y=fit), linewidth=1, col="black", sides="b")+
+  xlab("Provenance SHM")+
+  ylab("Height (m)")+
+  facet_grid(~var)+
+  theme_bw()+
+  theme(legend.position="none")
+NR_SHM_ht_plot
+
+##CMD
+NR_ht_CMD_mod <- lmer(log(value) ~ climvar.value + (1|Provenance) + (1|BLK) + (1|year), data=ht_NR_long %>% filter(climvar.name=="CMD"))
+plot(NR_ht_CMD_mod)
+qqmath(NR_ht_CMD_mod)
+summary(NR_ht_CMD_mod)
+
+####make plot 
+NR_CMD_ht_mod_lm <- lm(log(value) ~  climvar.value, data=ht_NR_long %>% filter(climvar.name=="CMD"))
+
+newdata_NR_CMD_ht <-  expand.grid(climvar.value=seq(min(ht_NR_long %>% filter(climvar.name=="CMD") %>% pull(climvar.value)), max(ht_NR_long %>% filter(climvar.name=="CMD") %>% pull(climvar.value)), length.out=50))
+NR_CMD_ht_predict <- predict(NR_CMD_ht_mod_lm, newdata = newdata_NR_CMD_ht, interval="confidence")
+
+predicCMData_CMD_ht <- cbind(newdata_NR_CMD_ht, NR_CMD_ht_predict) %>% mutate(var="CMD")
+
+NR_CMD_ht_plot <- ggplot()+
+  geom_ribbon(data=predicCMData_CMD_ht, aes(x=climvar.value, ymin=lwr, ymax=upr), alpha=0.2)+
+  geom_line(data=predicCMData_CMD_ht, aes(x=climvar.value,y=fit), color="black")+
+  geom_rug(data=ht_NR_long %>% filter(climvar.name=="CMD")%>% mutate(fit=1), aes(x=climvar.value,y=fit), linewidth=1, col="black", sides="b")+
+  xlab("Provenance CMD")+
+  ylab("Height (m)")+
+  facet_grid(~var)+
+  theme_bw()+
+  theme(legend.position="none")
+NR_CMD_ht_plot
+
+##NFFD
+ht_NFFD_mod <- lmer(log(value) ~ climvar.value + (1|Provenance) + (1|BLK) + (1|year), data=ht_NR_long %>% filter(climvar.name=="NFFD"))
+plot(ht_NFFD_mod)
+qqmath(ht_NFFD_mod)
+summary(ht_NFFD_mod)
+
+####make plot 
+NR_NFFD_ht_mod_lm <- lm(log(value) ~  climvar.value, data=ht_NR_long %>% filter(climvar.name=="NFFD"))
+
+newdata_NR_NFFD_ht <-  expand.grid(climvar.value=seq(min(ht_NR_long %>% filter(climvar.name=="NFFD") %>% pull(climvar.value)), max(ht_NR_long %>% filter(climvar.name=="NFFD") %>% pull(climvar.value)), length.out=50))
+NR_NFFD_ht_predict <- predict(NR_NFFD_ht_mod_lm, newdata = newdata_NR_NFFD_ht, interval="confidence")
+
+predicNFFData_NFFD_ht <- cbind(newdata_NR_NFFD_ht, NR_NFFD_ht_predict) %>% mutate(var="NFFD")
+
+NR_NFFD_ht_plot <- ggplot()+
+  geom_ribbon(data=predicNFFData_NFFD_ht, aes(x=climvar.value, ymin=lwr, ymax=upr), alpha=0.2)+
+  geom_line(data=predicNFFData_NFFD_ht, aes(x=climvar.value,y=fit), color="black")+
+  geom_rug(data=ht_NR_long %>% filter(climvar.name=="NFFD")%>% mutate(fit=1), aes(x=climvar.value,y=fit), linewidth=1, col="black", sides="b")+
+  xlab("Provenance NFFD")+
+  ylab("Height (m)")+
+  facet_grid(~var)+
+  theme_bw()+
+  theme(legend.position="none")
+NR_NFFD_ht_plot
+
+##PPTsm
+ht_PPTsm_mod <- lmer(log(value) ~ climvar.value + (1|Provenance) + (1|BLK) + (1|year), data=ht_NR_long %>% filter(climvar.name=="PPTsm"))
+plot(ht_PPTsm_mod)
+qqmath(ht_PPTsm_mod)
+summary(ht_PPTsm_mod)
+
+####make plot 
+NR_PPTsm_ht_mod_lm <- lm(log(value) ~  climvar.value, data=ht_NR_long %>% filter(climvar.name=="PPTsm"))
+
+newdata_NR_PPTsm_ht <-  expand.grid(climvar.value=seq(min(ht_NR_long %>% filter(climvar.name=="PPTsm") %>% pull(climvar.value)), max(ht_NR_long %>% filter(climvar.name=="PPTsm") %>% pull(climvar.value)), length.out=50))
+NR_PPTsm_ht_predict <- predict(NR_PPTsm_ht_mod_lm, newdata = newdata_NR_PPTsm_ht, interval="confidence")
+
+predicPPTsmata_PPTsm_ht <- cbind(newdata_NR_PPTsm_ht, NR_PPTsm_ht_predict) %>% mutate(var="PPTsm")
+
+NR_PPTsm_ht_plot <- ggplot()+
+  geom_ribbon(data=predicPPTsmata_PPTsm_ht, aes(x=climvar.value, ymin=lwr, ymax=upr), alpha=0.2)+
+  geom_line(data=predicPPTsmata_PPTsm_ht, aes(x=climvar.value,y=fit), color="black")+
+  geom_rug(data=ht_NR_long %>% filter(climvar.name=="PPTsm")%>% mutate(fit=1), aes(x=climvar.value,y=fit), linewidth=1, col="black", sides="b")+
+  xlab("Provenance PPTsm")+
+  ylab("Height (m)")+
+  facet_grid(~var)+
+  theme_bw()+
+  theme(legend.position="none")
+NR_PPTsm_ht_plot
+
+##MCMT
+ht_MCMT_mod <- lmer(log(value) ~ climvar.value + (1|Provenance) + (1|BLK) + (1|year), data=ht_NR_long %>% filter(climvar.name=="MCMT"))
+plot(ht_MCMT_mod)
+qqmath(ht_MCMT_mod)
+summary(ht_MCMT_mod)
+
+####make plot 
+NR_MCMT_ht_mod_lm <- lm(log(value) ~  climvar.value, data=ht_NR_long %>% filter(climvar.name=="MCMT"))
+
+newdata_NR_MCMT_ht <-  expand.grid(climvar.value=seq(min(ht_NR_long %>% filter(climvar.name=="MCMT") %>% pull(climvar.value)), max(ht_NR_long %>% filter(climvar.name=="MCMT") %>% pull(climvar.value)), length.out=50))
+NR_MCMT_ht_predict <- predict(NR_MCMT_ht_mod_lm, newdata = newdata_NR_MCMT_ht, interval="confidence")
+
+predicMCMTata_MCMT_ht <- cbind(newdata_NR_MCMT_ht, NR_MCMT_ht_predict) %>% mutate(var="MCMT")
+
+NR_MCMT_ht_plot <- ggplot()+
+  geom_ribbon(data=predicMCMTata_MCMT_ht, aes(x=climvar.value, ymin=lwr, ymax=upr), alpha=0.2)+
+  geom_line(data=predicMCMTata_MCMT_ht, aes(x=climvar.value,y=fit), color="black")+
+  geom_rug(data=ht_NR_long %>% filter(climvar.name=="MCMT")%>% mutate(fit=1), aes(x=climvar.value,y=fit), linewidth=1, col="black", sides="b")+
+  xlab("Provenance MCMT")+
+  ylab("Height (m)")+
+  facet_grid(~var)+
+  theme_bw()+
+  theme(legend.position="none")
+NR_MCMT_ht_plot
 
 ###quadratic
 
 ht_NR_mods_quad<- data.frame()
 
 for(i in 1:length(provenance_climvars)){
-mod <- lmer(value ~ climvar.value + I(climvar.value^2) + (1|Provenance) + (1|BLK), data=ht_NR_long %>% filter(climvar.name==provenance_climvars[i]))
+mod <- lmer(log(value) ~ climvar.value + I(climvar.value^2) + (1|Provenance) + (1|BLK) + (1|year), data=ht_NR_long %>% filter(climvar.name==provenance_climvars[i]))
 pvalues<- as.data.frame(summary(mod)$coefficients)[2:3,]$`Pr(>|t|)`
 
 ht_NR_mods_quad <- bind_rows(ht_NR_mods_quad, data.frame(var=provenance_climvars[i], pvalue1 = pvalues[1], pvalue2 = pvalues[2]))
 
 }
 
-ht_NR_mods_quad %>% arrange(pvalue2) #MAP and many more have significant quadratic effect
+ht_NR_mods_quad %>% arrange(pvalue2) #a lot of precip vars have quadratic effects
+
+##MAP
+NR_htmap_quad <- lmer(log(value) ~ climvar.value + I(climvar.value^2) + (1|Provenance) + (1|BLK) + (1|year), data=ht_NR_long %>% filter(climvar.name=="MAP"))
+plot(NR_htmap_quad)
+qqmath(NR_htmap_quad)
+summary(NR_htmap_quad)
+
+NR_htmap_quad_lm <- lm(log(value) ~ climvar.value + I(climvar.value^2), data=ht_NR_long %>% filter(climvar.name=="MAP"))
+newdata_NR_htmap <- with(ht_NR_long %>% filter(climvar.name=="MAP"), data.frame(climvar.value=seq(min(climvar.value),max(climvar.value),length.out=100)))
+
+NR_htmap_predict <- predict(NR_htmap_quad_lm, newdata = newdata_NR_htmap, interval="confidence")
+
+predictdata_NR_htmap <- cbind(newdata_NR_htmap, NR_htmap_predict)
+
+NR_MAP_plot<- ggplot()+
+  geom_ribbon(data=predictdata_NR_htmap, aes(x=climvar.value, ymin=lwr, ymax=upr), fill="black", alpha=0.2)+
+  geom_line(data=predictdata_NR_htmap, aes(x=climvar.value,y=fit), color="black")+
+  xlab("MAP")+
+  ylab("Log(Height (m))")+
+  geom_rug(data=ht_NR_long %>% filter(climvar.name=="MAP")%>% mutate(fit=.5), aes(x=climvar.value,y=fit), linewidth=1, col="black", sides="b")+
+  theme_bw()
+NR_MAP_plot
+
+##PAS
+NR_ht_PAS_quad <- lmer(log(value) ~ climvar.value + I(climvar.value^2) + (1|Provenance) + (1|BLK)+(1|year), data=ht_NR_long %>% filter(climvar.name=="PAS"))
+plot(NR_ht_PAS_quad)
+qqmath(NR_ht_PAS_quad)
+summary(NR_ht_PAS_quad)
+
+NR_ht_PAS_quad_lm <- lm(value ~ climvar.value + I(climvar.value^2), data=ht_NR_long %>% filter(climvar.name=="PAS"))
+newdata_NR_ht_PAS <- with(ht_NR_long %>% filter(climvar.name=="PAS"), data.frame(climvar.value=seq(min(climvar.value),max(climvar.value),length.out=100)))
+
+NR_ht_PAS_predict <- predict(NR_ht_PAS_quad_lm, newdata = newdata_NR_ht_PAS, interval="confidence")
+
+predictdata_NR_ht_PAS <- cbind(newdata_NR_ht_PAS, NR_ht_PAS_predict)
+
+NR_PAS_plot<- ggplot()+
+  geom_ribbon(data=predictdata_NR_ht_PAS, aes(x=climvar.value, ymin=lwr, ymax=upr), fill="black", alpha=0.2)+
+  geom_line(data=predictdata_NR_ht_PAS, aes(x=climvar.value,y=fit), color="black")+
+  geom_rug(data=ht_NR_long %>% filter(climvar.name=="PAS")%>% mutate(fit=3), aes(x=climvar.value,y=fit), linewidth=1, col="black", sides="b")+
+  xlab("PAS")+
+  ylab("log(Height)")+
+  scale_color_manual(values=unname(stepped()),name="Provenance")+
+  theme_bw()
+NR_PAS_plot
+
+##MCMT
+NR_ht_MCMT_quad <- lmer(log(value) ~ climvar.value + I(climvar.value^2) + (1|Provenance) + (1|BLK)+(1|year), data=ht_NR_long %>% filter(climvar.name=="MCMT"))
+plot(NR_ht_MCMT_quad)
+qqmath(NR_ht_MCMT_quad)
+summary(NR_ht_MCMT_quad)
+
+NR_ht_MCMT_quad_lm <- lm(value ~ climvar.value + I(climvar.value^2), data=ht_NR_long %>% filter(climvar.name=="MCMT"))
+newdata_NR_ht_MCMT <- with(ht_NR_long %>% filter(climvar.name=="MCMT"), data.frame(climvar.value=seq(min(climvar.value),max(climvar.value),length.out=100)))
+
+NR_ht_MCMT_predict <- predict(NR_ht_MCMT_quad_lm, newdata = newdata_NR_ht_MCMT, interval="confidence")
+
+predictdata_NR_ht_MCMT <- cbind(newdata_NR_ht_MCMT, NR_ht_MCMT_predict)
+
+NR_MCMT_plot<- ggplot()+
+  geom_ribbon(data=predictdata_NR_ht_MCMT, aes(x=climvar.value, ymin=lwr, ymax=upr), fill="black", alpha=0.2)+
+  geom_line(data=predictdata_NR_ht_MCMT, aes(x=climvar.value,y=fit), color="black")+
+  geom_rug(data=ht_NR_long %>% filter(climvar.name=="MCMT")%>% mutate(fit=3), aes(x=climvar.value,y=fit), linewidth=1, col="black", sides="b")+
+  xlab("MCMT")+
+  ylab("log(Height)")+
+  scale_color_manual(values=unname(stepped()),name="Provenance")+
+  theme_bw()
+NR_MCMT_plot
+
+
+##MSP
+NR_ht_MSP_quad <- lmer(log(value) ~ climvar.value + I(climvar.value^2) + (1|Provenance) + (1|BLK)+(1|year), data=ht_NR_long %>% filter(climvar.name=="MSP"))
+plot(NR_ht_MSP_quad)
+qqmath(NR_ht_MSP_quad)
+summary(NR_ht_MSP_quad)
+
+NR_ht_MSP_quad_lm <- lm(value ~ climvar.value + I(climvar.value^2), data=ht_NR_long %>% filter(climvar.name=="MSP"))
+newdata_NR_ht_MSP <- with(ht_NR_long %>% filter(climvar.name=="MSP"), data.frame(climvar.value=seq(min(climvar.value),max(climvar.value),length.out=100)))
+
+NR_ht_MSP_predict <- predict(NR_ht_MSP_quad_lm, newdata = newdata_NR_ht_MSP, interval="confidence")
+
+predictdata_NR_ht_MSP <- cbind(newdata_NR_ht_MSP, NR_ht_MSP_predict)
+
+NR_MSP_plot<- ggplot()+
+  geom_ribbon(data=predictdata_NR_ht_MSP, aes(x=climvar.value, ymin=lwr, ymax=upr), fill="black", alpha=0.2)+
+  geom_line(data=predictdata_NR_ht_MSP, aes(x=climvar.value,y=fit), color="black")+
+  geom_rug(data=ht_NR_long %>% filter(climvar.name=="MSP")%>% mutate(fit=3), aes(x=climvar.value,y=fit), linewidth=1, col="black", sides="b")+
+  xlab("MSP")+
+  ylab("log(Height)")+
+  scale_color_manual(values=unname(stepped()),name="Provenance")+
+  theme_bw()
+NR_MSP_plot
+```
+
+######relative height
+
+```{r}
+##Look at just northern Rockies, excluding Gila
+relht_NR_long <- ht_growth_rel_clim_long %>% filter(y > 44)
+  
+relht_NR_mods<- data.frame()
+
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(relht ~ value + (1|Provenance) + (1|BLK) + (1|year), data=relht_NR_long %>% filter(name==provenance_climvars[i]))
+pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
+
+relht_NR_mods <- bind_rows(relht_NR_mods, data.frame(var=provenance_climvars[i], pvalue = pvalue))
+
+}
+
+relht_NR_mods %>% arrange(pvalue) ##lots significant
+
+
+##NFFD
+NR_relht_NFFD_mod <- lmer(relht ~ value + (1|Provenance) + (1|BLK) + (1|year), data=relht_NR_long %>% filter(name=="NFFD"))
+plot(NR_relht_NFFD_mod)
+qqmath(NR_relht_NFFD_mod)
+summary(NR_relht_NFFD_mod)
+
+####make plot 
+NR_NFFD_relht_mod_lm <- lm(relht ~  value, data=relht_NR_long %>% filter(name=="NFFD"))
+
+newdata_NR_NFFD_relht <-  expand.grid(value=seq(min(relht_NR_long %>% filter(name=="NFFD") %>% pull(value)), max(relht_NR_long %>% filter(name=="NFFD") %>% pull(value)), length.out=50))
+NR_NFFD_relht_predict <- predict(NR_NFFD_relht_mod_lm, newdata = newdata_NR_NFFD_relht, interval="confidence")
+
+predicNFFData_NFFD_relht <- cbind(newdata_NR_NFFD_relht, NR_NFFD_relht_predict) %>% mutate(var="NFFD")
+
+NR_NFFD_relht_plot <- ggplot()+
+  geom_ribbon(data=predicNFFData_NFFD_relht, aes(x=value, ymin=lwr, ymax=upr), alpha=0.2)+
+  geom_line(data=predicNFFData_NFFD_relht, aes(x=value,y=fit), color="black")+
+  geom_rug(data=relht_NR_long %>% filter(name=="NFFD")%>% mutate(fit=10), aes(x=value,y=fit), linewidth=1, col="black", sides="b")+
+  xlab("Provenance NFFD")+
+  ylab("Relative Height Growth Rate (%/yr)")+
+  facet_grid(~var)+
+  theme_bw()+
+  theme(legend.position="none")
+NR_NFFD_relht_plot
+
+##AHM
+NR_relht_AHM_mod <- lmer(relht ~ value + (1|Provenance) + (1|BLK) + (1|year), data=relht_NR_long %>% filter(name=="AHM"))
+plot(NR_relht_AHM_mod)
+qqmath(NR_relht_AHM_mod)
+summary(NR_relht_AHM_mod)
+
+####make plot 
+NR_AHM_relht_mod_lm <- lm(relht ~  value, data=relht_NR_long %>% filter(name=="AHM"))
+
+newdata_NR_AHM_relht <-  expand.grid(value=seq(min(relht_NR_long %>% filter(name=="AHM") %>% pull(value)), max(relht_NR_long %>% filter(name=="AHM") %>% pull(value)), length.out=50))
+NR_AHM_relht_predict <- predict(NR_AHM_relht_mod_lm, newdata = newdata_NR_AHM_relht, interval="confidence")
+
+predicAHMata_AHM_relht <- cbind(newdata_NR_AHM_relht, NR_AHM_relht_predict) %>% mutate(var="AHM")
+
+NR_AHM_relht_plot <- ggplot()+
+  geom_ribbon(data=predicAHMata_AHM_relht, aes(x=value, ymin=lwr, ymax=upr), alpha=0.2)+
+  geom_line(data=predicAHMata_AHM_relht, aes(x=value,y=fit), color="black")+
+  geom_rug(data=relht_NR_long %>% filter(name=="AHM")%>% mutate(fit=10), aes(x=value,y=fit), linewidth=1, col="black", sides="b")+
+  xlab("Provenance AHM")+
+  ylab("Relative Height Growth Rate (%/yr)")+
+  facet_grid(~var)+
+  theme_bw()+
+  theme(legend.position="none")
+NR_AHM_relht_plot
+
+
+##PPTsm
+NR_relht_PPTsm_mod <- lmer(relht ~ value + (1|Provenance) + (1|BLK) + (1|year), data=relht_NR_long %>% filter(name=="PPTsm"))
+plot(NR_relht_PPTsm_mod)
+qqmath(NR_relht_PPTsm_mod)
+summary(NR_relht_PPTsm_mod)
+
+####make plot 
+NR_PPTsm_relht_mod_lm <- lm(relht ~  value, data=relht_NR_long %>% filter(name=="PPTsm"))
+
+newdata_NR_PPTsm_relht <-  expand.grid(value=seq(min(relht_NR_long %>% filter(name=="PPTsm") %>% pull(value)), max(relht_NR_long %>% filter(name=="PPTsm") %>% pull(value)), length.out=50))
+NR_PPTsm_relht_predict <- predict(NR_PPTsm_relht_mod_lm, newdata = newdata_NR_PPTsm_relht, interval="confidence")
+
+predicPPTsmata_PPTsm_relht <- cbind(newdata_NR_PPTsm_relht, NR_PPTsm_relht_predict) %>% mutate(var="PPTsm")
+
+NR_PPTsm_relht_plot <- ggplot()+
+  geom_ribbon(data=predicPPTsmata_PPTsm_relht, aes(x=value, ymin=lwr, ymax=upr), alpha=0.2)+
+  geom_line(data=predicPPTsmata_PPTsm_relht, aes(x=value,y=fit), color="black")+
+  geom_rug(data=relht_NR_long %>% filter(name=="PPTsm")%>% mutate(fit=10), aes(x=value,y=fit), linewidth=1, col="black", sides="b")+
+  xlab("Provenance PPTsm")+
+  ylab("Relative Height Growth Rate (%/yr)")+
+  facet_grid(~var)+
+  theme_bw()+
+  theme(legend.position="none")
+NR_PPTsm_relht_plot
+
+
+###quadratic
+
+relht_NR_mods_quad<- data.frame()
+
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(relht ~ value + I(value^2) + (1|Provenance) + (1|BLK) + (1|year), data=relht_NR_long %>% filter(name==provenance_climvars[i]))
+pvalues<- as.data.frame(summary(mod)$coefficients)[2:3,]$`Pr(>|t|)`
+
+relht_NR_mods_quad <- bind_rows(relht_NR_mods_quad, data.frame(var=provenance_climvars[i], pvalue1 = pvalues[1], pvalue2 = pvalues[2]))
+
+}
+
+relht_NR_mods_quad %>% arrange(pvalue2) #DD0, DD18, MAT, Tavewt are significant
+
+##MAT
+NR_relhtMAT_quad <- lmer(relht ~ value + I(value^2) + (1|Provenance) + (1|BLK) + (1|year), data=relht_NR_long %>% filter(name=="MAT"))
+plot(NR_relhtMAT_quad)
+qqmath(NR_relhtMAT_quad)
+summary(NR_relhtMAT_quad)
+
+NR_relhtMAT_quad_lm <- lm(relht ~ value + I(value^2), data=relht_NR_long %>% filter(name=="MAT"))
+newdata_NR_relhtMAT <- with(relht_NR_long %>% filter(name=="MAT"), data.frame(value=seq(min(value),max(value),length.out=100)))
+
+NR_relhtMAT_predict <- predict(NR_relhtMAT_quad_lm, newdata = newdata_NR_relhtMAT, interval="confidence")
+
+predictdata_NR_relhtMAT <- cbind(newdata_NR_relhtMAT, NR_relhtMAT_predict)
+
+NR_MAT_plot<- ggplot()+
+  geom_ribbon(data=predictdata_NR_relhtMAT, aes(x=value, ymin=lwr, ymax=upr), fill="black", alpha=0.2)+
+  geom_line(data=predictdata_NR_relhtMAT, aes(x=value,y=fit), color="black")+
+  xlab("MAT")+
+  ylab("Relative Height Growth Rate (%/year)")+
+  geom_rug(data=relht_NR_long %>% filter(name=="MAT")%>% mutate(fit=10), aes(x=value,y=fit), linewidth=1, col="black", sides="b")+
+  theme_bw()
+NR_MAT_plot
+
+##Tavewt
+NR_relhtTavewt_quad <- lmer(relht ~ value + I(value^2) + (1|Provenance) + (1|BLK) + (1|year), data=relht_NR_long %>% filter(name=="Tavewt"))
+plot(NR_relhtTavewt_quad)
+qqmath(NR_relhtTavewt_quad)
+summary(NR_relhtTavewt_quad)
+
+NR_relhtTavewt_quad_lm <- lm(relht ~ value + I(value^2), data=relht_NR_long %>% filter(name=="Tavewt"))
+newdata_NR_relhtTavewt <- with(relht_NR_long %>% filter(name=="Tavewt"), data.frame(value=seq(min(value),max(value),length.out=100)))
+
+NR_relhtTavewt_predict <- predict(NR_relhtTavewt_quad_lm, newdata = newdata_NR_relhtTavewt, interval="confidence")
+
+predictdata_NR_relhtTavewt <- cbind(newdata_NR_relhtTavewt, NR_relhtTavewt_predict)
+
+NR_Tavewt_plot<- ggplot()+
+  geom_ribbon(data=predictdata_NR_relhtTavewt, aes(x=value, ymin=lwr, ymax=upr), fill="black", alpha=0.2)+
+  geom_line(data=predictdata_NR_relhtTavewt, aes(x=value,y=fit), color="black")+
+  xlab("Tavewt")+
+  ylab("Relative Height Growth Rate (%/year)")+
+  geom_rug(data=relht_NR_long %>% filter(name=="Tavewt")%>% mutate(fit=10), aes(x=value,y=fit), linewidth=1, col="black", sides="b")+
+  theme_bw()
+NR_Tavewt_plot
+
+##DD0
+NR_relhtDD0_quad <- lmer(relht ~ value + I(value^2) + (1|Provenance) + (1|BLK) + (1|year), data=relht_NR_long %>% filter(name=="DD0"))
+plot(NR_relhtDD0_quad)
+qqmath(NR_relhtDD0_quad)
+summary(NR_relhtDD0_quad)
+
+NR_relhtDD0_quad_lm <- lm(relht ~ value + I(value^2), data=relht_NR_long %>% filter(name=="DD0"))
+newdata_NR_relhtDD0 <- with(relht_NR_long %>% filter(name=="DD0"), data.frame(value=seq(min(value),max(value),length.out=100)))
+
+NR_relhtDD0_predict <- predict(NR_relhtDD0_quad_lm, newdata = newdata_NR_relhtDD0, interval="confidence")
+
+predictdata_NR_relhtDD0 <- cbind(newdata_NR_relhtDD0, NR_relhtDD0_predict)
+
+NR_DD0_plot<- ggplot()+
+  geom_ribbon(data=predictdata_NR_relhtDD0, aes(x=value, ymin=lwr, ymax=upr), fill="black", alpha=0.2)+
+  geom_line(data=predictdata_NR_relhtDD0, aes(x=value,y=fit), color="black")+
+  xlab("DD0")+
+  ylab("Relative Height Growth Rate (%/year)")+
+  geom_rug(data=relht_NR_long %>% filter(name=="DD0")%>% mutate(fit=10), aes(x=value,y=fit), linewidth=1, col="black", sides="b")+
+  theme_bw()
+NR_DD0_plot
+
+##DD18
+NR_relhtDD18_quad <- lmer(relht ~ value + I(value^2) + (1|Provenance) + (1|BLK) + (1|year), data=relht_NR_long %>% filter(name=="DD18"))
+plot(NR_relhtDD18_quad)
+qqmath(NR_relhtDD18_quad)
+summary(NR_relhtDD18_quad)
+
+NR_relhtDD18_quad_lm <- lm(relht ~ value + I(value^2), data=relht_NR_long %>% filter(name=="DD18"))
+newdata_NR_relhtDD18 <- with(relht_NR_long %>% filter(name=="DD18"), data.frame(value=seq(min(value),max(value),length.out=100)))
+
+NR_relhtDD18_predict <- predict(NR_relhtDD18_quad_lm, newdata = newdata_NR_relhtDD18, interval="confidence")
+
+predictdata_NR_relhtDD18 <- cbind(newdata_NR_relhtDD18, NR_relhtDD18_predict)
+
+NR_DD18_plot<- ggplot()+
+  geom_ribbon(data=predictdata_NR_relhtDD18, aes(x=value, ymin=lwr, ymax=upr), fill="black", alpha=0.2)+
+  geom_line(data=predictdata_NR_relhtDD18, aes(x=value,y=fit), color="black")+
+  xlab("DD18")+
+  ylab("Relative Height Growth Rate (%/year)")+
+  geom_rug(data=relht_NR_long %>% filter(name=="DD18")%>% mutate(fit=10), aes(x=value,y=fit), linewidth=1, col="black", sides="b")+
+  theme_bw()
+NR_DD18_plot
+```
+
+######pca models
+
+Absolute Height
+
+```{r}
+NR_ht_data_year_clim<- ht_data_year_clim %>% 
+  filter(y < 44 & y > 33)
+
+###try year as a random effect
+#y
+NR_mod_ht_pca_y_randtime <- lmer(log(value) ~ PC1*PC2 + PC1*scale(y) + PC2*scale(y) + I(PC1^2) + I(PC2^2) + I(scale(y)^2)+ (1|Provenance) + (1|BLK) + (1|year), data=NR_ht_data_year_clim)
+plot(NR_mod_ht_pca_y_randtime)
+qqmath(NR_mod_ht_pca_y_randtime)
+summary(NR_mod_ht_pca_y_randtime)
+NR_mod_ht_pca_y_randtime_dredge<- dredge(NR_mod_ht_pca_y_randtime)
+NR_mod_ht_pca_y_randtime_dredge
+
+bestNR_mod_ht_pca_y_randtime <- lmer(value ~ y + (1|Provenance) + (1|BLK) + (1|year), data=NR_ht_data_year_clim)
+summary(bestNR_mod_ht_pca_y_randtime) #negative effect of latitude
+
+#x
+NR_mod_ht_pca_x_randtime <- lmer(log(value) ~ PC1*PC2 + PC1*scale(x) + PC2*scale(x) + I(PC1^2) + I(PC2^2) + I(scale(x)^2)+ (1|Provenance) + (1|BLK) + (1|year), data=NR_ht_data_year_clim)
+plot(NR_mod_ht_pca_x_randtime)
+qqmath(NR_mod_ht_pca_x_randtime)
+summary(NR_mod_ht_pca_x_randtime)
+NR_mod_ht_pca_x_randtime_dredge<- dredge(NR_mod_ht_pca_x_randtime)
+NR_mod_ht_pca_x_randtime_dredge ##best is null 
+
+bestNR_mod_ht_pca_x_randtime <- lmer(log(value) ~ (1|Provenance) + (1|BLK) + (1|year), data=NR_ht_data_year_clim)
+summary(bestNR_mod_ht_pca_x_randtime)
+
+AICc(bestNR_mod_ht_pca_x_randtime,bestNR_mod_ht_pca_y_randtime) ##null is best
+
+```
+
+Relative Height Growth
+
+```{r}
+##PC x latitude analysis
+ht_growth_rel_clim_NR <- ht_growth_rel_clim %>% 
+  filter(y < 44 & y > 33)
+#y
+NR_mod_relht_pca_y_randtime <- lmer(value ~ PC1*PC2 + PC1*scale(y) + PC2*scale(y) + I(PC1^2) + I(PC2^2) + I(scale(y)^2)+ (1|Provenance) + (1|BLK) + (1|name), data=ht_growth_rel_clim_NR)
+plot(NR_mod_relht_pca_y_randtime)
+qqmath(NR_mod_relht_pca_y_randtime)
+summary(NR_mod_relht_pca_y_randtime)
+NR_mod_relht_pca_y_randtime_dredge<- dredge(NR_mod_relht_pca_y_randtime)
+NR_mod_relht_pca_y_randtime_dredge ##null model is best
+
+bestNR_mod_relht_pca_y_randtime <- lmer(value ~ (1|Provenance) + (1|BLK) + (1|name), data=ht_growth_rel_clim_NR)
+summary(bestNR_mod_relht_pca_y_randtime)
+
+#x
+NR_mod_relht_pca_x_randtime <- lmer(value ~ PC1*PC2 + PC1*scale(x) + PC2*scale(x) + I(PC1^2) + I(PC2^2) + I(scale(x)^2)+ (1|Provenance) + (1|BLK) + (1|name), data=ht_growth_rel_clim_NR)
+plot(NR_mod_relht_pca_x_randtime)
+qqmath(NR_mod_relht_pca_x_randtime)
+summary(NR_mod_relht_pca_x_randtime)
+NR_mod_relht_pca_x_randtime_dredge<- dredge(NR_mod_relht_pca_x_randtime)
+NR_mod_relht_pca_x_randtime_dredge ##null model is best
+
+bestNR_mod_relht_pca_x_randtime <- lmer(value ~  (1|Provenance) + (1|BLK) + (1|name), data=ht_growth_rel_clim_NR)
+summary(bestNR_mod_relht_pca_x_randtime)
+
+##northern region relative growth not well explained by PC1, PC2, latitude or longitude. 
+
+
 ```
 
 #####dbh
