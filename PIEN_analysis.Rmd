@@ -131,8 +131,8 @@ prov_clim_adjusted_bi <- terra::extract(clim_raster_stack, adjusted_provs, metho
 
 prov_clim_adjusted_bi_long<- prov_clim_adjusted_bi %>% 
   mutate(no=ifelse(is.na(no),"Plan",no)) %>% 
-  dplyr::select(c(Provenance,MAT:PPTsm, smrpb, monsoonality)) %>% 
-  pivot_longer(MAT:monsoonality) %>% 
+  dplyr::select(c(Provenance,AHM:SHM, smrpb, monsoonality)) %>% 
+  pivot_longer(AHM:monsoonality) %>% 
   mutate(type="adj bilinear") 
 
 #NFFD x map
@@ -11745,5 +11745,141 @@ qqmath(pcadist_mod_aet)
 summary(pcadist_mod_aet)
 dredge(pcadist_mod_aet)
 ##neither model is significant with or without Gila. 
+
+```
+
+
+
+#Transfer Functions
+
+```{r}
+
+relht_transfer_df <- ht_growth_rel_clim_long %>% 
+  rename(provenance_value=value) %>% 
+  left_join(prov_clim_adjusted_bi_long %>% filter(Provenance=="Plantation") %>% 
+              rename(plantation_name=name, plantation_value=value) %>% 
+              dplyr::select(-c(Provenance,type)),
+            by=c("name"="plantation_name")) %>% 
+  mutate(transfer = provenance_value - plantation_value)
+
+relht_transfer_df_nog <- relht_transfer_df %>% filter(!Provenance=="Gila NF")
+  
+relht_transfer_mods<- data.frame()
+
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(relht ~ transfer + (1|Provenance) + (1|BLK) + (1|year), data=relht_transfer_df %>% filter(name==provenance_climvars[i]))
+pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
+
+relht_transfer_mods <- bind_rows(relht_transfer_mods, data.frame(var=provenance_climvars[i], pvalue = pvalue))
+
+}
+
+relht_transfer_mods %>% arrange(pvalue) ##lots significant
+
+###quadratic
+
+relht_transfer_mods_quad<- data.frame()
+
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(relht ~ transfer + I(transfer^2) + (1|Provenance) + (1|BLK) + (1|year), data=relht_transfer_df %>% filter(name==provenance_climvars[i]))
+pvalues<- as.data.frame(summary(mod)$coefficients)[2:3,]$`Pr(>|t|)`
+
+mod_nog <- lmer(relht ~ transfer + I(transfer^2) + (1|Provenance) + (1|BLK) + (1|year), data=relht_transfer_df_nog %>% filter(name==provenance_climvars[i]))
+pvalues_nog<- as.data.frame(summary(mod_nog)$coefficients)[2:3,]$`Pr(>|t|)`
+
+relht_transfer_mods_quad <- bind_rows(relht_transfer_mods_quad, data.frame(var=provenance_climvars[i], pvalue1 = pvalues[1], pvalue2 = pvalues[2], pvalue1_nog = pvalues_nog[1], pvalue2_nog = pvalues_nog[2]))
+
+}
+
+relht_transfer_mods_quad %>% arrange(pvalue2) #DD0, DD18, MAT, Tavewt are significant
+
+##DD0
+transfer_relht_DD0_quad <- lmer(relht ~ transfer + I(transfer^2) + (1|Provenance) + (1|BLK) + (1|year), data=relht_transfer_df %>% filter(name=="DD0"))
+plot(transfer_relht_DD0_quad)
+qqmath(transfer_relht_DD0_quad)
+summary(transfer_relht_DD0_quad)
+
+
+transfer_relhtDD0_quad_lm <- lm(relht ~  transfer + I(transfer^2) , data=relht_transfer_df %>% filter(name=="DD0"))
+newdata_transfer_relhtDD0 <- with(relht_transfer_df %>% filter(name=="DD0"), data.frame(transfer=seq(min(transfer),max(transfer),length.out=100)))
+
+transfer_relhtDD0_predict <- predict(transfer_relhtDD0_quad_lm, newdata = newdata_transfer_relhtDD0, interval="confidence")
+
+predictdata_transfer_relhtDD0 <- cbind(newdata_transfer_relhtDD0, transfer_relhtDD0_predict)
+
+x_max_relht_DD0_quad = -coef(transfer_relhtDD0_quad_lm)[2] / (2*coef(transfer_relhtDD0_quad_lm)[3])
+
+y_max_relht_DD0 = coef(transfer_relhtDD0_quad_lm)[1] + coef(transfer_relhtDD0_quad_lm)[2]*x_relht_DD0_quad + coef(transfer_relhtDD0_quad_lm)[3]*(x_relht_DD0_quad^2)
+
+transfer_DD0_plot<- ggplot()+
+  geom_ribbon(data=predictdata_transfer_relhtDD0, aes(x=transfer, ymin=lwr, ymax=upr), fill="black", alpha=0.2)+
+  geom_line(data=predictdata_transfer_relhtDD0, aes(x=transfer,y=fit), color="black")+
+  xlab("DD0")+
+  ylab("Relative Height Growth Rate (%/year)")+
+  geom_rug(data=relht_transfer_df %>% filter(name=="DD0")%>% mutate(fit=10), aes(x=transfer,y=fit), linewidth=1, col="black", sides="b")+
+  geom_vline(xintercept = x_relht_DD0_quad, col="violet", linewidth=1)+
+  theme_bw()
+transfer_DD0_plot
+x_max_relht_DD0_quad
+y_max_relht_DD0
+
+##PPTsm
+transfer_relht_PPTsm_quad <- lmer(relht ~ transfer + I(transfer^2) + (1|Provenance) + (1|BLK) + (1|year), data=relht_transfer_df %>% filter(name=="PPTsm"))
+plot(transfer_relht_PPTsm_quad)
+qqmath(transfer_relht_PPTsm_quad)
+summary(transfer_relht_PPTsm_quad)
+
+transfer_relhtPPTsm_quad_lm <- lm(relht ~  transfer + I(transfer^2) , data=relht_transfer_df %>% filter(name=="PPTsm"))
+newdata_transfer_relhtPPTsm <- with(relht_transfer_df %>% filter(name=="PPTsm"), data.frame(transfer=seq(min(transfer),max(transfer),length.out=100)))
+
+transfer_relhtPPTsm_predict <- predict(transfer_relhtPPTsm_quad_lm, newdata = newdata_transfer_relhtPPTsm, interval="confidence")
+
+predictdata_transfer_relhtPPTsm <- cbind(newdata_transfer_relhtPPTsm, transfer_relhtPPTsm_predict)
+
+x_max_relht_PPTsm_quad = -coef(transfer_relhtPPTsm_quad_lm)[2] / (2*coef(transfer_relhtPPTsm_quad_lm)[3])
+
+y_max_relht_PPTsm_quad = coef(transfer_relhtPPTsm_quad_lm)[1] + coef(transfer_relhtPPTsm_quad_lm)[2]*x_max_relht_PPTsm_quad + coef(transfer_relhtPPTsm_quad_lm)[3]*(x_max_relht_PPTsm_quad^2)
+
+transfer_PPTsm_plot<- ggplot()+
+  geom_ribbon(data=predictdata_transfer_relhtPPTsm, aes(x=transfer, ymin=lwr, ymax=upr), fill="black", alpha=0.2)+
+  geom_line(data=predictdata_transfer_relhtPPTsm, aes(x=transfer,y=fit), color="black")+
+  xlab("PPTsm")+
+  ylab("Relative Height Growth Rate (%/year)")+
+  geom_rug(data=relht_transfer_df %>% filter(name=="PPTsm")%>% mutate(fit=10), aes(x=transfer,y=fit), linewidth=1, col="black", sides="b")+
+  geom_vline(xintercept = x_max_relht_PPTsm_quad, col="violet", linewidth=1)+
+  theme_bw()
+transfer_PPTsm_plot
+y_max_relht_PPTsm_quad
+x_max_relht_PPTsm_quad
+
+##Eref
+transfer_relht_Eref_quad <- lmer(relht ~ transfer + I(transfer^2) + (1|Provenance) + (1|BLK) + (1|year), data=relht_transfer_df %>% filter(name=="Eref"))
+plot(transfer_relht_Eref_quad)
+qqmath(transfer_relht_Eref_quad)
+summary(transfer_relht_Eref_quad)
+
+transfer_relhtEref_quad_lm <- lm(relht ~  transfer + I(transfer^2) , data=relht_transfer_df %>% filter(name=="Eref"))
+newdata_transfer_relhtEref <- with(relht_transfer_df %>% filter(name=="Eref"), data.frame(transfer=seq(min(transfer),max(transfer),length.out=100)))
+
+transfer_relhtEref_predict <- predict(transfer_relhtEref_quad_lm, newdata = newdata_transfer_relhtEref, interval="confidence")
+
+predictdata_transfer_relhtEref <- cbind(newdata_transfer_relhtEref, transfer_relhtEref_predict)
+
+x_max_relht_Eref_quad = -coef(transfer_relhtEref_quad_lm)[2] / (2*coef(transfer_relhtEref_quad_lm)[3])
+
+y_max_relht_Eref_quad = coef(transfer_relhtEref_quad_lm)[1] + coef(transfer_relhtEref_quad_lm)[2]*x_max_relht_Eref_quad + coef(transfer_relhtEref_quad_lm)[3]*(x_max_relht_Eref_quad^2)
+
+transfer_Eref_plot<- ggplot()+
+  geom_ribbon(data=predictdata_transfer_relhtEref, aes(x=transfer, ymin=lwr, ymax=upr), fill="black", alpha=0.2)+
+  geom_line(data=predictdata_transfer_relhtEref, aes(x=transfer,y=fit), color="black")+
+  xlab("Eref")+
+  ylab("Relative Height Growth Rate (%/year)")+
+  geom_rug(data=relht_transfer_df %>% filter(name=="Eref")%>% mutate(fit=10), aes(x=transfer,y=fit), linewidth=1, col="black", sides="b")+
+  geom_vline(xintercept = x_max_relht_Eref_quad, col="violet", linewidth=1)+
+  theme_bw()
+transfer_Eref_plot
+y_max_relht_Eref_quad
+x_max_relht_Eref_quad
+
 
 ```
