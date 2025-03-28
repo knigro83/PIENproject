@@ -1480,15 +1480,23 @@ prov_pcapts_onlyprovs<- prov_pcapts %>%
 provs_bylat <- prov_pcapts_onlyprovs %>% arrange(y)
 
 ###put pien distribution on map
-pien_little_map <- vect("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ArcGIS/Projects/SpeciesRanges/Engelmann spruce ( Picea engelmannii) extent, North America/data/commondata/data0/piceenge.shp")
+pien_little_map <- vect("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ArcGIS/Projects/SpeciesRanges/Engelmann spruce (Picea engelmannii) extent, North America/data/commondata/data0/piceenge.shp")
+pigl_little_map <- vect("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ArcGIS/Projects/SpeciesRanges/White spruce (Picea glauca) extent, North America/data/commondata/data0/piceglau.shp")
+pipu_little_map <- vect("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ArcGIS/Projects/SpeciesRanges/Blue spruce (Picea pungens) extent, North America/data/commondata/data0/picepung.shp")
 plot(pien_little_map)
 pien_little_map_prj <- project(pien_little_map, crs(westernus))
 pien_little_map_prj_crop <- crop(pien_little_map_prj, ext(-126.92, -93.36, 26.2, 52) )
+pigl_little_map_prj <- project(pigl_little_map, crs(westernus))
+pigl_little_map_prj_crop <- crop(pigl_little_map_prj, ext(-126.92, -93.36, 26.2, 52) )
+pipu_little_map_prj <- project(pipu_little_map, crs(westernus))
+pipu_little_map_prj_crop <- crop(pipu_little_map_prj, ext(-126.92, -93.36, 26.2, 52) )
 
 map <- ggplot()+
   geom_spatvector(data=westernus, col="grey", fill="gray100")+
   geom_spatvector(data=canada_crop, col="grey", fill="gray100")+
   geom_spatvector(data=pien_little_map_prj_crop, fill="wheat", col="wheat")+
+  geom_spatvector(data=pigl_little_map_prj_crop, fill="thistle", col="thistle", alpha=0.6)+
+  geom_spatvector(data=pipu_little_map_prj_crop, fill="paleturquoise", col="paleturquoise",alpha=.6)+
   geom_spatvector(data=adjusted_provs %>% left_join(prov_names) %>% filter(!Provenance == "Plantation"), aes(fill=factor(Provenance, levels=provs_bylat$Provenance)), shape=24, size=1.5)+
     scale_fill_manual(values=unname(stepped()), name="Provenance")+
   geom_spatvector(data=adjusted_provs %>% left_join(prov_names) %>% filter(Provenance == "Plantation"), color="black", size=1.5)+
@@ -1506,6 +1514,9 @@ map <- ggplot()+
     style=north_arrow_fancy_orienteering(text_size=8, line_width = 0.8),
     height=unit(.25, "in"),
     width=unit(.25, "in"))
+
+ext(pipu_little_map_prj)
+ext(pigl_little_map_prj)
 
 # png("figures/map.png", width=3, height=3, res=300, units = "in")
  map
@@ -2015,7 +2026,7 @@ figpca_legend <- get_legend( ggplot(as.data.frame(clim_pca_big$x[-(1:5),]), aes(
   theme_bw()+
   theme(legend.position = "right", axis.text = element_text(color="black", size=6), axis.title = element_text(size=8)) )
 
-png("figures/map_and_bigpca.png", width=8.2, height=6.5, res=300, units = "in")
+png("figures/map_and_bigpca_bluewhite.png", width=8.2, height=6.5, res=300, units = "in")
 ggarrange(map,ggarrange(pc1_pc2_niche_plot, contrib.plot, nrow=2, ncol=1, labels=c("B)","C)")), labels=c("A)",""), ncol=2, nrow=1)
 dev.off()
 
@@ -11132,6 +11143,100 @@ SR_surv_all_plot <- ggplot(SR_surv_results, aes(x = climvar.value, y = Predicted
 SR_surv_all_plot
 ```
 
+
+#####provenance climate affect on Gx C correlation 
+```{r}
+
+##############################################
+
+cor_provclim_SR<- cor_clean %>%
+  left_join(name_conversion, by=c("Provenance" = "oldname")) %>% 
+  dplyr::select(-Provenance) %>% 
+  dplyr::rename(Provenance = newname) %>% 
+  left_join(
+prov_pcapts %>% 
+  dplyr::select(c(Provenance,y,PC1:PC2,AHM:SHM,smrpb)), by="Provenance") %>% 
+  filter(y> 33 & y <44)
+
+cor_provclim_long_SR <- pivot_longer(cor_provclim_SR, PC1:smrpb)
+
+# makes plot for every plantation and provenance clim variable
+
+# pdf(file="correlation_by_provclim.pdf")
+# for(i in 1:length(climvars)){
+# plot<- ggplot(cor_provclim_long %>% filter(climvar==climvars[i]), aes(x=value, y=cor))+
+#   geom_point()+
+#   geom_smooth(method="lm")+
+#   facet_wrap(~name, scales="free")+
+#   ggtitle(climvars[i])
+# print(plot)
+# }
+# dev.off()
+
+##corresponding models
+names <- unique(cor_provclim_long_SR$name)
+lmerdata_SR <- data.frame()
+for(i in 1:length(climvars)){
+  for(j in 1:length(names)){
+    data <- cor_provclim_long_SR %>% filter(climvar==climvars[i] & name==names[j]) 
+    mod <- lmer(cor ~ value + (1|Provenance), data=data)
+    pvalue.lmer <- as.data.frame(summary(mod)$coefficients)[2,] %>% pull(`Pr(>|t|)`)
+    
+lmerdata_SR <- bind_rows(lmerdata_SR, data.frame(climvar=climvars[i], name=names[j], pvalue.lmer = pvalue.lmer)) 
+  }}
+
+lmerdata_SR %>% filter(pvalue.lmer < 0.05)
+
+names <- unique(cor_provclim_long_SR$name)
+lmerdata_pcs_SR <- data.frame()
+for(i in 1:length(climvars)){
+    data <- cor_provclim_SR %>% filter(climvar==climvars[i]) 
+    mod <- lmer(cor ~ PC1*PC2 + (1|Provenance), data=data)
+    pc1pvalue.lmer <- as.data.frame(summary(mod)$coefficients)[2,] %>% pull(`Pr(>|t|)`)
+    pc2pvalue.lmer <- as.data.frame(summary(mod)$coefficients)[3,] %>% pull(`Pr(>|t|)`)
+    pc1pc2pvalue.lmer <- as.data.frame(summary(mod)$coefficients)[4,] %>% pull(`Pr(>|t|)`)
+
+    
+lmerdata_pcs_SR <- bind_rows(lmerdata_pcs_SR, data.frame(climvar=climvars[i], pc1value.lmer = pc1pvalue.lmer, pc2value.lmer = pc2pvalue.lmer, pc1pc2value.lmer = pc1pc2pvalue.lmer)) 
+}
+
+lmerdata_pcs_SR %>% 
+  filter((pc1value.lmer < 0.05 | pc2value.lmer < 0.05 | pc1pc2value.lmer<0.05))
+
+pc1_spT_mod <- lmer(cor ~ PC1*PC2 + (1|Provenance), data=cor_provclim_SR %>% filter(climvar=="prior_value_sp_tmean"))
+plot(pc1_spT_mod)
+qqmath(pc1_spT_mod)
+summary(pc1_spT_mod) #strength of correlation with prior spring temperature increases towards hotter and drier provenances (higher PC1)
+
+```
+
+```{r}
+#current year plantation climate
+SR_cyear_trends<- ggplot(data=left_join(lmerdata_SR %>% filter(pvalue.lmer < 0.05), cor_provclim_long_SR, by=c("climvar","name")) %>% filter(!str_detect(climvar, "prior")) , aes(x=value, y=cor))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_grid(climvar~name, scales="free")+
+  geom_hline(yintercept=0, col="red")+
+  ggtitle("Southern Region")
+
+#prior year plantation climate
+SR_pyear_trends<- ggplot(data=left_join(lmerdata_SR %>% filter(pvalue.lmer < 0.05), cor_provclim_long_SR, by=c("climvar","name"))%>% filter(str_detect(climvar, "prior")) , aes(x=value, y=cor))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_grid(climvar~name, scales="free")+
+  geom_hline(yintercept=0, col="red")+
+  ggtitle("Southern Region")
+
+pdf("figures/SR_cyear_trends.pdf", width=11, height=8.5)
+SR_cyear_trends
+dev.off()
+
+pdf("figures/SR_pyear_trends.pdf", width=11, height=8.5)
+SR_pyear_trends
+dev.off()
+##########individual model results
+```
+
 ####Northern Region
 
 ```{r}
@@ -12136,6 +12241,99 @@ NR_surv_mods_quad <- bind_rows(NR_surv_mods_quad, data.frame(var=provenance_clim
 
 NR_surv_mods_quad %>% arrange(pvalue2) ##nothing significant
 
+```
+
+#####provenance climate affect on Gx C correlation 
+```{r}
+
+##############################################
+
+cor_provclim_NR<- cor_clean %>%
+  left_join(name_conversion, by=c("Provenance" = "oldname")) %>% 
+  dplyr::select(-Provenance) %>% 
+  dplyr::rename(Provenance = newname) %>% 
+  left_join(
+prov_pcapts %>% 
+  dplyr::select(c(Provenance,y,PC1:PC2,AHM:SHM,smrpb)), by="Provenance") %>% 
+  filter(y >44)
+
+cor_provclim_long_NR <- pivot_longer(cor_provclim_NR, PC1:smrpb)
+
+# makes plot for every plantation and provenance clim variable
+
+# pdf(file="correlation_by_provclim.pdf")
+# for(i in 1:length(climvars)){
+# plot<- ggplot(cor_provclim_long %>% filter(climvar==climvars[i]), aes(x=value, y=cor))+
+#   geom_point()+
+#   geom_smooth(method="lm")+
+#   facet_wrap(~name, scales="free")+
+#   ggtitle(climvars[i])
+# print(plot)
+# }
+# dev.off()
+
+##corresponding models
+names <- unique(cor_provclim_long_NR$name)
+lmerdata_NR <- data.frame()
+for(i in 1:length(climvars)){
+  for(j in 1:length(names)){
+    data <- cor_provclim_long_NR %>% filter(climvar==climvars[i] & name==names[j]) 
+    mod <- lmer(cor ~ value + (1|Provenance), data=data)
+    pvalue.lmer <- as.data.frame(summary(mod)$coefficients)[2,] %>% pull(`Pr(>|t|)`)
+    
+lmerdata_NR <- bind_rows(lmerdata_NR, data.frame(climvar=climvars[i], name=names[j], pvalue.lmer = pvalue.lmer)) 
+  }}
+
+lmerdata_NR %>% filter(pvalue.lmer < 0.05)
+
+names <- unique(cor_provclim_long_NR$name)
+lmerdata_pcs_NR <- data.frame()
+for(i in 1:length(climvars)){
+    data <- cor_provclim_NR %>% filter(climvar==climvars[i]) 
+    mod <- lmer(cor ~ PC1*PC2 + (1|Provenance), data=data)
+    pc1pvalue.lmer <- as.data.frame(summary(mod)$coefficients)[2,] %>% pull(`Pr(>|t|)`)
+    pc2pvalue.lmer <- as.data.frame(summary(mod)$coefficients)[3,] %>% pull(`Pr(>|t|)`)
+    pc1pc2pvalue.lmer <- as.data.frame(summary(mod)$coefficients)[4,] %>% pull(`Pr(>|t|)`)
+
+    
+lmerdata_pcs_NR <- bind_rows(lmerdata_pcs_NR, data.frame(climvar=climvars[i], pc1value.lmer = pc1pvalue.lmer, pc2value.lmer = pc2pvalue.lmer, pc1pc2value.lmer = pc1pc2pvalue.lmer)) 
+}
+
+lmerdata_pcs_NR %>% 
+  filter((pc1value.lmer < 0.05 | pc2value.lmer < 0.05 | pc1pc2value.lmer<0.05))
+
+NR_pc1_spT_mod <- lmer(cor ~ PC1*PC2 + (1|Provenance), data=cor_provclim_NR %>% filter(climvar=="prior_value_sp_tmean"))
+plot(NR_pc1_spT_mod)
+qqmath(NR_pc1_spT_mod)
+summary(NR_pc1_spT_mod) #strength of correlation with prior spring temperature increases towards hotter and drier provenances (higher PC1)
+
+```
+
+```{r}
+#current year plantation climate
+NR_cyear_trends<- ggplot(data=left_join(lmerdata_NR %>% filter(pvalue.lmer < 0.05), cor_provclim_long_NR, by=c("climvar","name")) %>% filter(!str_detect(climvar, "prior")) , aes(x=value, y=cor))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_grid(climvar~name, scales="free")+
+  geom_hline(yintercept=0, col="red")+
+  ggtitle("Northern Region")
+
+#prior year plantation climate
+NR_pyear_trends<- ggplot(data=left_join(lmerdata_NR %>% filter(pvalue.lmer < 0.05), cor_provclim_long_NR, by=c("climvar","name"))%>% filter(str_detect(climvar, "prior")) , aes(x=value, y=cor))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_grid(climvar~name, scales="free")+
+  geom_hline(yintercept=0, col="red")+
+  ggtitle("Northern Region")
+
+pdf("figures/NR_cyear_trends.pdf", width=11, height=8.5)
+NR_cyear_trends
+dev.off()
+
+pdf("figures/NR_pyear_trends.pdf", width=11, height=8.5)
+NR_pyear_trends
+dev.off()
+##########individual model results
 ```
 
 #Transfer Functions
