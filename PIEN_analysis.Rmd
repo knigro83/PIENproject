@@ -58,7 +58,7 @@ library(cowplot)
 library(glmm)
 library(glmmTMB)
 library(colorspace)
-
+library(sjstats)
 ```
 
 ##Plot locations
@@ -182,6 +182,7 @@ prov_clim_adjusted_bi %>%
 ggplot()+
   geom_point(data=preistriver_clim, aes(x=MAT, y=MAP), col="red", size=3)+
   geom_point(data=prov_clim_adjusted_bi %>% filter(Provenance=="Plantation"), aes(x=MAT, y=MAP), col="black", size=3)
+
 
 ggplot()+
   geom_point(data=preistriver_clim, aes(x=NFFD, y=SHM), col="red", size=3)+
@@ -1480,7 +1481,7 @@ prov_pcapts_onlyprovs<- prov_pcapts %>%
 provs_bylat <- prov_pcapts_onlyprovs %>% arrange(y)
 
 ###put pien distribution on map
-pien_little_map <- vect("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ArcGIS/Projects/SpeciesRanges/Engelmann spruce (Picea engelmannii) extent, North America/data/commondata/data0/piceenge.shp")
+pien_little_map <- vect("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ArcGIS/Projects/SpeciesRanges/Engelmann spruce ( Picea engelmannii) extent, North America/data/commondata/data0/piceenge.shp")
 pigl_little_map <- vect("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ArcGIS/Projects/SpeciesRanges/White spruce (Picea glauca) extent, North America/data/commondata/data0/piceglau.shp")
 pipu_little_map <- vect("C:/Users/KatherineNigro/Box/01. katherine.nigro Workspace/ArcGIS/Projects/SpeciesRanges/Blue spruce (Picea pungens) extent, North America/data/commondata/data0/picepung.shp")
 plot(pien_little_map)
@@ -5766,7 +5767,7 @@ dev.off()
 ###Raw
 
 ```{r}
-prov_all <- read.rwl("C:/Users/KatherineNigro/Box/Engelmann Spruce Provenance/Ring_widths_raw/prov_all.rwl")
+prov_all <- read.rwl("C:/Users/KatherineNigro/Box/Engelmann Spruce Provenance/Standardized_ring_widths/ARSTAN_output/prov_all.rwl")
 
 rwi.stats(prov_all)
 ```
@@ -11181,8 +11182,9 @@ for(i in 1:length(climvars)){
     data <- cor_provclim_long_SR %>% filter(climvar==climvars[i] & name==names[j]) 
     mod <- lmer(cor ~ value + (1|Provenance), data=data)
     pvalue.lmer <- as.data.frame(summary(mod)$coefficients)[2,] %>% pull(`Pr(>|t|)`)
+    r2.lmer <- performance::r2(mod)
     
-lmerdata_SR <- bind_rows(lmerdata_SR, data.frame(climvar=climvars[i], name=names[j], pvalue.lmer = pvalue.lmer)) 
+lmerdata_SR <- bind_rows(lmerdata_SR, data.frame(climvar=climvars[i], name=names[j], pvalue.lmer = pvalue.lmer, r2.lmer=r2.lmer)) 
   }}
 
 lmerdata_SR %>% filter(pvalue.lmer < 0.05)
@@ -11195,9 +11197,9 @@ for(i in 1:length(climvars)){
     pc1pvalue.lmer <- as.data.frame(summary(mod)$coefficients)[2,] %>% pull(`Pr(>|t|)`)
     pc2pvalue.lmer <- as.data.frame(summary(mod)$coefficients)[3,] %>% pull(`Pr(>|t|)`)
     pc1pc2pvalue.lmer <- as.data.frame(summary(mod)$coefficients)[4,] %>% pull(`Pr(>|t|)`)
+    r2.lmer <- performance::r2(mod)
 
-    
-lmerdata_pcs_SR <- bind_rows(lmerdata_pcs_SR, data.frame(climvar=climvars[i], pc1value.lmer = pc1pvalue.lmer, pc2value.lmer = pc2pvalue.lmer, pc1pc2value.lmer = pc1pc2pvalue.lmer)) 
+lmerdata_pcs_SR <- bind_rows(lmerdata_pcs_SR, data.frame(climvar=climvars[i], pc1value.lmer = pc1pvalue.lmer, pc2value.lmer = pc2pvalue.lmer, pc1pc2value.lmer = pc1pc2pvalue.lmer, r2.lmer=r2.lmer)) 
 }
 
 lmerdata_pcs_SR %>% 
@@ -11231,10 +11233,60 @@ pdf("figures/SR_cyear_trends.pdf", width=11, height=8.5)
 SR_cyear_trends
 dev.off()
 
-pdf("figures/SR_pyear_trends.pdf", width=11, height=8.5)
+pdf("figures/SR_pyear_trends.pdf", width=11, height=11)
 SR_pyear_trends
 dev.off()
 ##########individual model results
+
+##current year - pick most representative variables to display
+
+SR_corplots5 <- ggarrange(
+ggplot()+
+    geom_hline(yintercept=0, col="black")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  geom_point(data=left_join(lmerdata_SR, cor_provclim_long_SR, by=c("climvar","name")) %>% filter(climvar =="day_of_first_fall_frost" & name=="PPTsm")  , aes(x=value, y=cor, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_smooth(data= left_join(lmerdata_SR, cor_provclim_long_SR, by=c("climvar","name")) %>% filter(climvar =="day_of_first_fall_frost" & name=="PPTsm"), aes(x=value, y=cor), method="lm", col="darkgrey")+
+  xlab("Provenance Summer Precip (mm)")+ ylab("Correlation")+
+  ggtitle("A) Day of first fall frost X RWI")+
+  theme_bw(),
+
+ggplot()+
+    geom_hline(yintercept=0, col="black")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  geom_point(data=left_join(lmerdata_SR, cor_provclim_long_SR, by=c("climvar","name")) %>% filter(climvar =="day_of_last_spring_frost" & name=="bFFP")  , aes(x=value, y=cor, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_smooth(data= left_join(lmerdata_SR, cor_provclim_long_SR, by=c("climvar","name")) %>% filter(climvar =="day_of_last_spring_frost" & name=="bFFP"), aes(x=value, y=cor), method="lm", col="darkgrey")+
+  xlab("Provenance beginning of frost-free period")+ ylab("Correlation")+
+  ggtitle("A) Day of last spring frost X RWI")+
+  theme_bw(),
+
+ggplot()+
+    geom_hline(yintercept=0, col="black")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  geom_point(data=left_join(lmerdata_SR, cor_provclim_long_SR, by=c("climvar","name")) %>% filter(climvar =="day_of_last_spring_frost" & name=="MWMT")  , aes(x=value, y=cor, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_smooth(data= left_join(lmerdata_SR, cor_provclim_long_SR, by=c("climvar","name")) %>% filter(climvar =="day_of_last_spring_frost" & name=="MWMT"), aes(x=value, y=cor), method="lm", col="darkgrey")+
+  xlab("Provenance mean warmest month temp (C)")+ ylab("Correlation")+
+  ggtitle("A) Day of last spring frost X RWI")+
+  theme_bw(),
+
+ggplot()+
+    geom_hline(yintercept=0, col="black")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  geom_point(data=left_join(lmerdata_SR, cor_provclim_long_SR, by=c("climvar","name")) %>% filter(climvar =="value_sm_tmin" & name=="PPTat")  , aes(x=value, y=cor, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_smooth(data= left_join(lmerdata_SR, cor_provclim_long_SR, by=c("climvar","name")) %>% filter(climvar =="value_sm_tmin" & name=="PPTat"), aes(x=value, y=cor), method="lm", col="darkgrey")+
+  xlab("Provenance Fall Precip (mm)")+ ylab("Correlation")+
+  ggtitle("A) Summer Tmin X RWI")+
+  theme_bw(),
+
+ggplot()+
+    geom_hline(yintercept=0, col="black")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  geom_point(data=left_join(lmerdata_SR, cor_provclim_long_SR, by=c("climvar","name")) %>% filter(climvar =="value_wt_tmin" & name=="CMD")  , aes(x=value, y=cor, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_smooth(data= left_join(lmerdata_SR, cor_provclim_long_SR, by=c("climvar","name")) %>% filter(climvar =="value_wt_tmin" & name=="CMD"), aes(x=value, y=cor), method="lm", col="darkgrey")+
+  xlab("Provenance Climate Moisture Deficit")+ ylab("Correlation")+
+  ggtitle("A) Winter Tmin X RWI")+
+  theme_bw(), common.legend=TRUE, ncol=3, nrow=2)
+
+SR_corplots5
 ```
 
 ####Northern Region
@@ -12280,8 +12332,9 @@ for(i in 1:length(climvars)){
     data <- cor_provclim_long_NR %>% filter(climvar==climvars[i] & name==names[j]) 
     mod <- lmer(cor ~ value + (1|Provenance), data=data)
     pvalue.lmer <- as.data.frame(summary(mod)$coefficients)[2,] %>% pull(`Pr(>|t|)`)
+    r2 <-  performance::r2(mod)$R2_conditional
     
-lmerdata_NR <- bind_rows(lmerdata_NR, data.frame(climvar=climvars[i], name=names[j], pvalue.lmer = pvalue.lmer)) 
+lmerdata_NR <- bind_rows(lmerdata_NR, data.frame(climvar=climvars[i], name=names[j], pvalue.lmer = pvalue.lmer, r2.lmer = r2)) 
   }}
 
 lmerdata_NR %>% filter(pvalue.lmer < 0.05)
@@ -12334,6 +12387,56 @@ pdf("figures/NR_pyear_trends.pdf", width=11, height=8.5)
 NR_pyear_trends
 dev.off()
 ##########individual model results
+
+##current year - pick most representative variables to display
+
+SR_corplots5 <- ggarrange(
+ggplot()+
+    geom_hline(yintercept=0, col="black")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  geom_point(data=left_join(lmerdata_SR, cor_provclim_long_SR, by=c("climvar","name")) %>% filter(climvar =="day_of_first_fall_frost" & name=="PPTsm")  , aes(x=value, y=cor, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_smooth(data= left_join(lmerdata_SR, cor_provclim_long_SR, by=c("climvar","name")) %>% filter(climvar =="day_of_first_fall_frost" & name=="PPTsm"), aes(x=value, y=cor), method="lm", col="darkgrey")+
+  xlab("Provenance Summer Precip (mm)")+ ylab("Correlation")+
+  ggtitle("A) Day of first fall frost X RWI")+
+  theme_bw(),
+
+ggplot()+
+    geom_hline(yintercept=0, col="black")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  geom_point(data=left_join(lmerdata_SR, cor_provclim_long_SR, by=c("climvar","name")) %>% filter(climvar =="day_of_last_spring_frost" & name=="bFFP")  , aes(x=value, y=cor, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_smooth(data= left_join(lmerdata_SR, cor_provclim_long_SR, by=c("climvar","name")) %>% filter(climvar =="day_of_last_spring_frost" & name=="bFFP"), aes(x=value, y=cor), method="lm", col="darkgrey")+
+  xlab("Provenance beginning of frost-free period")+ ylab("Correlation")+
+  ggtitle("A) Day of last spring frost X RWI")+
+  theme_bw(),
+
+ggplot()+
+    geom_hline(yintercept=0, col="black")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  geom_point(data=left_join(lmerdata_SR, cor_provclim_long_SR, by=c("climvar","name")) %>% filter(climvar =="day_of_last_spring_frost" & name=="MWMT")  , aes(x=value, y=cor, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_smooth(data= left_join(lmerdata_SR, cor_provclim_long_SR, by=c("climvar","name")) %>% filter(climvar =="day_of_last_spring_frost" & name=="MWMT"), aes(x=value, y=cor), method="lm", col="darkgrey")+
+  xlab("Provenance mean warmest month temp (C)")+ ylab("Correlation")+
+  ggtitle("A) Day of last spring frost X RWI")+
+  theme_bw(),
+
+ggplot()+
+    geom_hline(yintercept=0, col="black")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  geom_point(data=left_join(lmerdata_SR, cor_provclim_long_SR, by=c("climvar","name")) %>% filter(climvar =="value_sm_tmin" & name=="PPTat")  , aes(x=value, y=cor, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_smooth(data= left_join(lmerdata_SR, cor_provclim_long_SR, by=c("climvar","name")) %>% filter(climvar =="value_sm_tmin" & name=="PPTat"), aes(x=value, y=cor), method="lm", col="darkgrey")+
+  xlab("Provenance Fall Precip (mm)")+ ylab("Correlation")+
+  ggtitle("A) Summer Tmin X RWI")+
+  theme_bw(),
+
+ggplot()+
+    geom_hline(yintercept=0, col="black")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  geom_point(data=left_join(lmerdata_SR, cor_provclim_long_SR, by=c("climvar","name")) %>% filter(climvar =="value_wt_tmin" & name=="CMD")  , aes(x=value, y=cor, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_smooth(data= left_join(lmerdata_SR, cor_provclim_long_SR, by=c("climvar","name")) %>% filter(climvar =="value_wt_tmin" & name=="CMD"), aes(x=value, y=cor), method="lm", col="darkgrey")+
+  xlab("Provenance Climate Moisture Deficit")+ ylab("Correlation")+
+  ggtitle("A) Winter Tmin X RWI")+
+  theme_bw(), common.legend=TRUE, ncol=3, nrow=2)
+
+SR_corplots5
 ```
 
 #Transfer Functions
