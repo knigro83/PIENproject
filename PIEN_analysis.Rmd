@@ -58,7 +58,7 @@ library(cowplot)
 library(glmm)
 library(glmmTMB)
 library(colorspace)
-library(sjstats)
+library(performance)
 ```
 
 ##Plot locations
@@ -317,9 +317,6 @@ prov_futures_long<- prov_futures %>%
   dplyr::select(ID,Provenance,everything()) %>% 
   pivot_longer(cols=AHM_ssp585_2020s:SHM_ssp585_2080s) %>% 
   separate(name, into=c("climvar","carbon","period"), remove=TRUE) 
-
-prov_futures_long
-
 ```
 
 ##PRISM
@@ -1151,6 +1148,7 @@ summary(sptmean_mod) #NS
 sptmin_mod <- lm(value~year, data=plantation_clim_long %>% filter(name=="value_sp_tmin"))
 plot(sptmin_mod)
 summary(sptmin_mod) #significant
+r2(sptmin_mod)
 
 sptmax_mod <- lm(value~year, data=plantation_clim_long %>% filter(name=="value_sp_tmax"))
 plot(sptmax_mod)
@@ -1161,10 +1159,12 @@ summary(sptmax_mod) #NS
 smtmean_mod <- lm(value~year, data=plantation_clim_long %>% filter(name=="value_sm_tmean"))
 plot(smtmean_mod)
 summary(smtmean_mod) #Significant
+r2(smtmean_mod)
 
 smtmin_mod <- lm(value~year, data=plantation_clim_long %>% filter(name=="value_sm_tmin"))
 plot(smtmin_mod)
 summary(smtmin_mod) #significant
+r2(smtmin_mod)
 
 smtmax_mod <- lm(value~year, data=plantation_clim_long %>% filter(name=="value_sm_tmax"))
 plot(smtmax_mod)
@@ -9822,8 +9822,9 @@ for(i in 1:length(climvars)){
     data <- cor_provclim_long %>% filter(climvar==climvars[i] & name==names[j]) 
     mod <- lmer(cor ~ value + (1|Provenance), data=data)
     pvalue.lmer <- as.data.frame(summary(mod)$coefficients)[2,] %>% pull(`Pr(>|t|)`)
-    
-lmerdata <- bind_rows(lmerdata, data.frame(climvar=climvars[i], name=names[j], pvalue.lmer = pvalue.lmer)) 
+    r2.lmer <- performance::r2(mod)$R2_conditional
+
+lmerdata <- bind_rows(lmerdata, data.frame(climvar=climvars[i], name=names[j], pvalue.lmer = pvalue.lmer, r2.lmer=r2.lmer)) 
   }}
 
 lmerdata %>% filter(pvalue.lmer < 0.05)
@@ -9836,9 +9837,10 @@ for(i in 1:length(climvars)){
     pc1pvalue.lmer <- as.data.frame(summary(mod)$coefficients)[2,] %>% pull(`Pr(>|t|)`)
     pc2pvalue.lmer <- as.data.frame(summary(mod)$coefficients)[3,] %>% pull(`Pr(>|t|)`)
     pc1pc2pvalue.lmer <- as.data.frame(summary(mod)$coefficients)[4,] %>% pull(`Pr(>|t|)`)
+    r2.lmer <- performance::rd(mod)$R2_conditional
 
     
-lmerdata_pcs <- bind_rows(lmerdata_pcs, data.frame(climvar=climvars[i], pc1value.lmer = pc1pvalue.lmer, pc2value.lmer = pc2pvalue.lmer, pc1pc2value.lmer = pc1pc2pvalue.lmer)) 
+lmerdata_pcs <- bind_rows(lmerdata_pcs, data.frame(climvar=climvars[i], pc1value.lmer = pc1pvalue.lmer, pc2value.lmer = pc2pvalue.lmer, pc1pc2value.lmer = pc1pc2pvalue.lmer, r2.lmer=r2.lmer)) 
 }
 
 lmerdata_pcs %>% 
@@ -9861,7 +9863,7 @@ for(i in 1:length(annual_climvar)){
     mod <- lmer(cor ~ value + (1|Provenance), data=cor_provclim_long %>% filter(climvar==annual_climvar[i] & name==prov_climvar[i]))
     mod_nog <- lmer(cor ~ value + (1|Provenance), data=cor_provclim_long %>% filter(climvar==annual_climvar[i] & name==prov_climvar[i]) %>% filter(!Provenance=="Gila NF"))
     
-    correlation_strength_results <- bind_rows(correlation_strength_results, data.frame(annual_climvar = annual_climvar[i], prov_climvar = prov_climvar[i], pvalue_all = as.data.frame(summary(mod)$coefficients)[2,] %>% pull(`Pr(>|t|)`), pvalue_nog = as.data.frame(summary(mod_nog)$coefficients)[2,] %>% pull(`Pr(>|t|)`)))
+    correlation_strength_results <- bind_rows(correlation_strength_results, data.frame(annual_climvar = annual_climvar[i], prov_climvar = prov_climvar[i], pvalue_all = as.data.frame(summary(mod)$coefficients)[2,] %>% pull(`Pr(>|t|)`), pvalue_nog = as.data.frame(summary(mod_nog)$coefficients)[2,] %>% pull(`Pr(>|t|)`), r2_all = performance::r2(mod)$R2_conditional, r2_nog = performance::r2(mod_nog)$R2_conditional))
 }
 correlation_strength_results %>% 
   filter(pvalue_nog<0.05)
@@ -10245,7 +10247,10 @@ ggplot(dbh_clim_data, aes(x=DBH14, y=cor))+
 dbhmods = data.frame()
 for(i in 1:length(climvars)){
 mod <- lmer(cor ~ DBH_recent + (1|Provenance), data=dbh_clim_data %>% filter(climvar==climvars[i]))
-dbhmods <- bind_rows(dbhmods, data.frame(climvar = climvars[i], pvalue = as.data.frame(summary(mod)$coefficients)[2,] %>% pull(`Pr(>|t|)`)))}
+
+
+
+dbhmods <- bind_rows(dbhmods, data.frame(climvar = climvars[i], pvalue = as.data.frame(summary(mod)$coefficients)[2,] %>% pull(`Pr(>|t|)`), r2=performance::r2(mod)$R2_))}
 
 dbhmods %>% filter(pvalue < 0.05)
 
@@ -11182,9 +11187,15 @@ for(i in 1:length(climvars)){
     data <- cor_provclim_long_SR %>% filter(climvar==climvars[i] & name==names[j]) 
     mod <- lmer(cor ~ value + (1|Provenance), data=data)
     pvalue.lmer <- as.data.frame(summary(mod)$coefficients)[2,] %>% pull(`Pr(>|t|)`)
-    r2.lmer <- performance::r2(mod)
+    Cr2.lmer <- performance::r2(mod)$R2_conditional
+    Mr2.lmer <- performance::r2(mod)$R2_marginal
+
+    if(!is.na(Cr2.lmer)) (
+lmerdata_SR <- bind_rows(lmerdata_SR, data.frame(climvar=climvars[i], name=names[j], pvalue.lmer = pvalue.lmer, r2.lmer=Cr2.lmer, r2type="C")) )
     
-lmerdata_SR <- bind_rows(lmerdata_SR, data.frame(climvar=climvars[i], name=names[j], pvalue.lmer = pvalue.lmer, r2.lmer=r2.lmer)) 
+    if(is.na(Cr2.lmer)) (
+lmerdata_SR <- bind_rows(lmerdata_SR, data.frame(climvar=climvars[i], name=names[j], pvalue.lmer = pvalue.lmer, r2.lmer=Mr2.lmer, r2type="M")) )
+    
   }}
 
 lmerdata_SR %>% filter(pvalue.lmer < 0.05)
@@ -11197,9 +11208,16 @@ for(i in 1:length(climvars)){
     pc1pvalue.lmer <- as.data.frame(summary(mod)$coefficients)[2,] %>% pull(`Pr(>|t|)`)
     pc2pvalue.lmer <- as.data.frame(summary(mod)$coefficients)[3,] %>% pull(`Pr(>|t|)`)
     pc1pc2pvalue.lmer <- as.data.frame(summary(mod)$coefficients)[4,] %>% pull(`Pr(>|t|)`)
-    r2.lmer <- performance::r2(mod)
+    Cr2.lmer <- performance::r2(mod)$R2_conditional
+    Mr2.lmer <- performance::r2(mod)$R2_marginal
 
-lmerdata_pcs_SR <- bind_rows(lmerdata_pcs_SR, data.frame(climvar=climvars[i], pc1value.lmer = pc1pvalue.lmer, pc2value.lmer = pc2pvalue.lmer, pc1pc2value.lmer = pc1pc2pvalue.lmer, r2.lmer=r2.lmer)) 
+    if(!is.na(Cr2.lmer)) (
+lmerdata_pcs_SR <- bind_rows(lmerdata_pcs_SR, data.frame(climvar=climvars[i], pc1value.lmer = pc1pvalue.lmer, pc2value.lmer = pc2pvalue.lmer, pc1pc2value.lmer = pc1pc2pvalue.lmer, r2.lmer=Cr2.lmer, r2type="C")) ) 
+
+    if(is.na(Cr2.lmer)) (
+lmerdata_pcs_SR <- bind_rows(lmerdata_pcs_SR, data.frame(climvar=climvars[i], pc1value.lmer = pc1pvalue.lmer, pc2value.lmer = pc2pvalue.lmer, pc1pc2value.lmer = pc1pc2pvalue.lmer, r2.lmer=Mr2.lmer, r2type="M")) ) 
+
+
 }
 
 lmerdata_pcs_SR %>% 
