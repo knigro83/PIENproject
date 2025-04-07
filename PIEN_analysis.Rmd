@@ -9822,9 +9822,15 @@ for(i in 1:length(climvars)){
     data <- cor_provclim_long %>% filter(climvar==climvars[i] & name==names[j]) 
     mod <- lmer(cor ~ value + (1|Provenance), data=data)
     pvalue.lmer <- as.data.frame(summary(mod)$coefficients)[2,] %>% pull(`Pr(>|t|)`)
-    r2.lmer <- performance::r2(mod)$R2_conditional
+    Cr2.lmer <- performance::r2(mod)$R2_conditional
+    Mr2.lmer <- performance::r2(mod)$R2_marginal
 
-lmerdata <- bind_rows(lmerdata, data.frame(climvar=climvars[i], name=names[j], pvalue.lmer = pvalue.lmer, r2.lmer=r2.lmer)) 
+    if(!is.na(Cr2.lmer)) (
+lmerdata <- bind_rows(lmerdata, data.frame(climvar=climvars[i], name=names[j], pvalue.lmer = pvalue.lmer, r2.lmer=Cr2.lmer, r2type="C")) ) 
+
+    if(is.na(Cr2.lmer)) (
+lmerdata <- bind_rows(lmerdata, data.frame(climvar=climvars[i], name=names[j], pvalue.lmer = pvalue.lmer, r2.lmer=Mr2.lmer, r2type="M"))
+ ) 
   }}
 
 lmerdata %>% filter(pvalue.lmer < 0.05)
@@ -9837,19 +9843,20 @@ for(i in 1:length(climvars)){
     pc1pvalue.lmer <- as.data.frame(summary(mod)$coefficients)[2,] %>% pull(`Pr(>|t|)`)
     pc2pvalue.lmer <- as.data.frame(summary(mod)$coefficients)[3,] %>% pull(`Pr(>|t|)`)
     pc1pc2pvalue.lmer <- as.data.frame(summary(mod)$coefficients)[4,] %>% pull(`Pr(>|t|)`)
-    r2.lmer <- performance::rd(mod)$R2_conditional
+    Cr2.lmer <- performance::r2(mod)$R2_conditional
+    Mr2.lmer <- performance::r2(mod)$R2_marginal
 
-    
-lmerdata_pcs <- bind_rows(lmerdata_pcs, data.frame(climvar=climvars[i], pc1value.lmer = pc1pvalue.lmer, pc2value.lmer = pc2pvalue.lmer, pc1pc2value.lmer = pc1pc2pvalue.lmer, r2.lmer=r2.lmer)) 
+       if(!is.na(Cr2.lmer)) (
+lmerdata_pcs <- bind_rows(lmerdata_pcs, data.frame(climvar=climvars[i], pc1value.lmer = pc1pvalue.lmer, pc2value.lmer = pc2pvalue.lmer, pc1pc2value.lmer = pc1pc2pvalue.lmer, r2.lmer=Cr2.lmer, r2type="C"))  ) 
+
+    if(is.na(Cr2.lmer)) (
+lmerdata_pcs <- bind_rows(lmerdata_pcs, data.frame(climvar=climvars[i], pc1value.lmer = pc1pvalue.lmer, pc2value.lmer = pc2pvalue.lmer, pc1pc2value.lmer = pc1pc2pvalue.lmer, r2.lmer=Mr2.lmer, r2type="M")) 
+ ) 
+
 }
 
 lmerdata_pcs %>% 
   filter((pc1value.lmer < 0.05 | pc2value.lmer < 0.05 | pc1pc2value.lmer<0.05))
-
-pc1_spT_mod <- lmer(cor ~ PC1*PC2 + (1|Provenance), data=cor_provclim %>% filter(climvar=="prior_value_sp_tmean"))
-plot(pc1_spT_mod)
-qqmath(pc1_spT_mod)
-summary(pc1_spT_mod) #strength of correlation with prior spring temperature increases towards hotter and drier provenances (higher PC1)
 
 ```
 
@@ -9862,9 +9869,27 @@ correlation_strength_results <- data.frame()
 for(i in 1:length(annual_climvar)){
     mod <- lmer(cor ~ value + (1|Provenance), data=cor_provclim_long %>% filter(climvar==annual_climvar[i] & name==prov_climvar[i]))
     mod_nog <- lmer(cor ~ value + (1|Provenance), data=cor_provclim_long %>% filter(climvar==annual_climvar[i] & name==prov_climvar[i]) %>% filter(!Provenance=="Gila NF"))
+    Cr2.lmer <- performance::r2(mod)$R2_conditional
+    Mr2.lmer <- performance::r2(mod)$R2_marginal
+    Cr2.lmer_nog <- performance::r2(mod_nog)$R2_conditional
+    Mr2.lmer_nog <- performance::r2(mod_nog)$R2_marginal
+
+    if(!is.na(Cr2.lmer) & !is.na(Cr2.lmer_nog)) (
+       correlation_strength_results <- bind_rows(correlation_strength_results, data.frame(annual_climvar = annual_climvar[i], prov_climvar = prov_climvar[i], pvalue_all = as.data.frame(summary(mod)$coefficients)[2,] %>% pull(`Pr(>|t|)`), pvalue_nog = as.data.frame(summary(mod_nog)$coefficients)[2,] %>% pull(`Pr(>|t|)`), r2.lmer=Cr2.lmer, r2type="C", r2.lmer_nog=Cr2.lmer_nog, r2nogtype="C"))
+    )
     
-    correlation_strength_results <- bind_rows(correlation_strength_results, data.frame(annual_climvar = annual_climvar[i], prov_climvar = prov_climvar[i], pvalue_all = as.data.frame(summary(mod)$coefficients)[2,] %>% pull(`Pr(>|t|)`), pvalue_nog = as.data.frame(summary(mod_nog)$coefficients)[2,] %>% pull(`Pr(>|t|)`), r2_all = performance::r2(mod)$R2_conditional, r2_nog = performance::r2(mod_nog)$R2_conditional))
+        if(is.na(Cr2.lmer) & is.na(Cr2.lmer_nog)) (
+       correlation_strength_results <- bind_rows(correlation_strength_results, data.frame(annual_climvar = annual_climvar[i], prov_climvar = prov_climvar[i], pvalue_all = as.data.frame(summary(mod)$coefficients)[2,] %>% pull(`Pr(>|t|)`), pvalue_nog = as.data.frame(summary(mod_nog)$coefficients)[2,] %>% pull(`Pr(>|t|)`), r2.lmer=Mr2.lmer, r2type="M", r2.lmer_nog=Mr2.lmer_nog, r2nogtype="M"))
+    )
+    
+        if(!is.na(Cr2.lmer) & is.na(Cr2.lmer_nog)) (
+       correlation_strength_results <- bind_rows(correlation_strength_results, data.frame(annual_climvar = annual_climvar[i], prov_climvar = prov_climvar[i], pvalue_all = as.data.frame(summary(mod)$coefficients)[2,] %>% pull(`Pr(>|t|)`), pvalue_nog = as.data.frame(summary(mod_nog)$coefficients)[2,] %>% pull(`Pr(>|t|)`), r2.lmer=Cr2.lmer, r2type="C", r2.lmer_nog=Mr2.lmer_nog, r2nogtype="M"))
+    )
+        if(is.na(Cr2.lmer) & !is.na(Cr2.lmer_nog)) (
+       correlation_strength_results <- bind_rows(correlation_strength_results, data.frame(annual_climvar = annual_climvar[i], prov_climvar = prov_climvar[i], pvalue_all = as.data.frame(summary(mod)$coefficients)[2,] %>% pull(`Pr(>|t|)`), pvalue_nog = as.data.frame(summary(mod_nog)$coefficients)[2,] %>% pull(`Pr(>|t|)`), r2.lmer=Mr2.lmer, r2type="M", r2.lmer_nog=Cr2.lmer_nog, r2nogtype="C"))
+    )
 }
+
 correlation_strength_results %>% 
   filter(pvalue_nog<0.05)
 
