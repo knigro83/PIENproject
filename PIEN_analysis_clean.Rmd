@@ -62,6 +62,7 @@ library(colorspace)
 library(performance)
 library("factoextra")
 library("corrplot")
+library(DescTools)
 ```
 
 ##Plot locations
@@ -233,9 +234,9 @@ ggplot(monthly_clim %>% filter(var=="PPT") %>% filter(!Provenance=="Plantation")
 ```{r}
 #compare climates of provenances
 prov_vars<- prov_clim_adjusted_bi %>% 
-  dplyr::select(c(Provenance,AHM:SHM,smrpb)) %>% 
+  dplyr::select(c(Provenance,AHM:SHM,x:monsoonality)) %>% 
   left_join(prov_names) %>% 
-  pivot_longer(AHM:smrpb, names_to = "var", values_to = "value")
+  pivot_longer(AHM:monsoonality, names_to = "var", values_to = "value")
 
 order<- prov_clim_adjusted_bi %>% 
   arrange(y) %>% 
@@ -614,7 +615,7 @@ vpdmax_seasonal <- as.data.frame(vpdmax_comb_plantation) %>%
   mutate(vpdmax = as.numeric(vpdmax), year=as.integer(year)) %>%
   filter(month %in% c(12,1,2)) %>% 
   mutate(year = ifelse(month == "12", year+1, year)) %>% 
-  filter(!year %in% c(1970,2017)) %>% 
+  filter(!year %in% c(1969,2024)) %>% 
   group_by(CN, year) %>% 
  dplyr::summarise(vpdmax_wt = mean(vpdmax))) %>% 
   left_join(as.data.frame(vpdmax_comb_plantation) %>% 
@@ -985,6 +986,57 @@ plot(wttmax_mod)
 summary(wttmax_mod) #NS
 ```
 
+```{r}
+##look at trends in climate over time at the plantation just for 1970-2014
+
+plantation_clim_all_studyperiod<- plantation_clim %>% 
+  dplyr::select(c(CN:vpdmax_sp, FDSI, ppt_sum, tmean_ave, aet_sum, cwd_sum, spei_sum)) %>% 
+  pivot_longer(PPTsm:spei_sum) %>% 
+  filter(!year > 2014) %>% 
+  filter(!year < 1970) %>% 
+  filter(!is.na(value))
+
+ggplot(plantation_clim_all_studyperiod, aes(x=year, y=value, col=name, group=name))+
+  geom_point()+
+  geom_smooth(method="lm",col="black")+
+  facet_wrap(~name, scales="free")
+
+plantation_climvars <- unique(plantation_clim_all_studyperiod$name)
+
+plant_clim_mods <- data.frame()
+for(i in 1:length(plantation_climvars)){
+climvar = plantation_climvars[i]
+data= plantation_clim_all_studyperiod %>% filter(name==climvar)
+mod <- lm(value ~ year, data=data)
+pvalue = as.data.frame(summary(mod)$coefficients)[2,] %>% pull(`Pr(>|t|)`)
+plant_clim_mods <- bind_rows(plant_clim_mods, data.frame(climvar=climvar, pvalue=pvalue))
+}
+
+plant_clim_mods %>% filter(pvalue<0.05)  ###fall and summer tmin and aet significantly increased during the study period
+
+##sm tmin
+mod_smtmin <- lm(value ~ year, data=plantation_clim_all_studyperiod %>% filter(name=="value_sm_tmin"))
+par(mfrow=c(2,2))
+plot(mod_smtmin)
+summary(mod_smtmin)
+
+##fa tmin
+mod_fatmin <- lm(value ~ year, data=plantation_clim_all_studyperiod %>% filter(name=="value_fa_tmin"))
+par(mfrow=c(2,2))
+plot(mod_fatmin)
+summary(mod_fatmin)
+
+##aet
+mod_aet <- lm(value ~ year, data=plantation_clim_all_studyperiod %>% filter(name=="aet_sum"))
+par(mfrow=c(2,2))
+plot(mod_aet)
+summary(mod_aet)
+
+ggplot(plantation_clim_all_studyperiod %>% filter(name %in% c("aet_sum","value_sm_tmin","value_fa_tmin")), aes(x=year, y=value, col=name, group=name))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_wrap(~name, scales="free")
+```
 
 ##Climate extremes
 
@@ -1852,7 +1904,8 @@ anova(aov_DBHgr) ##basal area growth differs by provenance and year, but not by 
 ```{r}
 dbh_growth_clim <- dbh_growth_data %>% 
   left_join(prov_pcapts_big)
-
+dbh_growth_clim_noG <- dbh_growth_clim %>% 
+  filter(!Provenance=="Gila NF")
 #
 mod_dbhgr_pca <- lmer(sqrt(value) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK) + (1|name), data=dbh_growth_clim)
 plot(mod_dbhgr_pca)
@@ -2768,6 +2821,52 @@ ht_mods_quad06 %>% arrange(pvalue2_nog)
 
 ```
 
+#####transfer distance
+```{r}
+plantation_climNA <- prov_vars %>% 
+  filter(Provenance=="Plantation") %>% 
+  dplyr::select(var,value) %>% 
+  rename(plant_value = value) %>% 
+  bind_rows(data.frame(var=c("PC1","PC2"), plant_value=c(plant_pca_scores %>% filter(period=="1970s") %>% pull(PC1),plant_pca_scores %>% filter(period=="1970s") %>% pull(PC2)) ))
+
+ht_growth_clim_long_transfer <- ht_data_year_clim_long %>%
+  left_join(plantation_climNA, by=c("climvar.name"="var")) %>% 
+  mutate(diff_plant = abs(plant_value - value))
+
+ht_growth_clim_long_transfer_nog <- ht_growth_clim_long_transfer %>% filter(!Provenance=="Gila NF")
+
+ht_mods_transfer<- data.frame()
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(value ~ diff_plant + (1|Provenance)+ (1|BLK) + (1|year), data=ht_growth_clim_long_transfer %>% filter(climvar.name==provenance_climvars[i]))
+pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
+Mr2 <- r2(mod)$R2_marginal
+
+mod_nog <- lmer(value ~ diff_plant + (1|Provenance)+ (1|BLK) + (1|year), data=ht_growth_clim_long_transfer_nog %>% filter(climvar.name==provenance_climvars[i]) %>% filter(!Provenance=="Gila NF"))
+pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|t|)`
+Mr2_nog <- r2(mod_nog)$R2_marginal
+
+ht_mods_transfer <- bind_rows(ht_mods_transfer, data.frame(var=provenance_climvars[i], pvalue = pvalue, Mr2=Mr2, pvalue_nog = pvalue_nog, Mr2_nog=Mr2_nog))
+
+}
+
+ht_mods_transfer %>% arrange(pvalue_nog)
+
+##distance in 2d climate space
+
+ht_climdist_df <- ht_growth_clim_long_transfer %>% 
+  dplyr::select(Provenance, LOC,BLK, REP, year, value, climvar.name, diff_plant) %>% 
+  filter(climvar.name %in% c("PC1","PC2")) %>% 
+  rename(ht = value) %>% 
+  pivot_wider(names_from=climvar.name,values_from = diff_plant) %>% 
+  mutate(dist_2d = sqrt(PC1^2 + PC2^2))
+  
+ht_climdist_mod <- lmer(ht ~ dist_2d + (1|Provenance)+ (1|BLK) + (1|year), data=ht_climdist_df)
+plot(ht_climdist_mod)
+qqmath(ht_climdist_mod)
+summary(ht_climdist_mod) ##looks like trees further away from the plantation in climate space grow taller?
+
+```
+
 ###relative height growth
 
 ```{r}
@@ -3235,9 +3334,9 @@ x_max_Tavewt_relht_quad_nog = -coef(Tavewt_relht_mod_lm_nog)[2] / (2*coef(Tavewt
 y_max_Tavewt_relht_quad_nog = coef(Tavewt_relht_mod_lm_nog)[1] + coef(Tavewt_relht_mod_lm_nog)[2]*x_max_Tavewt_relht_quad_nog + coef(Tavewt_relht_mod_lm_nog)[3]*(x_max_Tavewt_relht_quad_nog^2)
 
 
-relht_quad_mod_results<- bind_rows(predictdata_Tavewt_relht, predictdata_Tavewt_relht_nog, predictdata_pptsp_relht, predictdata_pptsp_relht_nog, predictdata_Eref_relht, predictdata_Eref_relht_nog)
+relht_quad_mod_results<- bind_rows(predictdata_Tavewt_relht, predictdata_Tavewt_relht_nog, predictdata_PPTsp_relht, predictdata_PPTsp_relht_nog, predictdata_Eref_relht, predictdata_Eref_relht_nog)
 
-relht_quad_mod_max <- data.frame(max=c(x_max_Tavewt_relht_quad_nog,x_max_pptsp_relht_quad_nog,x_max_Eref_relht_quad_nog), var=c("Tavewt","PPTsp","Eref"))
+relht_quad_mod_max <- data.frame(max=c(x_max_Tavewt_relht_quad_nog,x_max_PPTsp_relht_quad_nog,x_max_Eref_relht_quad_nog), var=c("Tavewt","PPTsp","Eref"))
 
 relht_quad_mod_plot<- ggplot()+
   geom_vline(data=relht_quad_mod_max, aes(xintercept=max), col="black", linetype=2)+
@@ -3256,6 +3355,36 @@ relht_quad_mod_plot<- ggplot()+
   theme_bw()+
   theme(legend.position="right")
 relht_quad_mod_plot
+
+```
+
+#####transfer distance
+```{r}
+
+ht_growth_rel_clim_long_transfer <- ht_growth_rel_clim_long %>%
+  filter(!name%in%c("PC1","PC2")) %>% 
+  left_join(prov_vars %>% filter(Provenance=="Plantation") %>% dplyr::select(var,value) %>% rename(plant_value = value), by=c("name"="var")) %>% 
+  mutate(diff_plant = abs(plant_value - value))
+
+ht_growth_rel_clim_long_transfer_nog <- ht_growth_rel_clim_long_transfer %>% filter(!Provenance=="Gila NF")
+
+provenance_climvars_transfer <- provenance_climvars[-c(1:2)]
+
+relht_mods_transfer<- data.frame()
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(relht ~ diff_plant + (1|Provenance)+ (1|BLK) + (1|year), data=ht_growth_rel_clim_long_transfer %>% filter(name==provenance_climvars_transfer[i]))
+pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
+Mr2 <- r2(mod)$R2_marginal
+
+mod_nog <- lmer(relht ~ diff_plant + (1|Provenance)+ (1|BLK) + (1|year), data=ht_growth_rel_clim_long_transfer_nog %>% filter(name==provenance_climvars_transfer[i]) %>% filter(!Provenance=="Gila NF"))
+pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|t|)`
+Mr2_nog <- r2(mod_nog)$R2_marginal
+
+relht_mods_transfer <- bind_rows(relht_mods_transfer, data.frame(var=provenance_climvars_transfer[i], pvalue = pvalue, Mr2=Mr2, pvalue_nog = pvalue_nog, Mr2_nog=Mr2_nog))
+
+}
+
+relht_mods_transfer %>% arrange(pvalue_nog)
 
 ```
 
@@ -3464,7 +3593,7 @@ cone_fig<- ggplot(newdata3, aes(x = year, y = PredictedProb)) + geom_ribbon(aes(
 # dev.off()
 ```
 
-####PC only mods
+###PC only mods
 
 ```{r}
 moniger_subset <- left_join(moniger_data_comb %>% 
@@ -3579,7 +3708,7 @@ cone_plot_height<- ggplot(CCnewdata3_cone_nog_height %>% mutate(var="Height"), a
 cone_plot_height
 ```
 
-####individual climate variables
+###individual climate variables
 ```{r}
 moniger_provclim<- moniger_subset %>% 
   left_join(as.data.frame(moniger_data_comb) %>% dplyr::select(c(Provenance,SORT,BLK,code,PC1,PC2,AHM:SHM,smrpb,monsoonality))) %>% 
@@ -3772,13 +3901,19 @@ cone_mods_quad %>% arrange(pvalue2_nog) ##none significant
 ```
 
 
-##Survival
+##Survival - Elimate trees
 
 ####ANOVA
 ```{r}
 #provenance affect on survival 
+##these analyses use data that only includes trees alive in the prior period's data to assess whether they survived or not. So, survival in 1991 is only survival of the trees that were alive in 1985 and made it to 1991.  
+
 moniger_survival <- moniger_data_comb %>% 
   mutate(Stat14 = ifelse(Stat14==9,0,Stat14))
+
+moniger_survival %>% 
+  group_by(BLK, Provenance) %>% 
+  summarise(n=n())
 
 moniger_survival_byyr <- moniger_data_comb %>% 
   mutate(Stat79 = ifelse(Stat74 == 9, NA, Stat79)) %>% 
@@ -3796,24 +3931,33 @@ moniger_survival_byyr <- moniger_data_comb %>%
                         name == "Stat96" ~ 1996,
                         name == "Stat06" ~ 2006,
                         name == "Stat14" ~ 2014)) %>% 
-  mutate(value = ifelse(value==9,0,value)) %>% 
+  mutate(value = ifelse(value==9,0,value)) %>%  
   filter(!is.na(value))
 
 surv_df_zero <- expand.grid(Provenance=unique(moniger_survival_byyr$Provenance),
                             BLK = unique(moniger_survival_byyr$BLK))
 
+alive_blk_yr <- moniger_survival_byyr %>% 
+  group_by(Provenance,BLK,year) %>% 
+  summarise(alive=sum(value)) %>% 
+  mutate(prev.yr = case_when(year == 1974 ~ 1970,
+                             year == 1979 ~ 1974,
+                             year == 1985 ~ 1979,
+                             year == 1991 ~ 1985,
+                             year == 1996 ~ 1991,
+                             year == 2006 ~ 1996,
+                             year == 2014 ~ 2006)) %>% 
+  mutate(prev.yr.alive = ifelse(prev.yr==1970, 4, alive))
+
 moniger_survival_byyr_binom<- moniger_survival_byyr %>% 
   group_by(Provenance,BLK,year) %>% 
   summarise(alive=sum(value)) %>% 
-  mutate(died=4-alive) %>% 
+  left_join(alive_blk_yr) %>% 
+  mutate(died=prev.yr.alive-alive) %>% 
   full_join(surv_df_zero) %>% 
-  mutate(year=ifelse(is.na(year),2014,year),
-         alive=ifelse(is.na(alive),0,alive),
-         died=ifelse(is.na(died),4,died)) %>% 
   left_join(moniger_survival %>% dplyr::select(c(Provenance,BLK,PC1,PC2,AHM:SHM,x,y,smrpb,monsoonality)) %>% unique()) 
 
-
-survmod_byyear<- glmmTMB(cbind(alive, died) ~ scale(year)*Provenance, data=moniger_survival_byyr_binom, family=binomial) ##this is not converging, I think because of all the 0's. 
+survmod_byyear<- glmmTMB(cbind(alive, died) ~ factor(year)*Provenance, data=moniger_survival_byyr_binom, family=binomial)
 summary(survmod_byyear)
 Anova(survmod_byyear, type="3")
 
@@ -3854,6 +3998,12 @@ CLD_survmod85
 survmod91 <- glmmTMB(cbind(alive, died) ~ Provenance + (1|BLK), data=moniger_survival_byyr_binom %>% filter(year==1991), family=binomial)
 Anova(survmod91, type="3")
 confint(survmod91)
+survmod91_marg = lsmeans(survmod91, ~ Provenance)
+
+CLD_survmod91 = cld(survmod91_marg,
+          alpha=0.05,
+          Letters=letters)
+CLD_survmod91 
 
 survmod96 <- glmmTMB(cbind(alive, died) ~ Provenance + (1|BLK), data=moniger_survival_byyr_binom %>% filter(year==1996), family=binomial)
 Anova(survmod96, type="3")
@@ -3962,61 +4112,63 @@ surv_mods %>%
   filter(pvalue_nog<0.05) %>% 
   arrange(desc(Mr2_nog))
 
-#eFFP
-surv_eFFP_mod <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + (1|Provenance)+ (1|BLK) + (1|year), data=moniger_survival_long %>% filter(climvar.name=="eFFP"), family="binomial")
-summary(surv_eFFP_mod)
+cor(moniger_survival_byyr_binom$smrpb,moniger_survival_byyr_binom$PPTsp) #not super correlated so I'll look at them separately
 
-surv_eFFP_data <- moniger_survival_long %>% filter(climvar.name=="eFFP")
+#FFP
+surv_FFP_mod <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + (1|Provenance)+ (1|BLK) + (1|year), data=moniger_survival_long %>% filter(climvar.name=="FFP"), family="binomial")
+summary(surv_FFP_mod)
 
-newdata_eFFP_surv <- data.frame(
-    climvar.value = seq(min(surv_eFFP_data$climvar.value), 
-                      max(surv_eFFP_data$climvar.value), 
+surv_FFP_data <- moniger_survival_long %>% filter(climvar.name=="FFP")
+
+newdata_FFP_surv <- data.frame(
+    climvar.value = seq(min(surv_FFP_data$climvar.value), 
+                      max(surv_FFP_data$climvar.value), 
                       length.out = 100
                       ))
 
 ##predictions
-surveFFP_newdata1 <-  expand.grid(climvar.value = seq(min(newdata_eFFP_surv$climvar.value),max(newdata_eFFP_surv$climvar.value),length.out=50))
+survFFP_newdata1 <-  expand.grid(climvar.value = seq(min(newdata_FFP_surv$climvar.value),max(newdata_FFP_surv$climvar.value),length.out=50))
 
-surv_eFFP_mod_glm <- glmmTMB(cbind(alive,died) ~ scale(climvar.value), data=moniger_survival_long %>% filter(climvar.name=="eFFP"), family="binomial")
+surv_FFP_mod_glm <- glmmTMB(cbind(alive,died) ~ scale(climvar.value), data=moniger_survival_long %>% filter(climvar.name=="FFP"), family="binomial")
 
-surveFFP_newdata2 <- cbind(surveFFP_newdata1, predict(surv_eFFP_mod_glm, newdata = surveFFP_newdata1, type = "link", se=TRUE))
-surveFFP_newdata3 <- within(surveFFP_newdata2, {
+survFFP_newdata2 <- cbind(survFFP_newdata1, predict(surv_FFP_mod_glm, newdata = survFFP_newdata1, type = "link", se=TRUE))
+survFFP_newdata3 <- within(survFFP_newdata2, {
     PredictedProb <- plogis(fit)
     LL <- plogis(fit - (1.96 * se.fit))
     UL <- plogis(fit + (1.96 * se.fit))
 })
 
-ggplot(surveFFP_newdata3, aes(x = climvar.value, y = PredictedProb)) + geom_ribbon(aes(ymin = LL,
+ggplot(survFFP_newdata3, aes(x = climvar.value, y = PredictedProb)) + geom_ribbon(aes(ymin = LL,
     ymax = UL), alpha = 0.2) + 
   geom_line(linewidth = 1)+
-  xlab("eFFP")
+  xlab("FFP")
 
 #without Gila is still significant
-surv_eFFP_mod_nog <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + (1|Provenance)+(1|BLK) + (1|year), data=moniger_survival_long %>% filter(climvar.name=="eFFP") %>% filter(!Provenance=="Gila NF"), family="binomial")
-summary(surv_eFFP_mod_nog)
+surv_FFP_mod_nog <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + (1|Provenance)+(1|BLK) + (1|year), data=moniger_survival_long %>% filter(climvar.name=="FFP") %>% filter(!Provenance=="Gila NF"), family="binomial")
+summary(surv_FFP_mod_nog)
 
-surv_eFFP_mod_nog_glm <- glmmTMB(cbind(alive,died) ~ scale(climvar.value), data=moniger_survival_long %>% filter(climvar.name=="eFFP") %>% filter(!Provenance=="Gila NF"), family="binomial")
-summary(surv_eFFP_mod_nog)
+surv_FFP_mod_nog_glm <- glmmTMB(cbind(alive,died) ~ scale(climvar.value), data=moniger_survival_long %>% filter(climvar.name=="FFP") %>% filter(!Provenance=="Gila NF"), family="binomial")
+summary(surv_FFP_mod_nog)
 
 ##predictions
-surv_eFFP_data_nog <- moniger_survival_long %>% filter(climvar.name=="eFFP") %>% filter(!Provenance=="Gila NF")
+surv_FFP_data_nog <- moniger_survival_long %>% filter(climvar.name=="FFP") %>% filter(!Provenance=="Gila NF")
 
-surveFFP_nog_newdata1 <- expand.grid(climvar.value = seq(min(surv_eFFP_data_nog$climvar.value),max(surv_eFFP_data_nog$climvar.value),length.out=50))
+survFFP_nog_newdata1 <- expand.grid(climvar.value = seq(min(surv_FFP_data_nog$climvar.value),max(surv_FFP_data_nog$climvar.value),length.out=50))
 
-surveFFP_nog_newdata2 <- cbind(surveFFP_nog_newdata1, predict(surv_eFFP_mod_nog_glm, newdata = surveFFP_nog_newdata1, type = "link", se=TRUE))
-surveFFP_nog_newdata3 <- within(surveFFP_nog_newdata2, {
+survFFP_nog_newdata2 <- cbind(survFFP_nog_newdata1, predict(surv_FFP_mod_nog_glm, newdata = survFFP_nog_newdata1, type = "link", se=TRUE))
+survFFP_nog_newdata3 <- within(survFFP_nog_newdata2, {
     PredictedProb <- plogis(fit)
     LL <- plogis(fit - (1.96 * se.fit))
     UL <- plogis(fit + (1.96 * se.fit))
 })
 
-surveFFP_bothmod_data<- bind_rows(surveFFP_newdata3 %>% mutate(model="with Gila NF"),
-surveFFP_nog_newdata3 %>% mutate(model="without Gila NF"))
+survFFP_bothmod_data<- bind_rows(survFFP_newdata3 %>% mutate(model="with Gila NF"),
+survFFP_nog_newdata3 %>% mutate(model="without Gila NF"))
 
-ggplot(surveFFP_bothmod_data, aes(x = climvar.value, y = PredictedProb, linetype=model)) + geom_ribbon(aes(ymin = LL,
+ggplot(survFFP_bothmod_data, aes(x = climvar.value, y = PredictedProb, linetype=model)) + geom_ribbon(aes(ymin = LL,
     ymax = UL), alpha = 0.2) + 
   geom_line(linewidth = 1)+
-  xlab("eFFP")
+  xlab("FFP")
 #########
 #########
 
@@ -4056,12 +4208,12 @@ summary(surv_smrpb_mod_nog)
 ##predictions
 surv_smrpb_data_nog <- moniger_survival_long %>% filter(climvar.name=="smrpb") %>% filter(!Provenance=="Gila NF")
 
-survsmrpb_nog_newdata1 <- expand.grid(climvar.value = seq(min(surv_smrpb_data_nog$climvar.value),max(surv_smrpb_data_nog$climvar.value),length.out=50),
-                                 Provenance = "Pike NF",
-                                 BLK = "C",
-                                 year=2006)
+survsmrpb_nog_newdata1 <- expand.grid(climvar.value = seq(min(surv_smrpb_data_nog$climvar.value),max(surv_smrpb_data_nog$climvar.value),length.out=50))
 
-survsmrpb_nog_newdata2 <- cbind(survsmrpb_nog_newdata1, predict(surv_smrpb_mod_nog, newdata = survsmrpb_nog_newdata1, type = "link", se=TRUE))
+surv_smrpb_mod_nog_glm <- glmmTMB(cbind(alive,died) ~ scale(climvar.value), data=moniger_survival_long %>% filter(climvar.name=="smrpb") %>% filter(!Provenance=="Gila NF"), family="binomial")
+
+
+survsmrpb_nog_newdata2 <- cbind(survsmrpb_nog_newdata1, predict(surv_smrpb_mod_nog_glm, newdata = survsmrpb_nog_newdata1, type = "link", se=TRUE))
 survsmrpb_nog_newdata3 <- within(survsmrpb_nog_newdata2, {
     PredictedProb <- plogis(fit)
     LL <- plogis(fit - (1.96 * se.fit))
@@ -4075,6 +4227,66 @@ ggplot(survsmrpb_bothmod_data, aes(x = climvar.value, y = PredictedProb, linetyp
     ymax = UL), alpha = 0.2) + 
   geom_line(linewidth = 1)+
   xlab("smrpb")
+#########
+
+#########
+#########
+
+#PPTsp
+surv_PPTsp_mod <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + (1|Provenance)+ (1|BLK) + (1|year), data=moniger_survival_long %>% filter(climvar.name=="PPTsp"), family="binomial")
+summary(surv_PPTsp_mod)
+
+surv_PPTsp_data <- moniger_survival_long %>% filter(climvar.name=="PPTsp")
+
+newdata_PPTsp_surv <- data.frame(
+    climvar.value = seq(min(surv_PPTsp_data$climvar.value), 
+                      max(surv_PPTsp_data$climvar.value), 
+                      length.out = 100
+                      ))
+
+##predictions
+survPPTsp_newdata1 <-  expand.grid(climvar.value = seq(min(newdata_PPTsp_surv$climvar.value),max(newdata_PPTsp_surv$climvar.value),length.out=50))
+
+surv_PPTsp_mod_glm <- glmmTMB(cbind(alive,died) ~ scale(climvar.value), data=moniger_survival_long %>% filter(climvar.name=="PPTsp"), family="binomial")
+
+survPPTsp_newdata2 <- cbind(survPPTsp_newdata1, predict(surv_PPTsp_mod_glm, newdata = survPPTsp_newdata1, type = "link", se=TRUE))
+survPPTsp_newdata3 <- within(survPPTsp_newdata2, {
+    PredictedProb <- plogis(fit)
+    LL <- plogis(fit - (1.96 * se.fit))
+    UL <- plogis(fit + (1.96 * se.fit))
+})
+
+ggplot(survPPTsp_newdata3, aes(x = climvar.value, y = PredictedProb)) + geom_ribbon(aes(ymin = LL,
+    ymax = UL), alpha = 0.2) + 
+  geom_line(linewidth = 1)+
+  xlab("PPTsp")
+
+#without Gila is still significant
+surv_PPTsp_mod_nog <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + (1|Provenance)+(1|BLK) + (1|year), data=moniger_survival_long %>% filter(climvar.name=="PPTsp") %>% filter(!Provenance=="Gila NF"), family="binomial")
+summary(surv_PPTsp_mod_nog)
+
+##predictions
+surv_PPTsp_data_nog <- moniger_survival_long %>% filter(climvar.name=="PPTsp") %>% filter(!Provenance=="Gila NF")
+
+survPPTsp_nog_newdata1 <- expand.grid(climvar.value = seq(min(surv_PPTsp_data_nog$climvar.value),max(surv_PPTsp_data_nog$climvar.value),length.out=50))
+
+surv_PPTsp_mod_nog_glm <- glmmTMB(cbind(alive,died) ~ scale(climvar.value), data=moniger_survival_long %>% filter(climvar.name=="PPTsp") %>% filter(!Provenance=="Gila NF"), family="binomial")
+
+
+survPPTsp_nog_newdata2 <- cbind(survPPTsp_nog_newdata1, predict(surv_PPTsp_mod_nog_glm, newdata = survPPTsp_nog_newdata1, type = "link", se=TRUE))
+survPPTsp_nog_newdata3 <- within(survPPTsp_nog_newdata2, {
+    PredictedProb <- plogis(fit)
+    LL <- plogis(fit - (1.96 * se.fit))
+    UL <- plogis(fit + (1.96 * se.fit))
+})
+
+survPPTsp_bothmod_data<- bind_rows(survPPTsp_newdata3 %>% mutate(model="with Gila NF"),
+survPPTsp_nog_newdata3 %>% mutate(model="without Gila NF"))
+
+ggplot(survPPTsp_bothmod_data, aes(x = climvar.value, y = PredictedProb, linetype=model)) + geom_ribbon(aes(ymin = LL,
+    ymax = UL), alpha = 0.2) + 
+  geom_line(linewidth = 1)+
+  xlab("PPTsp")
 #########
 
 ###quadratic
@@ -4094,8 +4306,7 @@ surv_mods_quad <- bind_rows(surv_mods_quad, data.frame(var=provenance_climvars[i
 
 }
 
-surv_mods_quad %>% arrange(pvalue2_nog) ##Eref and CMD are significant both with and without Gila, but they are positively correlated so I will just use Eref since it has a larger r2.
-
+surv_mods_quad %>% arrange(pvalue2_nog) ##Eref, lat, smrpb
 ##Eref
 surv_Eref_mod <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance) + (1|BLK) + (1|year), data=moniger_survival_long %>% filter(climvar.name=="Eref"), family="binomial")
 summary(surv_Eref_mod)
@@ -4143,30 +4354,2195 @@ ggplot(surv_eref_bothmod, aes(x = climvar.value, y = PredictedProb, linetype=mod
   theme_bw()
 #########
 
+##smrpb
+surv_smrpb_mod2 <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance) + (1|BLK) + (1|year), data=moniger_survival_long %>% filter(climvar.name=="smrpb"), family="binomial")
+summary(surv_smrpb_mod2)
+r2(surv_smrpb_mod2)
+
+surv_smrpb_mod2_glm <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2), data=moniger_survival_long %>% filter(climvar.name=="smrpb"), family="binomial")
+
+##predictions
+survsmrpb2_newdata1 <- expand.grid(climvar.value = seq(min(surv_smrpb_data$climvar.value),max(surv_smrpb_data$climvar.value),length.out=50))
+
+survsmrpb2_newdata2 <- cbind(survsmrpb2_newdata1, predict(surv_smrpb_mod2_glm, newdata = survsmrpb2_newdata1, type = "link", se=TRUE))
+survsmrpb2_newdata3 <- within(survsmrpb2_newdata2, {
+    PredictedProb <- plogis(fit)
+    LL <- plogis(fit - (1.96 * se.fit))
+    UL <- plogis(fit + (1.96 * se.fit))
+})
+
+#without Gila is still significant
+surv_smrpb_mod2_nog <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance) + (1|BLK) + (1|year), data=moniger_survival_long %>% filter(climvar.name=="smrpb") %>% filter(!Provenance=="Gila NF"), family="binomial")
+summary(surv_smrpb_mod2_nog)
+r2(surv_smrpb_mod2_nog)
+
+surv_smrpb_mod2_nog_glm <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2), data=moniger_survival_long %>% filter(climvar.name=="smrpb") %>% filter(!Provenance=="Gila NF"), family="binomial")
+
+##predictions
+survsmrpb2_newdata1_nog <- expand.grid(climvar.value = seq(min(moniger_survival_long %>% filter(climvar.name=="smrpb") %>% filter(!Provenance=="Gila NF") %>% pull(climvar.value)),max(moniger_survival_long %>% filter(climvar.name=="smrpb") %>% filter(!Provenance=="Gila NF") %>% pull(climvar.value)),length.out=50))
+
+survsmrpb2_newdata2_nog <- cbind(survsmrpb2_newdata1_nog, predict(surv_smrpb_mod2_nog_glm, newdata = survsmrpb2_newdata1_nog, type = "link", se=TRUE))
+survsmrpb2_newdata3_nog <- within(survsmrpb2_newdata2_nog, {
+    PredictedProb <- plogis(fit)
+    LL <- plogis(fit - (1.96 * se.fit))
+    UL <- plogis(fit + (1.96 * se.fit))
+})
+
+surv_smrpb_bothmod <- bind_rows(survsmrpb2_newdata3 %>% mutate(model="with Gila NF"),survsmrpb2_newdata3_nog %>% mutate(model="without Gila NF"))
+
+ggplot(surv_smrpb_bothmod, aes(x = climvar.value, y = PredictedProb, linetype=model)) + geom_ribbon(aes(ymin = LL,
+    ymax = UL), alpha = 0.2) + 
+  geom_line(linewidth = 1)+
+  xlab("smrpb")+
+    ylab("Predicted Probability")+
+  ggtitle("Survival")+
+  theme_bw()
+
+ggplot(survsmrpb2_newdata3_nog %>% mutate(model="without Gila NF"), aes(x = climvar.value, y = PredictedProb, linetype=model)) + geom_ribbon(aes(ymin = LL,
+    ymax = UL), alpha = 0.2) + 
+  geom_line(linewidth = 1)+
+  xlab("smrpb")+
+    ylab("Predicted Probability")+
+  ggtitle("Survival")+
+  theme_bw()
+#########
+
+##y
+surv_y_mod2 <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance) + (1|BLK) + (1|year), data=moniger_survival_long %>% filter(climvar.name=="y"), family="binomial")
+summary(surv_y_mod2)
+r2(surv_y_mod2)
+
+surv_y_mod2_glm <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2), data=moniger_survival_long %>% filter(climvar.name=="y"), family="binomial")
+
+surv_y_data <- moniger_survival_long %>% filter(climvar.name=="y")
+
+##predictions
+survy2_newdata1 <- expand.grid(climvar.value = seq(min(surv_y_data$climvar.value),max(surv_y_data$climvar.value),length.out=50))
+
+survy2_newdata2 <- cbind(survy2_newdata1, predict(surv_y_mod2_glm, newdata = survy2_newdata1, type = "link", se=TRUE))
+survy2_newdata3 <- within(survy2_newdata2, {
+    PredictedProb <- plogis(fit)
+    LL <- plogis(fit - (1.96 * se.fit))
+    UL <- plogis(fit + (1.96 * se.fit))
+})
+
+#without Gila is still significant
+surv_y_mod2_nog <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance) + (1|BLK) + (1|year), data=moniger_survival_long %>% filter(climvar.name=="y") %>% filter(!Provenance=="Gila NF"), family="binomial")
+summary(surv_y_mod2_nog)
+r2(surv_y_mod2_nog)
+
+surv_y_mod2_nog_glm <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2), data=moniger_survival_long %>% filter(climvar.name=="y") %>% filter(!Provenance=="Gila NF"), family="binomial")
+
+##predictions
+
+survy2_newdata1_nog <- expand.grid(climvar.value = seq(min(moniger_survival_long %>% filter(climvar.name=="y") %>% filter(!Provenance=="Gila NF") %>% pull(climvar.value)),max(moniger_survival_long %>% filter(climvar.name=="y") %>% filter(!Provenance=="Gila NF") %>% pull(climvar.value)),length.out=50))
+
+survy2_newdata2_nog <- cbind(survy2_newdata1_nog, predict(surv_y_mod2_nog_glm, newdata = survy2_newdata1_nog, type = "link", se=TRUE))
+survy2_newdata3_nog <- within(survy2_newdata2_nog, {
+    PredictedProb <- plogis(fit)
+    LL <- plogis(fit - (1.96 * se.fit))
+    UL <- plogis(fit + (1.96 * se.fit))
+})
+
+surv_y_bothmod <- bind_rows(survy2_newdata3 %>% mutate(model="with Gila NF"),survy2_newdata3_nog %>% mutate(model="without Gila NF"))
+
+ggplot(surv_y_bothmod, aes(x = climvar.value, y = PredictedProb, linetype=model)) + geom_ribbon(aes(ymin = LL,
+    ymax = UL), alpha = 0.2) + 
+  geom_line(linewidth = 1)+
+  xlab("y")+
+    ylab("Predicted Probability")+
+  ggtitle("Survival")+
+  theme_bw()
+
+#########
 ```
 
-####plots
+##Survival - all trees
+
+###ANOVA
 
 ```{r}
-#plots
+### do survival analyses without eliminating trees that didn't survive in the next year's survival numbers. So, this is taking more of a year by year approach, asking how was survival to 1979? to 1985? to 1991? etc. 
 
-surv_ind_plot_data<- bind_rows(
-surveFFP_bothmod_data %>% mutate(climvar.name="eFFP"),
-surv_eref_bothmod %>% mutate(climvar.name="Eref"),
-survsmrpb_bothmod_data %>% mutate(climvar.name="smrpb"))
+moniger_survival_byyr_zeros <- moniger_data_comb %>% 
+  mutate(Stat79 = ifelse(Stat74 == 9, 0, Stat79)) %>% 
+  mutate(Stat85 = ifelse(Stat79 %in% c(NA,9), 0, Stat85)) %>% 
+  mutate(Stat91 = ifelse(Stat85 %in% c(NA,9), 0, Stat91)) %>% 
+  mutate(Stat96 = ifelse(Stat91 %in% c(NA,9), 0, Stat96)) %>% 
+  mutate(Stat06 = ifelse(Stat96 %in% c(NA,9), 0, Stat06)) %>% 
+  mutate(Stat14 = ifelse(Stat06 %in% c(NA,9), 0, Stat14)) %>% 
+  dplyr::select(c(SORT,LOC,BLK,REP,Provenance,Stat74:Stat14)) %>% 
+  pivot_longer(Stat74:Stat14) %>% 
+  mutate(year=case_when(name == "Stat74" ~ 1974,
+                        name == "Stat79" ~ 1979,
+                        name == "Stat85" ~ 1985,
+                        name == "Stat91" ~ 1991,
+                        name == "Stat96" ~ 1996,
+                        name == "Stat06" ~ 2006,
+                        name == "Stat14" ~ 2014)) %>% 
+  mutate(value = ifelse(value==9,0,value))
 
-surv_ind_plot<- ggplot(surv_ind_plot_data, aes(x = climvar.value, y = PredictedProb)) + 
-  geom_vline(data= prov_clim_adjusted_bi_long %>% filter(Provenance=="Plantation")  %>% rename(climvar.name=name)%>% filter(climvar.name %in% unique(surv_ind_plot_data$climvar.name)), aes(xintercept = value), col="steelblue")+
-  geom_text(data=prov_clim_adjusted_bi_long %>% filter(Provenance=="Plantation")  %>% rename(climvar.name=name)%>% filter(climvar.name %in% unique(surv_ind_plot_data$climvar.name)), aes(x=value, y=.7, label="plantation"), col="steelblue", size=3)+
-  geom_ribbon(aes(ymin = LL, ymax = UL, fill=model), alpha = 0.2) + 
-  geom_line(linewidth = .5, aes(linetype=model))+
-  geom_rug(data=moniger_survival_long %>% filter(climvar.name%in%c("Eref","FFP","smrpb")) %>% mutate(PredictedProb=.7), sides="b", linewidth=1)+
-  scale_fill_manual(values=c("black","gray"))+
-  ylab("Survival Probability")+
-  xlab("Provenance Climate Value")+
-  facet_wrap(~factor(climvar.name, levels=c("eFFP","smrpb","Eref"), labels=c("end of frost-free period (days)","Summer Precip Ratio","Hargreave's reference evaporation")), scales="free")+
+moniger_survival_byyr_binom_zeros<- moniger_survival_byyr_zeros %>% 
+  group_by(Provenance,BLK,year) %>% 
+  summarise(alive=sum(value)) %>% 
+  mutate(died=4-alive) %>% 
+  full_join(surv_df_zero) %>% 
+  mutate(year=ifelse(is.na(year),2014,year),
+         alive=ifelse(is.na(alive),0,alive),
+         died=ifelse(is.na(died),4,died)) %>% 
+  left_join(moniger_survival %>% dplyr::select(c(Provenance,BLK,PC1,PC2,AHM:SHM,x,y,smrpb,monsoonality)) %>% unique()) 
+
+survmod_byyear_alltrees<- glmmTMB(cbind(alive, died) ~ factor(year)*Provenance, data=moniger_survival_byyr_binom_zeros, family=binomial) 
+summary(survmod_byyear_alltrees)
+Anova(survmod_byyear, type="3")
+
+
+####ANOVAs for each year separately
+
+alltree_survmod74 <- glmmTMB(cbind(alive, died) ~ Provenance + (1|BLK), data=moniger_survival_byyr_binom_zeros %>% filter(year==1974), family=binomial)
+Anova(alltree_survmod74, type="3")
+alltree_survmod74_marg = lsmeans(alltree_survmod74, ~ Provenance)
+
+CLD_alltree_survmod74 = cld(alltree_survmod74_marg,
+          alpha=0.05,
+          Letters=letters)
+CLD_alltree_survmod74 
+
+alltree_survmod79 <- glmmTMB(cbind(alive, died) ~ Provenance + (1|BLK), data=moniger_survival_byyr_binom_zeros %>% filter(year==1979), family=binomial)
+Anova(alltree_survmod79, type="3")
+alltree_survmod79_marg = lsmeans(alltree_survmod79, ~ Provenance)
+
+CLD_alltree_survmod79 = cld(alltree_survmod79_marg,
+          alpha=0.05,
+          Letters=letters)
+CLD_alltree_survmod79 
+
+alltree_survmod85 <- glmmTMB(cbind(alive, died) ~ Provenance + (1|BLK), data=moniger_survival_byyr_binom_zeros %>% filter(year==1985), family=binomial)
+Anova(alltree_survmod85, type="3")
+alltree_survmod85_marg = lsmeans(alltree_survmod85, ~ Provenance)
+
+CLD_alltree_survmod85 = cld(alltree_survmod85_marg,
+          alpha=0.05,
+          Letters=letters)
+CLD_alltree_survmod85 
+
+alltree_survmod91 <- glmmTMB(cbind(alive, died) ~ Provenance + (1|BLK), data=moniger_survival_byyr_binom_zeros %>% filter(year==1991), family=binomial)
+Anova(alltree_survmod91, type="3")
+alltree_survmod91_marg = lsmeans(alltree_survmod91, ~ Provenance)
+
+CLD_alltree_survmod91 = cld(alltree_survmod91_marg,
+          alpha=0.05,
+          Letters=letters)
+CLD_alltree_survmod91 
+
+alltree_survmod96 <- glmmTMB(cbind(alive, died) ~ Provenance + (1|BLK), data=moniger_survival_byyr_binom_zeros %>% filter(year==1996), family=binomial)
+Anova(alltree_survmod96, type="3")
+alltree_survmod96_marg = lsmeans(alltree_survmod96, ~ Provenance)
+
+CLD_alltree_survmod96 = cld(alltree_survmod96_marg,
+          alpha=0.05,
+          Letters=letters)
+CLD_alltree_survmod96 
+
+alltree_survmod06 <- glmmTMB(cbind(alive, died) ~ Provenance + (1|BLK), data=moniger_survival_byyr_binom_zeros %>% filter(year==2006), family=binomial) ###this doesn't converge probably because of few deaths
+Anova(alltree_survmod06, type="3")
+alltree_survmod06_marg = lsmeans(alltree_survmod06, ~ Provenance)
+
+CLD_alltree_survmod06 = cld(alltree_survmod06_marg,
+          alpha=0.05,
+          Letters=letters)
+CLD_alltree_survmod06 
+
+alltree_survmod14 <- glmmTMB(cbind(alive, died) ~ Provenance + (1|BLK), data=moniger_survival_byyr_binom_zeros %>% filter(year==2014), family=binomial)
+Anova(alltree_survmod14, type="3")
+alltree_survmod14_marg = lsmeans(alltree_survmod14, ~ Provenance)
+
+CLD_alltree_survmod14 = cld(alltree_survmod14_marg,
+          alpha=0.05,
+          Letters=letters)
+CLD_alltree_survmod14 
+```
+
+
+###PC only mods
+```{r}
+
+##with gila
+alltree_survmod_pc<- glmmTMB(cbind(alive,died) ~  PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK) + (1|year), data=moniger_survival_byyr_binom_zeros, family=binomial) 
+summary(alltree_survmod_pc)
+
+dredge_alltree_survmod_pc <- dredge(alltree_survmod_pc)
+dredge_alltree_survmod_pc ##null is best
+
+moniger_survival_alltree_nog <- moniger_survival_byyr_binom_zeros %>% filter(!Provenance%in%c("Gila NF"))
+
+##no gila
+alltree_survmod_pc_nog<- glmmTMB(cbind(alive,died) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK) + (1|year), data=moniger_survival_alltree_nog, family=binomial)
+
+summary(alltree_survmod_pc_nog)
+dredge_alltree_survmod_pc_nog <- dredge(alltree_survmod_pc_nog)
+dredge_alltree_survmod_pc_nog ##null is best
+```
+
+###individual climate variables
+
+```{r}
+moniger_survival_alltree_long <- moniger_survival_byyr_binom_zeros %>% 
+  pivot_longer(c(PC1,PC2,AHM:SHM, x:monsoonality), names_to="climvar.name", values_to = "climvar.value")
+
+surv_mods_alltree<- data.frame()
+
+for(i in 1:length(provenance_climvars)){
+mod <- glmmTMB(cbind(alive,died) ~ climvar.value + (1|Provenance) + (1|BLK) + (1|year), data=moniger_survival_alltree_long %>% filter(climvar.name==provenance_climvars[i]), family=binomial)
+pvalue<- as.data.frame(summary(mod)$coefficients$cond)[2,]$`Pr(>|z|)`
+Mr2=r2(mod)$R2_marginal
+
+mod_nog <- glmmTMB(cbind(alive,died) ~ climvar.value + (1|Provenance)+ (1|BLK) + (1|year), data=moniger_survival_alltree_long %>% filter(climvar.name==provenance_climvars[i]) %>% filter(!Provenance=="Gila NF"), family=binomial)
+pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients$cond)[2,]$`Pr(>|z|)`
+Mr2_nog=r2(mod_nog)$R2_marginal
+
+
+surv_mods_alltree <- bind_rows(surv_mods_alltree, data.frame(var=provenance_climvars[i], pvalue = pvalue, Mr2=Mr2, pvalue_nog = pvalue_nog, Mr2_nog = Mr2_nog))}
+
+surv_mods_alltree %>% arrange(pvalue_nog) ##length of growing season seems to be influential both with and without Gila, also smrpb
+surv_mods_alltree %>% 
+  filter(pvalue_nog<0.05) %>% 
+  arrange(desc(Mr2_nog))
+
+#eFFP
+surv_alltreeeFFP_mod <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + (1|Provenance)+ (1|BLK) + (1|year), data=moniger_survival_alltree_long %>% filter(climvar.name=="eFFP"), family="binomial")
+summary(surv_alltreeeFFP_mod)
+
+surv_alltreeeFFP_data <- moniger_survival_alltree_long %>% filter(climvar.name=="eFFP")
+
+newdata_eFFP_surv <- data.frame(
+    climvar.value = seq(min(surv_alltreeeFFP_data$climvar.value), 
+                      max(surv_alltreeeFFP_data$climvar.value), 
+                      length.out = 100
+                      ))
+
+##predictions
+surveFFP_newdata1 <-  expand.grid(climvar.value = seq(min(newdata_eFFP_surv$climvar.value),max(newdata_eFFP_surv$climvar.value),length.out=50))
+
+surv_alltreeeFFP_mod_glm <- glmmTMB(cbind(alive,died) ~ scale(climvar.value), data=moniger_survival_alltree_long %>% filter(climvar.name=="eFFP"), family="binomial")
+
+surveFFP_newdata2 <- cbind(surveFFP_newdata1, predict(surv_alltreeeFFP_mod_glm, newdata = surveFFP_newdata1, type = "link", se=TRUE))
+surveFFP_newdata3 <- within(surveFFP_newdata2, {
+    PredictedProb <- plogis(fit)
+    LL <- plogis(fit - (1.96 * se.fit))
+    UL <- plogis(fit + (1.96 * se.fit))
+})
+
+ggplot(surveFFP_newdata3, aes(x = climvar.value, y = PredictedProb)) + geom_ribbon(aes(ymin = LL,
+    ymax = UL), alpha = 0.2) + 
+  geom_line(linewidth = 1)+
+  xlab("eFFP")
+
+#without Gila is still significant
+surv_alltreeeFFP_mod_nog <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + (1|Provenance)+(1|BLK) + (1|year), data=moniger_survival_alltree_long %>% filter(climvar.name=="eFFP") %>% filter(!Provenance=="Gila NF"), family="binomial")
+summary(surv_alltreeeFFP_mod_nog)
+
+surv_alltreeeFFP_mod_nog_glm <- glmmTMB(cbind(alive,died) ~ scale(climvar.value), data=moniger_survival_alltree_long %>% filter(climvar.name=="eFFP") %>% filter(!Provenance=="Gila NF"), family="binomial")
+summary(surv_alltreeeFFP_mod_nog)
+
+##predictions
+surv_alltreeeFFP_data_nog <- moniger_survival_alltree_long %>% filter(climvar.name=="eFFP") %>% filter(!Provenance=="Gila NF")
+
+surveFFP_nog_newdata1 <- expand.grid(climvar.value = seq(min(surv_alltreeeFFP_data_nog$climvar.value),max(surv_alltreeeFFP_data_nog$climvar.value),length.out=50))
+
+surveFFP_nog_newdata2 <- cbind(surveFFP_nog_newdata1, predict(surv_alltreeeFFP_mod_nog_glm, newdata = surveFFP_nog_newdata1, type = "link", se=TRUE))
+surveFFP_nog_newdata3 <- within(surveFFP_nog_newdata2, {
+    PredictedProb <- plogis(fit)
+    LL <- plogis(fit - (1.96 * se.fit))
+    UL <- plogis(fit + (1.96 * se.fit))
+})
+
+surveFFP_bothmod_data<- bind_rows(surveFFP_newdata3 %>% mutate(model="with Gila NF"),
+surveFFP_nog_newdata3 %>% mutate(model="without Gila NF"))
+
+ggplot(surveFFP_bothmod_data, aes(x = climvar.value, y = PredictedProb, linetype=model)) + geom_ribbon(aes(ymin = LL,
+    ymax = UL), alpha = 0.2) + 
+  geom_line(linewidth = 1)+
+  xlab("eFFP")
+#########
+#########
+
+#smrpb
+surv_alltreesmrpb_mod <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + (1|Provenance)+ (1|BLK) + (1|year), data=moniger_survival_alltree_long %>% filter(climvar.name=="smrpb"), family="binomial")
+summary(surv_alltreesmrpb_mod)
+
+surv_alltreesmrpb_data <- moniger_survival_alltree_long %>% filter(climvar.name=="smrpb")
+
+newdata_smrpb_surv <- data.frame(
+    climvar.value = seq(min(surv_alltreesmrpb_data$climvar.value), 
+                      max(surv_alltreesmrpb_data$climvar.value), 
+                      length.out = 100
+                      ))
+
+##predictions
+survsmrpb_newdata1 <-  expand.grid(climvar.value = seq(min(newdata_smrpb_surv$climvar.value),max(newdata_smrpb_surv$climvar.value),length.out=50))
+
+surv_alltreesmrpb_mod_glm <- glmmTMB(cbind(alive,died) ~ scale(climvar.value), data=moniger_survival_alltree_long %>% filter(climvar.name=="smrpb"), family="binomial")
+
+survsmrpb_newdata2 <- cbind(survsmrpb_newdata1, predict(surv_alltreesmrpb_mod_glm, newdata = survsmrpb_newdata1, type = "link", se=TRUE))
+survsmrpb_newdata3 <- within(survsmrpb_newdata2, {
+    PredictedProb <- plogis(fit)
+    LL <- plogis(fit - (1.96 * se.fit))
+    UL <- plogis(fit + (1.96 * se.fit))
+})
+
+ggplot(survsmrpb_newdata3, aes(x = climvar.value, y = PredictedProb)) + geom_ribbon(aes(ymin = LL,
+    ymax = UL), alpha = 0.2) + 
+  geom_line(linewidth = 1)+
+  xlab("smrpb")
+
+#without Gila is still significant
+surv_alltreesmrpb_mod_nog <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + (1|Provenance)+(1|BLK) + (1|year), data=moniger_survival_alltree_long %>% filter(climvar.name=="smrpb") %>% filter(!Provenance=="Gila NF"), family="binomial")
+summary(surv_alltreesmrpb_mod_nog)
+
+##predictions
+surv_alltreesmrpb_data_nog <- moniger_survival_alltree_long %>% filter(climvar.name=="smrpb") %>% filter(!Provenance=="Gila NF")
+
+survsmrpb_nog_newdata1 <- expand.grid(climvar.value = seq(min(surv_alltreesmrpb_data_nog$climvar.value),max(surv_alltreesmrpb_data_nog$climvar.value),length.out=50),
+                                 Provenance = "Pike NF",
+                                 BLK = "C",
+                                 year=2006)
+
+survsmrpb_nog_newdata2 <- cbind(survsmrpb_nog_newdata1, predict(surv_alltreesmrpb_mod_nog, newdata = survsmrpb_nog_newdata1, type = "link", se=TRUE))
+survsmrpb_nog_newdata3 <- within(survsmrpb_nog_newdata2, {
+    PredictedProb <- plogis(fit)
+    LL <- plogis(fit - (1.96 * se.fit))
+    UL <- plogis(fit + (1.96 * se.fit))
+})
+
+survsmrpb_bothmod_data<- bind_rows(survsmrpb_newdata3 %>% mutate(model="with Gila NF"),
+survsmrpb_nog_newdata3 %>% mutate(model="without Gila NF"))
+
+ggplot(survsmrpb_bothmod_data, aes(x = climvar.value, y = PredictedProb, linetype=model)) + geom_ribbon(aes(ymin = LL,
+    ymax = UL), alpha = 0.2) + 
+  geom_line(linewidth = 1)+
+  xlab("smrpb")
+#########
+
+###quadratic
+
+surv_alltreemods_quad<- data.frame()
+
+for(i in 1:length(provenance_climvars)){
+mod <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance) + (1|BLK) + (1|year), data=moniger_survival_alltree_long %>% filter(climvar.name==provenance_climvars[i]), family="binomial")
+pvalues<- as.data.frame(summary(mod)$coefficients$cond)[2:3,]$`Pr(>|z|)`
+Mr2 <- r2(mod)$R2_marginal
+
+mod_nog <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance) + (1|BLK) + (1|year), data=moniger_survival_alltree_long %>% filter(climvar.name==provenance_climvars[i]) %>% filter(!Provenance=="Gila NF"), family="binomial")
+pvalues_nog<- as.data.frame(summary(mod_nog)$coefficients$cond)[2:3,]$`Pr(>|z|)`
+Mr2_nog <- r2(mod_nog)$R2_marginal
+
+surv_alltreemods_quad <- bind_rows(surv_alltreemods_quad, data.frame(var=provenance_climvars[i], pvalue1 = pvalues[1], pvalue2 = pvalues[2], Mr2 = Mr2, pvalue1_nog = pvalues_nog[1], pvalue2_nog = pvalues_nog[2], Mr2_nog = Mr2_nog))
+
+}
+
+surv_alltreemods_quad %>% arrange(pvalue2_nog) ##Eref and CMD are significant both with and without Gila, but they are positively correlated so I will just use Eref since it has a larger r2.
+
+##Eref
+surv_alltreeEref_mod <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance) + (1|BLK) + (1|year), data=moniger_survival_alltree_long %>% filter(climvar.name=="Eref"), family="binomial")
+summary(surv_alltreeEref_mod)
+r2(surv_alltreeEref_mod)
+
+surv_alltreeEref_mod_glm <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2), data=moniger_survival_alltree_long %>% filter(climvar.name=="Eref"), family="binomial")
+
+surv_alltreeEref_data <- moniger_survival_alltree_long %>% filter(climvar.name=="Eref")
+
+##predictions
+survEref_newdata1 <- expand.grid(climvar.value = seq(min(surv_alltreeEref_data$climvar.value),max(surv_alltreeEref_data$climvar.value),length.out=50))
+
+survEref_newdata2 <- cbind(survEref_newdata1, predict(surv_alltreeEref_mod_glm, newdata = survEref_newdata1, type = "link", se=TRUE))
+survEref_newdata3 <- within(survEref_newdata2, {
+    PredictedProb <- plogis(fit)
+    LL <- plogis(fit - (1.96 * se.fit))
+    UL <- plogis(fit + (1.96 * se.fit))
+})
+
+#without Gila is still significant
+surv_alltreeeref_mod_nog <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance) + (1|BLK) + (1|year), data=moniger_survival_alltree_long %>% filter(climvar.name=="Eref") %>% filter(!Provenance=="Gila NF"), family="binomial")
+summary(surv_alltreeeref_mod_nog)
+r2(surv_alltreeeref_mod_nog)
+
+surv_alltreeeref_mod_nog_glm <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2), data=moniger_survival_alltree_long %>% filter(climvar.name=="Eref") %>% filter(!Provenance=="Gila NF"), family="binomial")
+
+##predictions
+surveref_newdata1_nog <- expand.grid(climvar.value = seq(min(moniger_survival_alltree_long %>% filter(climvar.name=="Eref") %>% filter(!Provenance=="Gila NF") %>% pull(climvar.value)),max(moniger_survival_alltree_long %>% filter(climvar.name=="Eref") %>% filter(!Provenance=="Gila NF") %>% pull(climvar.value)),length.out=50))
+
+surveref_newdata2_nog <- cbind(surveref_newdata1_nog, predict(surv_alltreeeref_mod_nog_glm, newdata = surveref_newdata1_nog, type = "link", se=TRUE))
+surveref_newdata3_nog <- within(surveref_newdata2_nog, {
+    PredictedProb <- plogis(fit)
+    LL <- plogis(fit - (1.96 * se.fit))
+    UL <- plogis(fit + (1.96 * se.fit))
+})
+
+surv_alltreeeref_bothmod <- bind_rows(survEref_newdata3 %>% mutate(model="with Gila NF"),surveref_newdata3_nog %>% mutate(model="without Gila NF"))
+
+ggplot(surv_alltreeeref_bothmod, aes(x = climvar.value, y = PredictedProb, linetype=model)) + geom_ribbon(aes(ymin = LL,
+    ymax = UL), alpha = 0.2) + 
+  geom_line(linewidth = 1)+
+  xlab("Eref")+
+    ylab("Predicted Probability")+
+  ggtitle("Survival")+
   theme_bw()
-surv_ind_plot
+#########
+
+##y
+surv_alltreey_mod <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance) + (1|BLK) + (1|year), data=moniger_survival_alltree_long %>% filter(climvar.name=="y"), family="binomial")
+summary(surv_alltreey_mod)
+r2(surv_alltreey_mod)
+
+surv_alltreey_mod_glm <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2), data=moniger_survival_alltree_long %>% filter(climvar.name=="y"), family="binomial")
+
+surv_alltreey_data <- moniger_survival_alltree_long %>% filter(climvar.name=="y")
+
+##predictions
+survy_alltree_newdata1 <- expand.grid(climvar.value = seq(min(surv_alltreey_data$climvar.value),max(surv_alltreey_data$climvar.value),length.out=50))
+
+survy_alltree_newdata2 <- cbind(survy_alltree_newdata1, predict(surv_alltreey_mod_glm, newdata = survy_alltree_newdata1, type = "link", se=TRUE))
+survy_alltree_newdata3 <- within(survy_alltree_newdata2, {
+    PredictedProb <- plogis(fit)
+    LL <- plogis(fit - (1.96 * se.fit))
+    UL <- plogis(fit + (1.96 * se.fit))
+})
+
+#without Gila is still significant
+surv_y_alltree_mod_nog <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance) + (1|BLK) + (1|year), data=moniger_survival_alltree_long %>% filter(climvar.name=="y") %>% filter(!Provenance=="Gila NF"), family="binomial")
+summary(surv_y_alltree_mod_nog)
+r2(surv_y_alltree_mod_nog)
+
+surv_y_alltree_mod_nog_glm <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2), data=moniger_survival_alltree_long %>% filter(climvar.name=="y") %>% filter(!Provenance=="Gila NF"), family="binomial")
+
+##predictions
+survy_alltree_newdata1_nog <- expand.grid(climvar.value = seq(min(moniger_survival_alltree_long %>% filter(climvar.name=="y") %>% filter(!Provenance=="Gila NF") %>% pull(climvar.value)),max(moniger_survival_alltree_long %>% filter(climvar.name=="y") %>% filter(!Provenance=="Gila NF") %>% pull(climvar.value)),length.out=50))
+
+survy_alltree_newdata2_nog <- cbind(survy_alltree_newdata1_nog, predict(surv_y_alltree_mod_nog_glm, newdata = survy_alltree_newdata1_nog, type = "link", se=TRUE))
+survy_alltree_newdata3_nog <- within(survy_alltree_newdata2_nog, {
+    PredictedProb <- plogis(fit)
+    LL <- plogis(fit - (1.96 * se.fit))
+    UL <- plogis(fit + (1.96 * se.fit))
+})
+
+survy_alltree_bothmod <- bind_rows(survy_alltree_newdata3 %>% mutate(model="with Gila NF"),survy_alltree_newdata3_nog %>% mutate(model="without Gila NF"))
+
+ggplot(survy_alltree_bothmod, aes(x = climvar.value, y = PredictedProb, linetype=model)) + geom_ribbon(aes(ymin = LL,
+    ymax = UL), alpha = 0.2) + 
+  geom_line(linewidth = 1)+
+  xlab("y")+
+    ylab("Predicted Probability")+
+  ggtitle("Survival")+
+  theme_bw()
+#########
+```
+
+##RWI
+
+Cores were only taken from one tree from each provenance in each block, therefore we do not include block as a random effect in these models. 
+
+###Raw
+
+```{r}
+prov_all <- read.rwl("C:/Users/KatherineNigro/Box/Engelmann Spruce Provenance/Standardized_ring_widths/ARSTAN_output/prov_all.rwl")
+
+rwi.stats(prov_all)
+```
+
+####exploration
+```{r}
+#plot raw data to look at timeseries length
+par(mfrow=c(1,1))
+plot.rwl(prov_all)
+
+##compare timing of when trees reached 30cm tall (and thus had a growth ring measured)
+dbh_age <- prov_all %>% 
+  as.data.frame() %>% 
+  mutate(year = rownames(prov_all)) %>% 
+  pivot_longer(!year, values_to = "rw", names_to="tree") %>% 
+  left_join(moniger_data_comb %>% mutate(tree=paste(LOC,BLK,REP,sep="")), by="tree")
+  
+dbh_age_summary <- dbh_age %>%
+  filter(!is.na(rw)) %>% 
+  group_by(Provenance,tree) %>% 
+  summarise(minyr = as.numeric(min(year)), maxyr=as.numeric(max(year)), n=n()) %>% 
+  mutate(years.calc = maxyr-minyr+1)
+
+#compare when time series started (min year)
+ggplot(dbh_age_summary, aes(x=factor(Provenance, levels=provs_bylat$Provenance), y=minyr))+
+  geom_boxplot()+
+  geom_point(color="maroon")+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+#compare length of timeseries
+ggplot(dbh_age_summary, aes(x=Provenance, y=n))+
+  geom_boxplot()+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+dbh_age_summary2 <- dbh_age_summary %>% 
+  left_join(dbh, by=c("tree"="Series","Provenance")) 
+
+ggplot(dbh_age_summary2, aes(x=minyr, y=DBH14, col=Provenance))+
+  geom_point() #there isn't a strong correlation between dbh and the length of the timeseries which makes me think that rings were just lost (not that the tree didn't reach DBH height until the min year)
+###
+
+##remove NAs from ring width series
+prov_all_nona<- prov_all %>% na.omit()
+colnames(prov_all_nona)
+
+##raw
+ggplot(dbh_age, aes(x=year, y=rw, col=tree))+
+  geom_line()+
+  geom_point()+
+  facet_wrap(~Provenance)+
+  theme(legend.position = "none")
+
+###investigating series with really low ring width values
+dbh_rwi_comp <- dbh_age %>% 
+  filter(!tree=="32A1") %>% 
+  group_by(Provenance, tree) %>% 
+  summarise(sum=sum(rw, na.rm = TRUE)) %>% 
+  arrange(tree) %>% 
+  bind_cols(dbh %>%
+              filter(Series %in% unique(dbh_age$tree)) %>% 
+              dplyr::select(-Provenance) %>% 
+              arrange(Series) %>% 
+  filter(!is.na(DBH14))) %>% 
+  mutate(lowsum=ifelse(sum<15,"yes","no"))
+
+dbh_rwi_comp %>% 
+  filter(lowsum=="yes")
+
+ggplot(dbh_rwi_comp)+
+  geom_point(aes(x=sum, y=DBH14, col=lowsum))
+
+ggplot(dbh_rwi_comp %>% mutate(sum=ifelse(sum<15,sum*10,sum)))+
+  geom_point(aes(x=sum, y=DBH14, col=lowsum))+
+  geom_abline(slope=1/10,intercept = 0) ##seems like these "low sum" ring measurements are off by a factor of 10
+###########
+```
+
+####remove bad data
+
+```{r}
+#find series that are likely off by an order of magnitude
+off_trees<- dbh_rwi_comp %>% 
+  filter(lowsum=="yes") %>% pull(tree) %>% c("58A4") #this is the weird tree that's half and half
+
+prov_good_nona <- prov_all_nona %>% dplyr::select(-all_of(off_trees))
+
+###this cuts out sketchy trees and year = 2016
+prov_good <- prov_all %>% dplyr::select(-all_of(off_trees)) %>% 
+  filter(!row.names(prov_all)=="2016")
+
+#ring width series statistics
+par(mfrow=c(1,1))
+plot(prov_good, plot.type="spag")
+rwl.report(prov_good)
+prov_good_stats<- summary(prov_good)
+summary(prov_good_stats$ar1)
+
+##some plots of the raw data averaged
+dbh_age_good <- dbh_age %>% 
+  filter(!tree %in% off_trees)
+
+ave_rw_all <- dbh_age_good %>%
+  na.omit() %>% 
+  group_by(year) %>% 
+  summarise(ave_rw=mean(rw), se=sd(rw)/sqrt(n()))
+
+plantation_clim <- plantation_clim %>% 
+  mutate(aet_scale=scale(aet_sum))
+
+ggplot(ave_rw_all, aes(x=as.numeric(year), y=ave_rw))+
+  geom_bar(data=plantation_clim, aes(x=as.numeric(year), y=aet_scale), stat="identity")+
+  geom_point()+
+  geom_errorbar(aes(x=as.numeric(year), ymin=(ave_rw-se), ymax=(ave_rw+se)), col="red")+
+  geom_line()
+### it seems like the major deviation in the data is in response to the wet period right before the drought, rather than the 2002 drought. 
+
+```
+
+
+###Detrending
+
+```{r}
+##detrending with Spline method - using stiffness of 35 years
+##need to figure out what age to start at based on how long the "young tree growth spurt" usually takes
+
+growth.detrended.all = matrix(nrow=nrow(prov_good), ncol=length(colnames(prov_good)))
+for(i in 1:length(prov_good)){
+obj<- detrend.series(y = prov_good  %>%  pull(colnames(prov_good)[i]), y.name="growth", method="Spline", nyrs = 35)
+growth.detrended.all[,i]<- obj
+}
+colnames(growth.detrended.all) = colnames(prov_good)
+rownames(growth.detrended.all) = rownames(prov_good)
+
+rwi.stats(growth.detrended.all, period="max")
+chron(growth.detrended.all)
+plot(chron(growth.detrended.all), add.spline=TRUE, nyrs=35)
+sss(growth.detrended.all)
+
+growth.detrended.df.all <- growth.detrended.all %>% 
+  as.data.frame() %>% 
+  mutate(year = rownames(growth.detrended.all)) %>% 
+  pivot_longer(!year, values_to = "rw_spline", names_to="tree") %>% 
+  mutate(tree=paste("X",tree,sep=""), year=as.integer(year)) %>% 
+  left_join(dbh %>% mutate(tree=paste("X",Series,sep="")), by="tree")
+
+ggplot(growth.detrended.df.all, aes(x=year, y=rw_spline, col=tree))+
+  geom_line()+
+  geom_point()+
+  facet_wrap(~Provenance, scales = "free")+
+  theme(legend.position = "none")
+
+##remove first 15 years of ring widths since they are missing for many trees and likely represent unusual growth patterns. 
+growth.detrended.short = matrix(nrow=nrow(prov_good)-15, ncol=length(colnames(prov_good)))
+for(i in 1:length(prov_good)){
+obj<- detrend.series(y = prov_good %>% filter(!(row.names(prov_good) < 1985))  %>%  pull(colnames(prov_good)[i]), y.name="growth", method="Spline", nyrs = 35)
+growth.detrended.short[,i]<- obj
+}
+colnames(growth.detrended.short) = colnames(prov_good)
+rownames(growth.detrended.short) = rownames(prov_good)[16:nrow(prov_good)]
+
+rwi.stats(growth.detrended.short, period="max")
+plot(chron(growth.detrended.short), add.spline=TRUE, nyrs=35)
+sss(growth.detrended.short)
+sens1(growth.detrended.short[,1])
+
+##########
+
+growth.detrended.df <- growth.detrended.short %>% 
+  as.data.frame() %>% 
+  mutate(year = rownames(growth.detrended.short)) %>% 
+  pivot_longer(!year, values_to = "rw_spline", names_to="tree") %>% 
+  mutate(tree=paste("X",tree,sep=""), year=as.integer(year)) %>% 
+  left_join(dbh %>% mutate(tree=paste("X",Series,sep="")), by="tree")
+
+ggplot(growth.detrended.df, aes(x=year, y=rw_spline, col=tree))+
+  geom_line()+
+  geom_point()+
+  facet_wrap(~Provenance, scales = "free")+
+  theme(legend.position = "none")
+
+growth.detrended.byprov <- growth.detrended.df %>% 
+  group_by(Provenance,year) %>% 
+  summarise(meanrwi = mean(rw_spline, na.rm=T), se=sd(rw_spline,na.rm=T)/sqrt(n()))
+
+plantation_clim_cut <- plantation_clim %>% 
+  filter(year>1984 & year < 2016) %>% 
+  mutate(aet_scale=scale(aet_sum))
+
+plantation_clim_cut<- plantation_clim_cut %>% 
+  mutate(aet_scale_1 = 2*((plantation_clim_cut$aet_sum  - min(plantation_clim_cut$aet_sum )) / (max(plantation_clim_cut$aet_sum) - min(plantation_clim_cut$aet_sum))) - 1)
+
+ggplot(growth.detrended.byprov, aes(x=year, y=meanrwi-1))+
+  geom_bar(data=plantation_clim_cut, aes(x=year, y=aet_scale_1), stat="identity")+
+  geom_point(aes( col=factor(Provenance, levels=provs_bylat$Provenance)), size=2)+
+  geom_ribbon(aes(x=year, ymin=meanrwi-se-1, ymax=meanrwi+se-1, fill=factor(Provenance, levels=provs_bylat$Provenance)), alpha=0.3)+
+  scale_y_continuous(name="AET (scaled)", sec.axis = sec_axis(~.+1, name="RWI"))+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  scale_fill_manual(values=unname(stepped()), name="Provenance")+
+  geom_line(aes( col=factor(Provenance, levels=provs_bylat$Provenance)), linewidth=1)+
+  geom_hline(yintercept=0, linetype=2)+
+  theme_bw()+
+  theme(axis.text = element_text(color="black",size=10), axis.title = element_text(color="black", size=12), panel.grid = element_blank())
+
+```
+
+####Gini coefficient
+
+```{r}
+trees<- unique(growth.detrended.df$tree)
+
+Gini(growth.detrended.df %>% filter(tree==trees[1]) %>% pull(rw_spline), weights=NULL, unbiased = TRUE, conf.level=.95, R=10000, type="bca", na.rm=TRUE)
+
+###get time period with all trees included in all years (common period)
+gini_df = data.frame()
+for(i in 1:length(trees)){
+gini = growth.detrended.df %>% filter(year > 1990 & year < 2011) %>% filter(tree==trees[i]) %>% pull(rw_spline) %>% 
+  Gini(weights=NULL, unbiased = TRUE, conf.level=0.95, R=10000, type="perc", na.rm=TRUE)
+gini_df = bind_rows(gini_df, data.frame(gini=gini[1], lwr = gini[2], upr=gini[3], tree=trees[i]))
+}
+
+gini_byprov<- gini_df %>% 
+  left_join(dbh_age %>% mutate(tree=paste0("X",tree)) %>% dplyr::select(tree,BLK,Provenance,HT14,DBH14) %>% unique(), by="tree")
+
+ggplot(gini_byprov, aes(x=factor(Provenance, levels = provs_bylat$Provenance), y=gini, fill=factor(Provenance, levels = provs_bylat$Provenance)))+
+  geom_boxplot()+
+  scale_fill_manual(values=unname(stepped()), name="Provenance")+
+  ylab("Gini coefficient")+
+  xlab("Provenance")+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle=45, hjust=1), legend.position = "none",
+        axis.title = element_text(size=12, color="black"), axis.text = element_text(size = 12, color="black"))
+
+gini_sum<- gini_byprov %>% 
+  group_by(Provenance) %>% 
+  summarise(mean=mean(gini), sd=sd(gini), se=sd(gini)/sqrt(n()))
+
+gini_plot<- ggplot(gini_sum, aes(x=factor(Provenance, levels = provs_bylat$Provenance, labels=provs_bylat$code), y=mean, fill=factor(Provenance, levels = provs_bylat$Provenance, labels=provs_bylat$code), color=factor(Provenance, levels = provs_bylat$Provenance, labels=provs_bylat$code)))+
+  geom_point(size=3)+
+  geom_errorbar(aes(ymin=mean-se, ymax=mean+se), linewidth=1, width=0.5)+
+  scale_fill_manual(values=unname(stepped()), name="Provenance")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  scale_y_continuous(breaks=c(0.1,0.2))+
+  ylab("Gini coefficient")+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle=45, hjust=1, size=8), legend.position = "none",
+        axis.title = element_text(color="black"), axis.text = element_text(color="black"), axis.title.x = element_blank(),panel.grid.major = element_blank(),panel.grid.minor = element_blank())
+
+rwi_gini_plot<- ggplot(growth.detrended.byprov, aes(x=year, y=meanrwi-1))+
+  geom_bar(data=plantation_clim_cut, aes(x=year, y=aet_scale_1), stat="identity")+
+  geom_point(aes( col=factor(Provenance, levels=provs_bylat$Provenance)), size=2)+
+  geom_ribbon(aes(x=year, ymin=meanrwi-se-1, ymax=meanrwi+se-1, fill=factor(Provenance, levels=provs_bylat$Provenance)), alpha=0.3)+
+  scale_y_continuous(name="AET (scaled)", sec.axis = sec_axis(~.+1, name="RWI"))+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  scale_fill_manual(values=unname(stepped()), name="Provenance")+
+  geom_line(aes( col=factor(Provenance, levels=provs_bylat$Provenance)), linewidth=1)+
+  geom_hline(yintercept=0, linetype=2)+
+  theme_bw()+
+  theme(axis.text = element_text(color="black",size=10), axis.title = element_text(color="black", size=12), panel.grid = element_blank())+
+  annotation_custom(ggplotGrob(gini_plot), xmin=1983, xmax=1997, ymin=0.35, ymax=1.1)
+
+png("figures/rwi_gini_plot.png", width=11,height=6, unit="in", res=300)
+rwi_gini_plot
+dev.off()
+
+##ANOVA
+
+gini_provmod <- lmer(log(gini) ~ Provenance + (1|BLK), data=gini_byprov)
+plot(gini_provmod)
+qqmath(gini_provmod)
+anova(gini_provmod)
+
+gini_marg = lsmeans(gini_provmod, ~ Provenance)
+
+CLD_gini = cld(gini_marg,
+          alpha=0.05,
+          Letters=letters)
+CLD_gini #payette greater than 12, gila less than 10
+
+
+mean(gini_byprov$gini)
+sd(gini_byprov$gini)
+
+##Model with climate as a predictor
+gini_clim_df <- gini_byprov %>% 
+  left_join(prov_pcapts_big) 
+
+#MAT
+gini_byMAT <- lmer(log(gini) ~ MAT + (1|Provenance) + (1|BLK), data=gini_clim_df)
+plot(gini_byMAT)
+qqmath(gini_byMAT)
+summary(gini_byMAT)
+
+#map
+gini_bymap <- lmer(log(gini) ~ MAP+ (1|Provenance) + (1|BLK), data=gini_clim_df)
+plot(gini_bymap)
+qqmath(gini_bymap)
+summary(gini_bymap)
+
+#TD
+gini_byTD <- lmer(log(gini) ~ TD + (1|Provenance) + (1|BLK), data=gini_clim_df)
+plot(gini_byTD)
+qqmath(gini_byTD)
+summary(gini_byTD)
+
+#MCMT
+gini_byMCMT <- lmer(log(gini) ~ MCMT + (1|Provenance) + (1|BLK), data=gini_clim_df)
+plot(gini_byMCMT)
+qqmath(gini_byMCMT)
+summary(gini_byMCMT)
+
+#MSP
+gini_byMSP <- lmer(log(gini) ~ MSP + (1|Provenance) + (1|BLK), data=gini_clim_df)
+plot(gini_byMSP)
+qqmath(gini_byMSP)
+summary(gini_byMSP)
+
+#SHM
+gini_bySHM <- lmer(log(gini) ~ SHM + (1|Provenance) + (1|BLK), data=gini_clim_df)
+plot(gini_bySHM)
+qqmath(gini_bySHM)
+summary(gini_bySHM)
+
+#NFFD
+gini_byNFFD <- lmer(log(gini) ~ NFFD + (1|Provenance) + (1|BLK), data=gini_clim_df)
+plot(gini_byNFFD)
+qqmath(gini_byNFFD)
+summary(gini_byNFFD)
+
+#bFFP
+gini_bybFFP <- lmer(log(gini) ~ bFFP + (1|Provenance) + (1|BLK), data=gini_clim_df)
+plot(gini_bybFFP)
+qqmath(gini_bybFFP)
+summary(gini_bybFFP)
+
+#eFFP
+gini_byeFFP <- lmer(log(gini) ~ eFFP + (1|Provenance) + (1|BLK), data=gini_clim_df)
+plot(gini_byeFFP)
+qqmath(gini_byeFFP)
+summary(gini_byeFFP)
+
+#MWMT
+gini_byMWMT <- lmer(log(gini) ~ MWMT + (1|Provenance) + (1|BLK), data=gini_clim_df)
+plot(gini_byMWMT)
+qqmath(gini_byMWMT)
+summary(gini_byMWMT)
+
+#dd_0
+gini_bydd_0 <- lmer(log(gini) ~ DD0 + (1|Provenance) + (1|BLK), data=gini_clim_df)
+plot(gini_bydd_0)
+qqmath(gini_bydd_0)
+summary(gini_bydd_0)
+
+#dd5
+gini_bydd5 <- lmer(log(gini) ~ DD5 + (1|Provenance) + (1|BLK), data=gini_clim_df)
+plot(gini_bydd5)
+qqmath(gini_bydd5)
+summary(gini_bydd5)
+
+#EMT
+gini_byEMT <- lmer(log(gini) ~ EMT + (1|Provenance) + (1|BLK), data=gini_clim_df)
+plot(gini_byEMT)
+qqmath(gini_byEMT)
+summary(gini_byEMT)
+
+#cmd
+gini_bycmd <- lmer(log(gini) ~ CMD + (1|Provenance) + (1|BLK), data=gini_clim_df)
+plot(gini_bycmd)
+qqmath(gini_bycmd)
+summary(gini_bycmd)
+
+#pas
+gini_bypas <- lmer(log(gini) ~ PAS + (1|Provenance) + (1|BLK), data=gini_clim_df)
+plot(gini_bypas)
+qqmath(gini_bypas)
+summary(gini_bypas)
+
+#smrpb
+gini_bysmrpb <- lmer(log(gini) ~ smrpb + (1|Provenance) + (1|BLK), data=gini_clim_df %>% filter(!Provenance=="Gila NF"))
+plot(gini_bysmrpb)
+qqmath(gini_bysmrpb)
+summary(gini_bysmrpb) ##only significant with Gila included
+
+#PC1
+gini_byPC1 <- lmer(log(gini) ~ PC1 + (1|Provenance) + (1|BLK), data=gini_clim_df)
+plot(gini_byPC1)
+qqmath(gini_byPC1)
+summary(gini_byPC1)
+#PC2
+gini_byPC2 <- lmer(log(gini) ~ PC2 + (1|Provenance) + (1|BLK), data=gini_clim_df)
+plot(gini_byPC2)
+qqmath(gini_byPC2)
+summary(gini_byPC2) 
+#PC3
+gini_byPC3 <- lmer(log(gini) ~ PC3 + (1|Provenance) + (1|BLK), data=gini_clim_df)
+plot(gini_byPC3)
+qqmath(gini_byPC3)
+summary(gini_byPC3)
+
+###see if gini coefficient is related to survival and growth
+tree_data_all <- growth.detrended.df %>% 
+  dplyr::select(c(tree,SORT,LOC,BLK,REP)) %>% 
+  left_join(moniger_data_comb, by=c("SORT","LOC","BLK","REP"))
+
+gini_all_data<- gini_byprov %>% 
+  left_join(unique(tree_data_all))
+
+gini_dbh14_mod <- lmer(DBH14 ~ gini + (1|code) + (1|BLK), data=gini_all_data %>% filter(!is.na(DBH14)))
+plot(gini_dbh14_mod)
+qqmath(gini_dbh14_mod)
+summary(gini_dbh14_mod)
+
+gini_ht14_mod <- lmer(HT14 ~ gini + (1|code) + (1|BLK), data=gini_all_data %>% filter(!is.na(HT14)))
+plot(gini_ht14_mod)
+qqmath(gini_ht14_mod)
+summary(gini_ht14_mod)
+
+gini_surv_df<- moniger_survival_byyr_zeros %>% 
+  filter(year==2014) %>% 
+  mutate(tree=paste0("X",LOC,BLK,REP)) %>% 
+  right_join(gini_byprov)
+  
+gini_surv14_mod <- glmmTMB(value ~ gini + (1|BLK), data=gini_surv_df, family=binomial(link="logit"))
+summary(gini_surv14_mod) #not significant
+r2(gini_surv14_mod)
+
+```
+
+###Resistance vs. Resilience
+
+####Odd time periods
+
+#####Detrended with spline
+
+```{r}
+###DETRENDED DATA
+droughtyear = 2002
+buffertime = seq(0,3,1)
+spline_calcs_list<- list()
+for(i in 1:length(buffertime)){
+drought_rw<- growth.detrended.df %>% 
+  filter(year >= droughtyear - buffertime[i] & year <= droughtyear + buffertime[i]) %>% 
+  group_by(tree) %>% 
+  summarise(drought_ave_rw = mean(rw_spline))
+
+predrought_rw<- growth.detrended.df %>% 
+  filter(year >= droughtyear - buffertime[i] - 1 - buffertime[i]*2 & year <= droughtyear - buffertime[i] - 1) %>% 
+  group_by(tree) %>% 
+  summarise(predrought_ave_rw = mean(rw_spline))
+
+postdrought_rw<- growth.detrended.df %>% 
+  filter(year >= droughtyear + buffertime[i] + 1  & year <= droughtyear + buffertime[i] + 1 + buffertime[i]*2) %>% 
+  group_by(tree) %>% 
+  summarise(postdrought_ave_rw = mean(rw_spline))
+
+spline_calcs_list[[i]] <- left_join(drought_rw,predrought_rw) %>% left_join(postdrought_rw) %>% 
+  mutate(resistance = drought_ave_rw/predrought_ave_rw, resilience = postdrought_ave_rw/predrought_ave_rw) %>% 
+  left_join(dbh_age %>% mutate(tree=paste0("X",tree)) %>% dplyr::select(BLK,tree,Provenance) %>% unique(), by="tree")
+}
+
+splinemodlist_resistance<- list()
+for(i in 1:length(spline_calcs_list)){
+splinemodlist_resistance[[i]] <- aov(resistance ~ Provenance, data=spline_calcs_list[[i]])
+}
+summary(splinemodlist_resistance[[1]])
+summary(splinemodlist_resistance[[2]]) #3yr still significant but diff provs
+TukeyHSD(splinemodlist_resistance[[2]])$Provenance %>% as.data.frame() %>% filter(`p adj` <0.05)
+ggplot(as.data.frame(spline_calcs_list[[2]]), aes(x=Provenance, y=resistance))+
+  geom_boxplot()+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+summary(splinemodlist_resistance[[3]])
+summary(splinemodlist_resistance[[4]]) 
+
+splinemodlist_resilience<- list()
+for(i in 1:length(spline_calcs_list)){
+splinemodlist_resilience[[i]] <- aov(resilience ~ Provenance, data=spline_calcs_list[[i]] %>% filter(!is.na(resilience)))
+}
+summary(splinemodlist_resilience[[1]])
+summary(splinemodlist_resilience[[2]]) ##3 year periods is significant
+TukeyHSD(splinemodlist_resilience[[2]])$Provenance %>% as.data.frame() %>% filter(`p adj` <0.05) #all Gila
+summary(splinemodlist_resilience[[3]]) ##5 year periods is significant (p < 0.05)
+TukeyHSD(splinemodlist_resilience[[3]])$Provenance %>% as.data.frame() %>% filter(`p adj` <0.05) #Gila, in addition to Inlet Creek being lower than Larimer 2 and Pike
+ggplot(as.data.frame(spline_calcs_list[[3]]), aes(x=Provenance, y=resilience))+
+  geom_boxplot()+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+summary(splinemodlist_resilience[[4]]) 
+
+####
+
+lapply(spline_calcs_list, summary)
+spline_calcs_list[[1]] %>% dplyr::select(c(resistance,resilience)) %>% as.data.frame() %>% 
+  summarise(sd.resist=sd(resistance), sd.resil = sd(resilience))
+spline_calcs_list[[2]] %>% dplyr::select(c(resistance,resilience)) %>% as.data.frame() %>% 
+  summarise(sd.resist=sd(resistance), sd.resil = sd(resilience))
+spline_calcs_list[[3]] %>% dplyr::select(c(resistance,resilience)) %>% as.data.frame() %>% 
+  summarise(sd.resist=sd(resistance), sd.resil = sd(resilience))
+spline_calcs_list[[4]] %>% dplyr::select(c(resistance,resilience)) %>% as.data.frame() %>% 
+  summarise(sd.resist=sd(resistance), sd.resil = sd(resilience,na.rm=T))
+
+```
+
+####Even time periods
+
+#####Detrended ring with spline
+
+```{r}
+## even time periods
+####
+#01-02 - 2 years, significant for resistance
+
+drought_rwi_0102<- growth.detrended.df %>% 
+  filter(year >= 2001 & year <= 2002) %>% 
+  group_by(tree) %>% 
+  summarise(drought_ave_rwi = mean(rw_spline))
+
+predrought_rwi_0102<- growth.detrended.df %>% 
+  filter(year >= 1999 & year <= 2000) %>% 
+  group_by(tree) %>% 
+  summarise(predrought_ave_rwi = mean(rw_spline))
+
+postdrought_rwi_0102<- growth.detrended.df %>% 
+  filter(year >= 2003 & year <= 2004) %>% 
+  group_by(tree) %>% 
+  summarise(postdrought_ave_rwi = mean(rw_spline))
+
+spline_calcs_0102 <- left_join(drought_rwi_0102,predrought_rwi_0102) %>% left_join(postdrought_rwi_0102) %>% 
+  mutate(resistance = drought_ave_rwi/predrought_ave_rwi, resilience = postdrought_ave_rwi/predrought_ave_rwi) %>% 
+  left_join(dbh_age %>% mutate(tree=paste0("X",tree)) %>% dplyr::select(BLK,tree,Provenance) %>% unique(), by="tree")
+
+splinemodlist_resistance_0102 <- aov(resistance ~ Provenance, data=spline_calcs_0102)
+
+summary(splinemodlist_resistance_0102)
+TukeyHSD(splinemodlist_resistance_0102)$Provenance %>% as.data.frame() %>% filter(`p adj` <0.05) #significant but no pairwiise differences
+
+splinemodlist_resilience_0102 <- aov(resilience ~ Provenance, data=spline_calcs_0102)
+
+summary(splinemodlist_resilience_0102)
+
+#02-03 - 2 years, not significant
+
+drought_rwi_0203<- growth.detrended.df %>%
+  filter(year >= 2002 & year <= 2003) %>% 
+  group_by(tree) %>% 
+  summarise(drought_ave_rwi = mean(rw_spline))
+
+predrought_rwi_0203<- growth.detrended.df %>% 
+  filter(year >= 2000 & year <= 2001) %>% 
+  group_by(tree) %>% 
+  summarise(predrought_ave_rwi = mean(rw_spline))
+
+postdrought_rwi_0203<- growth.detrended.df %>% 
+  filter(year >= 2004 & year <= 2005) %>% 
+  group_by(tree) %>% 
+  summarise(postdrought_ave_rwi = mean(rw_spline))
+
+spline_calcs_0203 <- left_join(drought_rwi_0203,predrought_rwi_0203) %>% left_join(postdrought_rwi_0203) %>% 
+  mutate(resistance = drought_ave_rwi/predrought_ave_rwi, resilience = postdrought_ave_rwi/predrought_ave_rwi) %>% 
+  left_join(dbh_age %>% mutate(tree=paste0("X",tree)) %>% dplyr::select(BLK,tree,Provenance) %>% unique(), by="tree")
+
+splinemodlist_resistance_0203 <- aov(resistance ~ Provenance, data=spline_calcs_0203)
+
+summary(splinemodlist_resistance_0203)
+
+splinemodlist_resilience_0203 <- aov(resilience ~ Provenance, data=spline_calcs_0203)
+
+summary(splinemodlist_resilience_0203)
+
+#01-04 - 4 years, significant resilience only
+
+drought_rwi_0104<- growth.detrended.df %>% 
+  filter(year >= 2001 & year <= 2004) %>% 
+  group_by(tree) %>% 
+  summarise(drought_ave_rwi = mean(rw_spline))
+
+predrought_rwi_0104<- growth.detrended.df %>% 
+  filter(year >= 1997 & year <= 2000) %>% 
+  group_by(tree) %>% 
+  summarise(predrought_ave_rwi = mean(rw_spline))
+
+postdrought_rwi_0104<- growth.detrended.df %>% 
+  filter(year >= 2005 & year <= 2008) %>% 
+  group_by(tree) %>% 
+  summarise(postdrought_ave_rwi = mean(rw_spline))
+
+spline_calcs_0104 <- left_join(drought_rwi_0104,predrought_rwi_0104) %>% left_join(postdrought_rwi_0104) %>% 
+  mutate(resistance = drought_ave_rwi/predrought_ave_rwi, resilience = postdrought_ave_rwi/predrought_ave_rwi) %>% 
+  left_join(dbh_age %>% mutate(tree=paste0("X",tree)) %>% dplyr::select(BLK,tree,Provenance) %>% unique(), by="tree")
+
+splinemodlist_resistance_0104 <- aov(resistance ~ Provenance, data=spline_calcs_0104)
+TukeyHSD(splinemodlist_resistance_0104)$Provenance %>% as.data.frame() %>% filter(`p adj`<0.05)
+ggplot(as.data.frame(spline_calcs_0104), aes(x=Provenance, y=resistance))+
+  geom_boxplot()+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+
+summary(splinemodlist_resistance_0104)
+
+splinemodlist_resilience_0104 <- aov(resilience ~ Provenance, data=spline_calcs_0104)
+
+summary(splinemodlist_resilience_0104)
+TukeyHSD(splinemodlist_resilience_0104)$Provenance %>% as.data.frame() %>% filter(`p adj`<0.05)
+ggplot(as.data.frame(spline_calcs_0104), aes(x=Provenance, y=resilience))+
+  geom_boxplot()+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+#00-03 - 4 years, significant reslience only 
+
+drought_rwi_0003<- growth.detrended.df %>% 
+  filter(year >= 2000 & year <= 2003) %>% 
+  group_by(tree) %>% 
+  summarise(drought_ave_rwi = mean(rw_spline))
+
+predrought_rwi_0003<- growth.detrended.df %>% 
+  filter(year >= 1996 & year <= 1999) %>% 
+  group_by(tree) %>% 
+  summarise(predrought_ave_rwi = mean(rw_spline))
+
+postdrought_rwi_0003<- growth.detrended.df %>% 
+  filter(year >= 2004 & year <= 2007) %>% 
+  group_by(tree) %>% 
+  summarise(postdrought_ave_rwi = mean(rw_spline))
+
+spline_calcs_0003 <- left_join(drought_rwi_0003,predrought_rwi_0003) %>% left_join(postdrought_rwi_0003) %>% 
+  mutate(resistance = drought_ave_rwi/predrought_ave_rwi, resilience = postdrought_ave_rwi/predrought_ave_rwi) %>% 
+  left_join(dbh_age %>% mutate(tree=paste0("X",tree)) %>% dplyr::select(BLK,tree,Provenance) %>% unique(), by="tree")
+
+splinemodlist_resistance_0003 <- aov(resistance ~ Provenance, data=spline_calcs_0003)
+
+summary(splinemodlist_resistance_0003)
+
+splinemodlist_resilience_0003 <- aov(resilience ~ Provenance, data=spline_calcs_0003)
+
+summary(splinemodlist_resilience_0003)
+TukeyHSD(splinemodlist_resilience_0003)$Provenance %>% as.data.frame() %>% filter(`p adj`<0.05)
+ggplot(as.data.frame(spline_calcs_0003), aes(x=Provenance, y=resilience))+
+  geom_boxplot()+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+
+#00-05 - 6 years 
+
+drought_rwi_0005<- growth.detrended.df %>% 
+  filter(year >= 2000 & year <= 2005) %>% 
+  group_by(tree) %>% 
+  summarise(drought_ave_rwi = mean(rw_spline))
+
+predrought_rwi_0005<- growth.detrended.df %>% 
+  filter(year >= 1994 & year <= 1999) %>% 
+  group_by(tree) %>% 
+  summarise(predrought_ave_rwi = mean(rw_spline))
+
+postdrought_rwi_0005<- growth.detrended.df %>% 
+  filter(year >= 2006 & year <= 2011) %>% 
+  group_by(tree) %>% 
+  summarise(postdrought_ave_rwi = mean(rw_spline))
+
+spline_calcs_0005 <- left_join(drought_rwi_0005,predrought_rwi_0005) %>% left_join(postdrought_rwi_0005) %>% 
+  mutate(resistance = drought_ave_rwi/predrought_ave_rwi, resilience = postdrought_ave_rwi/predrought_ave_rwi) %>% 
+  left_join(dbh_age %>% mutate(tree=paste0("X",tree)) %>% dplyr::select(BLK,tree,Provenance) %>% unique(), by="tree")
+
+splinemodlist_resistance_0005 <- aov(resistance ~ Provenance, data=spline_calcs_0005)
+
+summary(splinemodlist_resistance_0005)
+
+splinemodlist_resilience_0005 <- aov(resilience ~ Provenance, data=spline_calcs_0005 %>% filter(!is.na(resilience)))
+
+summary(splinemodlist_resilience_0005)
+TukeyHSD(splinemodlist_resilience_0005)$Provenance %>% as.data.frame() %>% filter(`p adj`<0.05)
+ggplot(as.data.frame(spline_calcs_0005), aes(x=Provenance, y=resilience))+
+  geom_boxplot()+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+
+#99-04 - 6 years not significant for either resistance or resilience
+
+drought_rwi_9904<- growth.detrended.df %>% 
+  filter(year >= 1999 & year <= 2004) %>% 
+  group_by(tree) %>% 
+  summarise(drought_ave_rwi = mean(rw_spline))
+
+predrought_rwi_9904<- growth.detrended.df %>% 
+  filter(year >= 1993 & year <= 1998) %>% 
+  group_by(tree) %>% 
+  summarise(predrought_ave_rwi = mean(rw_spline))
+
+postdrought_rwi_9904<- growth.detrended.df %>% 
+  filter(year >= 2005 & year <= 2010) %>% 
+  group_by(tree) %>% 
+  summarise(postdrought_ave_rwi = mean(rw_spline))
+
+spline_calcs_9904 <- left_join(drought_rwi_9904,predrought_rwi_9904) %>% left_join(postdrought_rwi_9904) %>% 
+  mutate(resistance = drought_ave_rwi/predrought_ave_rwi, resilience = postdrought_ave_rwi/predrought_ave_rwi) %>% 
+  left_join(dbh_age %>% mutate(tree=paste0("X",tree)) %>% dplyr::select(BLK,tree,Provenance) %>% unique(), by="tree")
+
+splinemodlist_resistance_9904 <- aov(resistance ~ Provenance, data=spline_calcs_9904)
+
+summary(splinemodlist_resistance_9904)
+
+splinemodlist_resilience_9904 <- aov(resilience ~ Provenance, data=spline_calcs_9904)
+
+summary(splinemodlist_resilience_9904)
+TukeyHSD(splinemodlist_resilience_9904)$Provenance %>% as.data.frame() %>% filter(`p adj`<0.05)
+ggplot(as.data.frame(spline_calcs_9904), aes(x=Provenance, y=resilience))+
+  geom_boxplot()+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+###### summary stats
+spline_calcs_0102 %>% dplyr::select(c(resistance,resilience)) %>% as.data.frame() %>% 
+  summarise(mean.resist = mean(resistance), sd.resist=sd(resistance), mean.resil = mean(resilience), sd.resil = sd(resilience))
+
+spline_calcs_0203 %>% dplyr::select(c(resistance,resilience)) %>% as.data.frame() %>% 
+  summarise(mean.resist = mean(resistance), sd.resist=sd(resistance), mean.resil = mean(resilience), sd.resil = sd(resilience))
+
+spline_calcs_0104 %>% dplyr::select(c(resistance,resilience)) %>% as.data.frame() %>% 
+  summarise(mean.resist = mean(resistance), sd.resist=sd(resistance), mean.resil = mean(resilience), sd.resil = sd(resilience))
+
+spline_calcs_0003 %>% dplyr::select(c(resistance,resilience)) %>% as.data.frame() %>% 
+  summarise(mean.resist = mean(resistance), sd.resist=sd(resistance), mean.resil = mean(resilience), sd.resil = sd(resilience))
+
+spline_calcs_0005 %>% dplyr::select(c(resistance,resilience)) %>% as.data.frame() %>% 
+  summarise(mean.resist = mean(resistance), sd.resist=sd(resistance), mean.resil = mean(resilience,na.rm=T), sd.resil = sd(resilience,na.rm=T))
+
+spline_calcs_9904 %>% dplyr::select(c(resistance,resilience)) %>% as.data.frame() %>% 
+  summarise(mean.resist = mean(resistance), sd.resist=sd(resistance), mean.resil = mean(resilience, na.rm=T), sd.resil = sd(resilience, na.rm=T))
+```
+
+
+####Climate Trends in RR
+
+#####resistance
+
+```{r}
+##I'm going to look at trends in resistance and resilience (spline detrended) due to provenance climate using the 4 year periods, where the drought period = 2001-2004 as this seems to be the period where there are the most differences between provenances in resistance and resilience.
+
+RR4_clim<- spline_calcs_0104 %>% 
+  left_join(prov_pcapts_big) 
+
+##PCA models
+resis_mod_pc <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR4_clim)
+plot(resis_mod_pc)
+qqmath(resis_mod_pc)
+summary(resis_mod_pc) 
+
+resis_mod_pc_noG <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR4_clim %>% filter(!Provenance=="Gila NF"))
+plot(resis_mod_pc_noG)
+qqmath(resis_mod_pc_noG)
+summary(resis_mod_pc_noG) 
+
+dredge(resis_mod_pc) ##null model is the best
+```
+
+```{r}
+#####01-02
+RR0102_clim<- spline_calcs_0102 %>% 
+  left_join(prov_pcapts_big)
+
+##PCA models
+resis_0102mod_pc <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR0102_clim)
+plot(resis_0102mod_pc)
+qqmath(resis_0102mod_pc)
+summary(resis_0102mod_pc) 
+
+resis_0102mod_pc_noG <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR0102_clim %>% filter(!Provenance=="Gila NF"))
+plot(resis_0102mod_pc_noG)
+qqmath(resis_0102mod_pc_noG)
+summary(resis_0102mod_pc_noG) #nothing significant when Gila removed
+
+dredge(resis_0102mod_pc) ##null model is the best
+```
+
+```{r}
+#####02-03
+RR0203_clim<- spline_calcs_0203 %>% 
+  left_join(prov_pcapts_big)
+
+##PCA models
+resis_0203mod_pc <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR0203_clim)
+plot(resis_0203mod_pc)
+qqmath(resis_0203mod_pc)
+summary(resis_0203mod_pc) 
+
+resis_0203mod_pc_noG <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR0203_clim %>% filter(!Provenance=="Gila NF"))
+plot(resis_0203mod_pc_noG)
+qqmath(resis_0203mod_pc_noG)
+summary(resis_0203mod_pc_noG) #nothing significant when Gila removed
+
+dredge(resis_0203mod_pc) ##null model is the best
+```
+
+```{r}
+#####00-03
+RR0003_clim<- spline_calcs_0003 %>% 
+  left_join(prov_pcapts_big)
+
+##PCA models
+resis_0003mod_pc <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR0003_clim)
+plot(resis_0003mod_pc)
+qqmath(resis_0003mod_pc)
+summary(resis_0003mod_pc) 
+
+resis_0003mod_pc_noG <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR0003_clim %>% filter(!Provenance=="Gila NF"))
+plot(resis_0003mod_pc_noG)
+qqmath(resis_0003mod_pc_noG)
+summary(resis_0003mod_pc_noG) #nothing significant when Gila removed
+
+dredge(resis_0003mod_pc) ##null model is the best
+```
+
+```{r}
+#####00-05
+RR0005_clim<- spline_calcs_0005 %>% 
+  left_join(prov_pcapts_big)
+
+##PCA models
+resis_0005mod_pc <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR0005_clim)
+plot(resis_0005mod_pc)
+qqmath(resis_0005mod_pc)
+summary(resis_0005mod_pc) 
+
+resis_0005mod_pc_noG <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR0005_clim %>% filter(!Provenance=="Gila NF"))
+plot(resis_0005mod_pc_noG)
+qqmath(resis_0005mod_pc_noG)
+summary(resis_0005mod_pc_noG) #nothing significant when Gila removed
+
+dredge(resis_0005mod_pc) ##null model is the best
+```
+
+```{r}
+#####99-04
+RR9904_clim<- spline_calcs_9904 %>% 
+  left_join(prov_pcapts_big)
+
+##PCA models
+resis_9904mod_pc <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR9904_clim)
+plot(resis_9904mod_pc)
+qqmath(resis_9904mod_pc)
+summary(resis_9904mod_pc) 
+
+resis_9904mod_pc_noG <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR9904_clim %>% filter(!Provenance=="Gila NF"))
+plot(resis_9904mod_pc_noG)
+qqmath(resis_9904mod_pc_noG)
+summary(resis_9904mod_pc_noG) #nothing significant when Gila removed
+
+dredge(resis_9904mod_pc) ##null model is the best
+```
+
+```{r}
+#####1 year
+RR1_clim<- spline_calcs_list[[1]] %>% 
+  left_join(prov_pcapts_big)
+
+##PCA models
+resis_1mod_pc <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR1_clim)
+plot(resis_1mod_pc)
+qqmath(resis_1mod_pc)
+summary(resis_1mod_pc) 
+
+resis_1mod_pc_noG <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR1_clim %>% filter(!Provenance=="Gila NF"))
+plot(resis_1mod_pc_noG)
+qqmath(resis_1mod_pc_noG)
+summary(resis_1mod_pc_noG) #nothing significant when Gila removed
+
+dredge(resis_1mod_pc) ##null model is the best
+```
+
+```{r}
+#####3 year
+RR3_clim<- spline_calcs_list[[2]] %>% 
+  left_join(prov_pcapts_big)
+
+##PCA models
+resis_3mod_pc <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR3_clim)
+plot(resis_3mod_pc)
+qqmath(resis_3mod_pc)
+summary(resis_3mod_pc) 
+
+resis_3mod_pc_noG <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR3_clim %>% filter(!Provenance=="Gila NF"))
+plot(resis_3mod_pc_noG)
+qqmath(resis_3mod_pc_noG)
+summary(resis_3mod_pc_noG) #nothing significant when Gila removed
+
+dredge(resis_3mod_pc) ##null model is the best
+```
+
+```{r}
+#####5 year
+RR5_clim<- spline_calcs_list[[3]] %>% 
+  left_join(prov_pcapts_big)
+
+##PCA models
+resis_5mod_pc <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR5_clim)
+plot(resis_5mod_pc)
+qqmath(resis_5mod_pc)
+summary(resis_5mod_pc) 
+
+resis_5mod_pc_noG <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR5_clim %>% filter(!Provenance=="Gila NF"))
+plot(resis_5mod_pc_noG)
+qqmath(resis_5mod_pc_noG)
+summary(resis_5mod_pc_noG) #nothing significant when Gila removed
+
+dredge(resis_5mod_pc) ##null model is the best
+```
+
+```{r}
+#####7 year
+RR7_clim<- spline_calcs_list[[4]] %>% 
+  left_join(prov_pcapts_big)
+
+##PCA models
+resis_7mod_pc <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR7_clim)
+plot(resis_7mod_pc)
+qqmath(resis_7mod_pc)
+summary(resis_7mod_pc) 
+
+resis_7mod_pc_noG <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR7_clim %>% filter(!Provenance=="Gila NF"))
+plot(resis_7mod_pc_noG)
+qqmath(resis_7mod_pc_noG)
+summary(resis_7mod_pc_noG) #nothing significant when Gila removed
+
+dredge(resis_7mod_pc) ##null model is the best
+```
+
+#####resilience
+
+```{r}
+###resilience
+resil_mod_pc <- lmer(resilience ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR4_clim)
+plot(resil_mod_pc)
+qqmath(resil_mod_pc)
+summary(resil_mod_pc)
+
+RR4_clim_noG <- RR4_clim %>% filter(!Provenance == "Gila NF")
+
+resil_mod_pc_noG <- lmer(resilience ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR4_clim_noG)
+plot(resil_mod_pc_noG)
+qqmath(resil_mod_pc_noG)
+summary(resil_mod_pc_noG)
+
+dredge(resil_mod_pc) #null model is best when Gila is included
+dredge(resil_mod_pc_noG) #null is best when Gila is excluded
+```
+
+```{r}
+
+#####01-02
+##PCA models
+resil_0102mod_pc <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR0102_clim)
+plot(resil_0102mod_pc)
+qqmath(resil_0102mod_pc)
+summary(resil_0102mod_pc) 
+
+resil_0102mod_pc_noG <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR0102_clim %>% filter(!Provenance=="Gila NF"))
+plot(resil_0102mod_pc_noG)
+qqmath(resil_0102mod_pc_noG)
+summary(resil_0102mod_pc_noG) #nothing significant when Gila removed
+
+dredge(resil_0102mod_pc) ##null model is the best
+```
+
+```{r}
+#####02-03
+##PCA models
+resil_0203mod_pc <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR0203_clim)
+plot(resil_0203mod_pc)
+qqmath(resil_0203mod_pc)
+summary(resil_0203mod_pc) 
+
+resil_0203mod_pc_noG <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR0203_clim %>% filter(!Provenance=="Gila NF"))
+plot(resil_0203mod_pc_noG)
+qqmath(resil_0203mod_pc_noG)
+summary(resil_0203mod_pc_noG) #nothing significant when Gila removed
+
+dredge(resil_0203mod_pc) ##null model is the best
+```
+
+```{r}
+#####00-03
+##PCA models
+resil_0003mod_pc <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR0003_clim)
+plot(resil_0003mod_pc)
+qqmath(resil_0003mod_pc)
+summary(resil_0003mod_pc) 
+
+resil_0003mod_pc_noG <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR0003_clim %>% filter(!Provenance=="Gila NF"))
+plot(resil_0003mod_pc_noG)
+qqmath(resil_0003mod_pc_noG)
+summary(resil_0003mod_pc_noG) #nothing significant when Gila removed
+
+dredge(resil_0003mod_pc) ##null model is the best
+```
+
+```{r}
+#####00-05
+RR0005_clim_resil <- RR0005_clim %>% 
+  filter(!is.na(resilience))
+##PCA models
+resil_0005mod_pc <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR0005_clim_resil)
+plot(resil_0005mod_pc)
+qqmath(resil_0005mod_pc)
+summary(resil_0005mod_pc) 
+
+resil_0005mod_pc_noG <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR0005_clim_resil %>% filter(!Provenance=="Gila NF"))
+plot(resil_0005mod_pc_noG)
+qqmath(resil_0005mod_pc_noG)
+summary(resil_0005mod_pc_noG) #nothing significant when Gila removed
+
+dredge(resil_0005mod_pc) ##null model is the best
+```
+
+```{r}
+#####00-04
+##PCA models
+resil_9904mod_pc <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR9904_clim)
+plot(resil_9904mod_pc)
+qqmath(resil_9904mod_pc)
+summary(resil_9904mod_pc) 
+
+resil_9904mod_pc_noG <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR9904_clim %>% filter(!Provenance=="Gila NF"))
+plot(resil_9904mod_pc_noG)
+qqmath(resil_9904mod_pc_noG)
+summary(resil_9904mod_pc_noG) #nothing significant when Gila removed
+
+dredge(resil_9904mod_pc) ##null model is the best
+```
+
+```{r}
+#####1 year
+##PCA models
+resil_1mod_pc <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR1_clim)
+plot(resil_1mod_pc)
+qqmath(resil_1mod_pc)
+summary(resil_1mod_pc) 
+
+resil_1mod_pc_noG <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR1_clim %>% filter(!Provenance=="Gila NF"))
+plot(resil_1mod_pc_noG)
+qqmath(resil_1mod_pc_noG)
+summary(resil_1mod_pc_noG) #nothing significant 
+
+dredge(resil_1mod_pc) ##null model is the best
+```
+
+```{r}
+#####3 year
+##PCA models
+resil_3mod_pc <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR3_clim)
+plot(resil_3mod_pc)
+qqmath(resil_3mod_pc)
+summary(resil_3mod_pc) 
+
+resil_3mod_pc_noG <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR3_clim %>% filter(!Provenance=="Gila NF"))
+plot(resil_3mod_pc_noG)
+qqmath(resil_3mod_pc_noG)
+summary(resil_3mod_pc_noG) #nothing significant 
+
+dredge(resil_3mod_pc) ##null model is the best
+```
+
+```{r}
+#####5 year
+##PCA models
+resil_5mod_pc <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR5_clim)
+plot(resil_5mod_pc)
+qqmath(resil_5mod_pc)
+summary(resil_5mod_pc) 
+
+resil_5mod_pc_noG <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR5_clim %>% filter(!Provenance=="Gila NF"))
+plot(resil_5mod_pc_noG)
+qqmath(resil_5mod_pc_noG)
+summary(resil_5mod_pc_noG) #nothing significant 
+
+dredge(resil_5mod_pc) ##null model is the best
+```
+
+```{r}
+#####7 year
+RR7_clim_resil <- RR7_clim %>% 
+  filter(!is.na(resilience))
+##PCA models
+resil_7mod_pc <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR7_clim_resil)
+plot(resil_7mod_pc)
+qqmath(resil_7mod_pc)
+summary(resil_7mod_pc) 
+
+resil_7mod_pc_noG <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR7_clim_resil %>% filter(!Provenance=="Gila NF"))
+plot(resil_7mod_pc_noG)
+qqmath(resil_7mod_pc_noG)
+summary(resil_7mod_pc_noG) #nothing significant 
+
+dredge(resil_7mod_pc) ##null model is the best
+```
+
+###Other Metrics
+
+####long pre-drought
+
+```{r}
+###calculate resistance using all growth data from 1985 - 2001 as the pre-drought period
+drought_new<- growth.detrended.df %>% 
+  filter(year == 2002) %>% 
+  group_by(tree) %>% 
+  summarise(drought_ave= mean(rw_spline))
+
+predrought_new<- growth.detrended.df %>% 
+  filter(year > 1984 & year <2002) %>% 
+  group_by(tree) %>% 
+  summarise(predrought_ave= mean(rw_spline, na.rm=T))
+
+#resistance
+new_calcs <- left_join(drought_new,predrought_new) %>% 
+  mutate(resistance = drought_ave/predrought_ave) %>% 
+  left_join(dbh_age %>% mutate(tree=paste0("X",tree)) %>% dplyr::select(tree,Provenance,BLK) %>% unique(), by="tree")
+
+mean(new_calcs$resistance)
+
+new_aov_resist <- lmer(resistance ~ Provenance + (1|BLK), data=new_calcs)
+plot(new_aov_resist)
+qqmath(new_aov_resist)
+anova(new_aov_resist) #no difference in resistance when compared to average growth 1985-2002
+
+ggplot(new_calcs, aes(x=Provenance, y=resistance))+
+  geom_boxplot()+
+  geom_point()+
+  geom_hline(yintercept=1, col="red")+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+##drought year = 2003
+drought03_new<- growth.detrended.df %>% 
+  filter(year == 2003) %>% 
+  group_by(tree) %>% 
+  summarise(drought_ave= mean(rw_spline))
+
+predrought03_new<- growth.detrended.df %>% 
+  filter(year > 1984 & year <2003) %>% 
+  group_by(tree) %>% 
+  summarise(predrought_ave= mean(rw_spline, na.rm=T))
+
+#resistance
+new_calcs03 <- left_join(drought03_new,predrought03_new) %>% 
+  mutate(resistance = drought_ave/predrought_ave) %>% 
+  left_join(dbh_age %>% mutate(tree=paste0("X",tree)) %>% dplyr::select(BLK,tree,Provenance) %>% unique(), by="tree")
+
+new_aov_resist03 <- lmer(resistance ~ Provenance + (1|BLK), data=new_calcs03)
+plot(new_aov_resist03)
+qqmath(new_aov_resist03)
+anova(new_aov_resist03) #no difference in resistance in 2003 when compared to average growth 1985-2002
+```
+
+####recovery time
+```{r}
+#####recovery time 
+
+no_reduction<- growth.detrended.df %>% 
+  filter(year == 2002) %>%
+  left_join(predrought_new) %>% 
+  mutate(diff = predrought_ave- rw_spline) %>% 
+  filter(diff<0) ##50 trees didn't reduce growth in 2002
+
+count_no_red<- growth.detrended.df %>%
+  filter(year==2002) %>% 
+  group_by(Provenance) %>% 
+  summarise(ntrees=n()) %>% 
+  left_join(no_reduction %>% group_by(Provenance) %>% summarise(nNR=n()))
+
+ggplot(count_no_red, aes(x=Provenance, y=(nNR/ntrees)*100))+
+  geom_bar(stat="identity")+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+  
+recover_time<- growth.detrended.df %>%
+  filter(!tree %in% no_reduction$tree) %>% 
+  filter(year > 2001) %>%
+  left_join(predrought_new) %>% 
+  mutate(diff = rw_spline - predrought_ave) %>% 
+  filter(diff>0) %>% 
+  group_by(tree) %>% 
+  summarise(minyr = min(year)) %>% 
+  mutate(recoverytime = as.numeric(minyr) - 2002) %>% 
+  left_join(dbh_age %>% mutate(tree=paste0("X",tree)) %>% dplyr::select(tree,Provenance,BLK) %>% unique(), by="tree")
+
+aov.recover <- lmer(log(recoverytime) ~ Provenance + (1|BLK), data=recover_time)
+plot(aov.recover)
+qqmath(aov.recover)
+anova(aov.recover)  #no difference in recovery time
+
+ggplot(recover_time, aes(x=Provenance, y=recoverytime))+
+  geom_boxplot()+
+  geom_point()+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+##climate model for recovery time
+recover_time_clim <- recover_time %>% 
+  left_join(prov_pcapts_big)
+
+recov_mod_pca <- lmer(log(recoverytime) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance), data=recover_time_clim)
+plot(recov_mod_pca)
+qqmath(recov_mod_pca)
+summary(recov_mod_pca)
+dredge(recov_mod_pca) #null model is best
+
+###
+not_recovered<- dbh_age_good %>% 
+  mutate(tree=paste0("X",tree)) %>% 
+  filter(! tree %in% no_reduction$tree) %>% 
+  filter(! tree %in% recover_time$tree) 
+not_recovered ##all of the trees recovered
+
+#total growth reduction
+growth_red<- growth.detrended.df %>% 
+  filter(!tree %in% no_reduction$tree) %>% 
+  filter(!tree %in% unique(not_recovered$tree)) %>% 
+  filter(year>2001) %>% 
+  left_join(predrought_new) %>% 
+  mutate(growth_red = predrought_ave-rw_spline) %>% 
+  filter(growth_red>0)
+
+growth_red_sum <- growth_red %>% 
+  left_join(recover_time) %>% 
+  mutate(year_diff = minyr-year) %>% 
+  filter(year_diff > 0) %>% 
+  group_by(Provenance,BLK,tree) %>% 
+  summarise(max.growth.red = max(growth_red), sum.growth.red=sum(growth_red)) %>% 
+  left_join(growth_red, by=c("max.growth.red" = "growth_red", "tree","Provenance","BLK")) %>% 
+  left_join(recover_time, by=c("Provenance", "tree","BLK")) %>% 
+  left_join(prov_pcapts_big) 
+
+##max growth reduction models
+#anova
+aov.mgr <- lmer(max.growth.red ~ Provenance + (1|BLK), data=growth_red_sum)
+plot(aov.mgr)
+qqmath(aov.mgr)
+anova(aov.mgr)  #no significant difference in max growth reduction between provenances
+
+#linear models
+mgr.pcmod <- lmer(max.growth.red ~ PC1*PC2 + (1|Provenance) + (1|BLK), data=growth_red_sum)
+plot(mgr.pcmod)
+qqmath(mgr.pcmod)
+summary(mgr.pcmod)
+dredge(mgr.pcmod) #null is best
+
+##sum growth reduction models
+#anova
+aov.sumgr <- lmer(log(sum.growth.red) ~ Provenance + (1|BLK), data=growth_red_sum)
+plot(aov.sumgr)
+qqmath(aov.sumgr)
+anova(aov.sumgr)  #no significant difference in sum growth reduction between provenances
+
+#linear models
+sumgr.pcmod <- lmer(log(sum.growth.red) ~ PC1*PC2 + (1|Provenance) + (1|BLK), data=growth_red_sum)
+plot(sumgr.pcmod)
+qqmath(sumgr.pcmod)
+summary(sumgr.pcmod)
+dredge(sumgr.pcmod) #null is best
+
+```
+
+##Correlations
+
+###climate x climate cors
+```{r}
+##look at correlation between current year and previous year climate variables at plantation
+
+plantation_clim_minus1<- plantation_clim %>% mutate(year = year+1) %>% 
+ dplyr::select(c(CN:year,PPTsm:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum))
+
+colnames(plantation_clim_minus1)<- paste("prior_",colnames(plantation_clim_minus1),sep="")
+
+plantation_clim_cor<- plantation_clim %>% 
+ dplyr::select(c(CN:year,PPTsm:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum)) %>% 
+  left_join(plantation_clim_minus1, by=c("year" = "prior_year", "CN" = "prior_CN")) %>% 
+  filter(! year %in% c(1971)) %>% 
+  ungroup() %>% 
+  filter(year>1970) %>% 
+ dplyr::select(-c(CN,year)) %>% 
+  cor()
+
+plantation_clim_cor
+
+ggcorrplot(plantation_clim_cor, type="lower", insig = "blank", lab=FALSE)
+
+plantation_clim_cor_yrof<- plantation_clim %>% 
+ dplyr::select(c(CN:year,PPTsm:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum)) %>% 
+  filter(! year %in% c(1970)) %>% 
+  ungroup() %>% 
+  filter(year>1970) %>% 
+ dplyr::select(-c(CN,year)) %>% 
+  cor()
+
+ggcorrplot(plantation_clim_cor_yrof, type="lower", insig = "blank", lab=TRUE)
+
+```
+
+###growth x climate cors
+
+```{r}
+##calculate correlations between detrended growth and climate at plantation
+
+plantation_frost_minus1<- plantation_frost %>% mutate(year = year+1) 
+
+colnames(plantation_frost_minus1)<- paste("prior_",colnames(plantation_frost_minus1),sep="")
+
+growth_climate_df <- growth.detrended.df %>% 
+  left_join(plantation_clim) %>% 
+  left_join(plantation_frost) %>% 
+ dplyr::select(c(CN:year,PPTsm:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum, day_of_last_spring_frost, day_of_first_fall_frost)) %>% 
+  left_join(plantation_clim_minus1, by=c("year" = "prior_year", "CN" = "prior_CN")) %>% 
+  left_join(plantation_frost_minus1, by=c("year" = "prior_year", "CN" = "prior_CN")) %>% 
+  ungroup() %>% 
+  filter(year>1970) %>% 
+  filter(!is.na(rw_spline))
+
+climvars <- colnames(growth_climate_df %>% dplyr::select(-c(CN:year)))
+tree_ids <- unique(growth_climate_df$tree)
+
+gc_cor_df<-data.frame()
+for(i in 1:length(climvars)){
+  for(j in 1:length(tree_ids)){
+  clim <- growth_climate_df %>% dplyr::filter(tree == tree_ids[j]) %>% dplyr::select(climvars[i])
+  tree <- growth_climate_df %>% dplyr::filter(tree == tree_ids[j]) %>%dplyr::select(rw_spline)
+  gc.cor <- cor(clim, tree)
+  p.value <- cor.test(clim %>% pull(1), tree %>% pull(1))$p.value
+  row <- cbind(climvars[i], tree_ids[j], gc.cor, p.value) %>% as.data.frame()
+  gc_cor_df <- bind_rows(gc_cor_df, row)
+  }}
+gc_cor_df %>% group_by(V1) %>% summarise(n=n())
+
+gc_cor_df %>% 
+  filter(p.value<0.05) %>% 
+  group_by(V1) %>% 
+  summarise(n=n()) %>% 
+  arrange(n) %>% 
+  print(n=55) #number of trees with significant correlations between growth and each climate var
+
+gc_cor_df %>% 
+  group_by(V2) %>% 
+  summarise(maxcor = max(rw_spline, na.rm=T)) %>% 
+  left_join(gc_cor_df, by=c("maxcor"="rw_spline", "V2")) %>% 
+  group_by(V1) %>% 
+  summarise(n=n()) %>%
+  arrange(n) %>%
+  print(n=55) #number of trees whose maximum correlation value is with each climate var 
+
+cor_clean <- gc_cor_df %>% 
+  rename(climvar=V1, tree=V2, cor=rw_spline) %>%
+  mutate(cor = as.numeric(cor)) %>% 
+  left_join(growth_climate_df %>%dplyr::select(tree,Provenance, BLK) %>% unique(), by="tree") %>%
+  filter(!is.na(cor))
+
+ggplot(cor_clean %>% filter(climvar %in% c("aet_sum" , "cwd_wy" , "PPTsm", "vpdmax_wt", "prior_aet_sum", "prior_cwd_wy", "prior_PPTsm" , "prior_vpdmax_wt")), aes(x=Provenance, y=cor, color=p.value<0.05))+
+  geom_jitter(height=0, width=0.1, size=3,alpha=0.7)+
+  facet_wrap(~factor(climvar, levels=c("aet_sum","cwd_wy","PPTsm","vpdmax_wt", "prior_aet_sum","prior_cwd_wy","prior_PPTsm","prior_vpdmax_wt")),nrow=2)+
+  scale_color_manual(values=c("gray20", "red"))+
+  geom_hline(yintercept=0)+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle=45, hjust=1, color="black", size=10),
+        axis.text = element_text(color="black", size=12),
+        axis.title = element_text(color="black", size=14),
+        legend.text = element_text(color="black", size=12),
+        legend.title = element_text(color="black", size=14),
+        strip.text = element_text(color="black", size=12))
+  
+##all the rest of the climate variables
+ggplot(cor_clean %>% left_join(prov_names, by=c("Provenance")), aes(x=code, y=cor, color=p.value<0.05))+
+  geom_jitter(height=0, width=0.1, size=3,alpha=0.7)+
+  facet_wrap(~climvar)+
+  scale_color_manual(values=c("gray20", "red"))+
+  geom_hline(yintercept=0)+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle=45, hjust=1, color="black", size=10),
+        axis.text = element_text(color="black", size=12),
+        axis.title = element_text(color="black", size=14),
+        legend.text = element_text(color="black", size=12),
+        legend.title = element_text(color="black", size=14),
+        strip.text = element_text(color="black", size=12))
+
+allanovas<- data.frame()
+for(i in 1:length(climvars)){
+mod <- lm(cor ~ Provenance, data=cor_clean %>% filter(climvar == climvars[i]))
+modanova <- as.data.frame(Anova(mod, type="2"))
+pvalue<- modanova %>% mutate(var = rownames(modanova)) %>% filter(var=="Provenance") %>%  pull(`Pr(>F)`)
+provSS <- modanova %>% mutate(var = rownames(modanova)) %>% filter(var=="Provenance") %>%  pull(`Sum Sq`)
+provdf <- modanova %>% mutate(var = rownames(modanova)) %>% filter(var=="Provenance") %>%  pull(`Df`)
+residSS <- modanova %>% mutate(var = rownames(modanova)) %>% filter(var=="Residuals") %>%  pull(`Sum Sq`)
+residdf <- modanova %>% mutate(var = rownames(modanova)) %>% filter(var=="Residuals") %>%  pull(`Df`)
+allanovas <- bind_rows(allanovas, data.frame(climvar=climvars[i],pvalue=pvalue, provMS = provSS/provdf, residMS = residSS/residdf, provdf=provdf, residdf = residdf))
+}
+
+allanovas %>% mutate(diff_prov = residMS - provMS) ##when residMS is greater than provMS (diff > 0)--> variation within provenances is greater than variation between them 
+allanovas %>% mutate(diff_prov = residMS - provMS) %>% filter(diff_prov>0) %>% nrow()
+allanovas %>% mutate(diff_prov = residMS - provMS) %>% filter(diff_prov<0) %>% nrow()
+
+allanovas %>% mutate(diff_prov = residMS - provMS) %>% filter(diff_prov>0)
+allanovas %>% mutate(diff_prov = residMS - provMS) %>% filter(diff_prov<0) 
+
+write.csv(allanovas %>% mutate(diff = residMS - provMS), "growth_climate_MS.csv")
+
+allanovas %>% filter(pvalue<0.05) #no significant differences between provenances in how correlated RWI is to climate vars
+min(allanovas$pvalue)
+max(allanovas$pvalue)
+
+##T-TESTS
+provs <- unique(cor_clean$Provenance)
+ttestdata<- data.frame()
+
+for(i in 1:length(climvars)){
+  for(j in 1:length(provs)){
+data <- cor_clean %>% 
+  filter(climvar==climvars[i]) %>% 
+  filter(Provenance == provs[j])
+
+test<- t.test(data$cor, y = NULL,
+       alternative = "two.sided",
+       mu = 0, paired = FALSE, var.equal = FALSE,
+       conf.level = 0.95)
+
+row <- data.frame(climvar = climvars[i], Provenance = provs[j], lwr = test$conf.int[1], upr = test$conf.int[2], estimate = test$estimate, pvalue = test$p.value)
+
+ttestdata <- bind_rows(ttestdata, row)}}
+
+ttestdata %>% filter(pvalue < 0.05) %>% 
+  group_by(climvar) %>% 
+  summarise(n=n()) %>% 
+arrange(n) %>% 
+  print(n=56)
+
+sig.cors.byprov <- cor_clean %>% left_join(ttestdata %>% filter(pvalue < 0.05)) %>% 
+  mutate(sig = case_when(!is.na(pvalue) ~ "*",
+                         .default = "")) %>% 
+  filter(climvar %in% c("aet_sum" , "vpdmax_wt", "value_wt_tmean", "prior_aet_sum","prior_PPTsm", "prior_value_wt_tmean")) %>% 
+  filter(!is.na(pvalue)) %>% 
+  left_join(prov_names)
+
+nonsig.provs <- cor_clean %>% left_join(ttestdata %>% filter(pvalue < 0.05)) %>% 
+  mutate(sig = case_when(!is.na(pvalue) ~ "*",
+                         .default = "")) %>% 
+  filter(climvar %in% c("aet_sum" , "vpdmax_wt", "value_wt_tmean", "prior_aet_sum","prior_PPTsm", "prior_value_wt_tmean")) %>% 
+  dplyr::select(climvar, Provenance, pvalue) %>% 
+  unique() %>%
+  group_by(Provenance) %>% 
+  summarise(sum = sum(pvalue, na.rm=T)) %>% 
+  filter(sum==0)
+
+selected_climvars <-  c("vpdmax_wt","value_wt_tmean", "aet_sum")
+
+correlation_plot<- ggplot(data=sig.cors.byprov %>% filter(climvar %in% selected_climvars), aes(x=factor(code, levels=provs_bylat$code), y=estimate))+
+    geom_jitter(data= cor_clean %>% filter(climvar %in% selected_climvars) %>% left_join(prov_names), aes(x=factor(code, levels=provs_bylat$code), y=cor), fill="gray", color="black", size=2, height=0, width=0.1, alpha=0.2)+
+  geom_errorbar(aes(x=factor(code, levels=provs_bylat$code), ymin=lwr, ymax=upr, color = factor(code, levels=provs_bylat$code)),width=0.8, linewidth=1)+
+    geom_errorbar(aes(x=factor(code, levels=provs_bylat$code), ymin=lwr, ymax=upr),width=0.8, color="black", linewidth=0.5)+
+  geom_point(size=2, shape=21, aes(fill=factor(code, levels=provs_bylat$code)))+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  scale_fill_manual(values=unname(stepped()), name="Provenance")+
+  geom_hline(yintercept=0, col="black")+
+  facet_wrap(~factor(climvar, levels=selected_climvars, labels=c("VPDmax WT", "TMEAN WT", "AET annual")),ncol=1)+
+  xlab("")+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle=45, hjust=1, size=12, color="black"),
+        axis.text.y = element_text(size=12, color="black"),
+        axis.title = element_text(size=12, color="black"),
+        legend.position = "none",
+        strip.text = element_text(color="black", size=12),
+        panel.grid = element_blank())
+
+ # png("figures/correlation_plot.png", width=6.5, height=5, res = 300, units = "in")
+ # correlation_plot
+ # dev.off()
+ # 
+##correlation plot for all current year variables
+ 
+sig.cors.byprov.all <- cor_clean %>% left_join(ttestdata %>% filter(pvalue < 0.05)) %>% 
+  mutate(sig = case_when(!is.na(pvalue) ~ "*",
+                         .default = "")) %>% 
+  filter(!is.na(pvalue)) %>% 
+  left_join(prov_names)
+
+nonsig.provs.all <- cor_clean %>% left_join(ttestdata %>% filter(pvalue < 0.05)) %>% 
+  mutate(sig = case_when(!is.na(pvalue) ~ "*",
+                         .default = "")) %>% 
+  dplyr::select(climvar, Provenance, pvalue) %>% 
+  unique() %>%
+  group_by(Provenance) %>% 
+  summarise(sum = sum(pvalue, na.rm=T)) %>% 
+  filter(sum==0)%>% 
+  left_join(prov_names)
+
+current_climvars <- unique(cor_clean$climvar)[1:28]
+current_climvars_order1 <- ttestdata %>% filter(pvalue < 0.05) %>% 
+  group_by(climvar) %>% 
+  summarise(n=n()) %>% 
+  filter(climvar %in% current_climvars)
+current_climvars_order<- current_climvars_order1 %>% 
+  bind_rows(data.frame(climvar=current_climvars, n=0) %>% 
+   filter(! climvar %in% current_climvars_order1$climvar)) %>% 
+  arrange(n)
+
+ggplot(data=sig.cors.byprov.all%>% filter(climvar %in% current_climvars) , aes(x=factor(code, levels=provs_bylat$code), y=estimate))+
+    geom_jitter(data= cor_clean %>% filter(climvar %in% current_climvars) %>% left_join(prov_names), aes(x=factor(code, levels=provs_bylat$code), y=cor), fill="gray", color="black", size=2, height=0, width=0.1, alpha=0.2)+
+  geom_errorbar(aes(x=factor(code, levels=provs_bylat$code), ymin=lwr, ymax=upr, color = factor(code, levels=provs_bylat$code)),width=0.8, linewidth=1)+
+    geom_errorbar(aes(x=factor(code, levels=provs_bylat$code), ymin=lwr, ymax=upr),width=0.8, color="black", linewidth=0.5)+
+  geom_point(size=2, shape=21, aes(fill=factor(code, levels=provs_bylat$code)))+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  scale_fill_manual(values=unname(stepped()), name="Provenance")+
+  geom_hline(yintercept=0, col="black")+
+  facet_wrap(~factor(climvar, levels=current_climvars_order$climvar))+
+  xlab("")+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle=45, hjust=1, size=8, color="black"),
+        axis.text.y = element_text(size=10, color="black"),
+        axis.title = element_text(size=10, color="black"),
+        legend.position = "none",
+        strip.text = element_text(color="black", size=10),
+        panel.grid = element_blank())
+
+ggplot(data=sig.cors.byprov.all%>% filter(climvar %in% current_climvars) , aes(x=factor(climvar), y=estimate))+
+    geom_jitter(data= cor_clean %>% filter(climvar %in% current_climvars) %>% left_join(prov_names), aes(x=factor(climvar), y=cor), fill="gray", color="black", size=2, height=0, width=0.1, alpha=0.2)+
+  geom_errorbar(aes(x=factor(climvar), ymin=lwr, ymax=upr, color = factor(code, levels=provs_bylat$code)),width=0.8, linewidth=1)+
+    geom_errorbar(aes(x=factor(climvar), ymin=lwr, ymax=upr),width=0.8, color="black", linewidth=0.5)+
+  geom_point(size=2, shape=21, aes(fill=factor(code, levels=provs_bylat$code)))+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  scale_fill_manual(values=unname(stepped()), name="Provenance")+
+  geom_hline(yintercept=0, col="black")+
+  facet_wrap(~factor(code, levels=provs_bylat$code))+
+  xlab("")+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle=45, hjust=1, size=8, color="black"),
+        axis.text.y = element_text(size=10, color="black"),
+        axis.title = element_text(size=10, color="black"),
+        legend.position = "none",
+        strip.text = element_text(color="black", size=10),
+        panel.grid = element_blank())
+
+##all prior climvar correlations
+
+prior_climvars <- unique(cor_clean$climvar)[29:56]
+prior_climvars_order1 <- ttestdata %>% filter(pvalue < 0.05) %>% 
+  group_by(climvar) %>% 
+  summarise(n=n()) %>% 
+  filter(climvar %in% prior_climvars)
+prior_climvars_order<- prior_climvars_order1 %>% 
+  bind_rows(data.frame(climvar=prior_climvars, n=0) %>% 
+   filter(! climvar %in% prior_climvars_order1$climvar)) %>% 
+  arrange(n)
+
+ggplot(data=sig.cors.byprov.all%>% filter(climvar %in% prior_climvars), aes(x=factor(code, levels=provs_bylat$code), y=estimate))+
+    geom_jitter(data= cor_clean %>% filter(climvar %in% prior_climvars) %>% left_join(prov_names), aes(x=factor(code, levels=provs_bylat$code), y=cor), fill="gray", color="black", size=2, height=0, width=0.1, alpha=0.2)+
+  geom_errorbar(aes(x=factor(code, levels=provs_bylat$code), ymin=lwr, ymax=upr, color = factor(code, levels=provs_bylat$code)),width=0.8, linewidth=1)+
+    geom_errorbar(aes(x=factor(code, levels=provs_bylat$code), ymin=lwr, ymax=upr),width=0.8, color="black", linewidth=0.5)+
+  geom_point(size=2, shape=21, aes(fill=factor(code, levels=provs_bylat$code)))+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  scale_fill_manual(values=unname(stepped()), name="Provenance")+
+  geom_hline(yintercept=0, col="black")+
+  facet_wrap(~factor(climvar, levels=prior_climvars_order$climvar))+
+  xlab("")+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle=45, hjust=1, size=8, color="black"),
+        axis.text.y = element_text(size=10, color="black"),
+        axis.title = element_text(size=10, color="black"),
+        legend.position = "none",
+        strip.text = element_text(color="black", size=10),
+        panel.grid = element_blank())
+```
+
+```{r}
+climate_growth_table<- ttestdata %>% 
+  left_join(prov_names) %>% 
+  dplyr::select(climvar, code, estimate, pvalue) %>% 
+  mutate(pvalue=ifelse(pvalue<0.05, "X", ""), estimate=ifelse(estimate > 0 , "+", "-")) %>% 
+  mutate(estimate=ifelse(pvalue=="X", estimate, "")) %>% 
+  dplyr::select(-pvalue) %>% 
+  pivot_wider(names_from=code, values_from=estimate) %>% 
+  dplyr::select(c("climvar", provs_bylat$code[-9]))
+
+write.csv(climate_growth_table, "climate_growth_table.csv")
+
+```
+
+###provenance climate affect on Gx C correlation 
+```{r}
+
+##############################################
+
+cor_provclim<- cor_clean %>%
+  left_join(prov_names) %>% 
+  left_join(
+prov_pcapts_big %>% 
+  dplyr::select(c(Provenance,PC1:PC2,AHM:SHM,x:smrpb)), by="Provenance")
+
+cor_provclim_long <- pivot_longer(cor_provclim, PC1:smrpb)
+
+# makes plot for every plantation and provenance clim variable
+
+# pdf(file="correlation_by_provclim.pdf")
+# for(i in 1:length(climvars)){
+# plot<- ggplot(cor_provclim_long %>% filter(climvar==climvars[i]), aes(x=value, y=cor))+
+#   geom_point()+
+#   geom_smooth(method="lm")+
+#   facet_wrap(~name, scales="free")+
+#   ggtitle(climvars[i])
+# print(plot)
+# }
+# dev.off()
+
+##corresponding models
+names <- unique(cor_provclim_long$name)
+lmerdata <- data.frame()
+for(i in 1:length(climvars)){
+  for(j in 1:length(names)){
+    data <- cor_provclim_long %>% filter(climvar==climvars[i] & name==names[j]) 
+    mod <- lmer(cor ~ value + (1|Provenance), data=data)
+    pvalue.lmer <- as.data.frame(summary(mod)$coefficients)[2,] %>% pull(`Pr(>|t|)`)
+    Cr2.lmer <- performance::r2(mod)$R2_conditional
+    Mr2.lmer <- performance::r2(mod)$R2_marginal
+
+    if(!is.na(Cr2.lmer)) (
+lmerdata <- bind_rows(lmerdata, data.frame(climvar=climvars[i], name=names[j], pvalue.lmer = pvalue.lmer, r2.lmer=Cr2.lmer, r2type="C")) ) 
+
+    if(is.na(Cr2.lmer)) (
+lmerdata <- bind_rows(lmerdata, data.frame(climvar=climvars[i], name=names[j], pvalue.lmer = pvalue.lmer, r2.lmer=Mr2.lmer, r2type="M"))
+ ) 
+  }}
+
+lmerdata %>% filter(pvalue.lmer < 0.05)
+
+```
+
+```{r}
+
+annual_climvar <- lmerdata %>% filter(pvalue.lmer < 0.05) %>% filter(!climvar %in% c("value_wt_tmax","value_wt_tmin","value_sp_tmax","value_sp_tmean","prior_value_wt_tmax","prior_value_wt_tmin","prior_value_sp_tmax","prior_value_sp_tmean")) %>% pull(climvar)
+prov_climvar <- lmerdata %>% filter(pvalue.lmer < 0.05) %>% filter(!climvar %in% c("value_wt_tmax","value_wt_tmin","value_sp_tmax","value_sp_tmean","prior_value_wt_tmax","prior_value_wt_tmin","prior_value_sp_tmax","prior_value_sp_tmean"))%>% pull(name)
+
+correlation_strength_results <- data.frame()
+for(i in 1:length(annual_climvar)){
+    mod <- lmer(cor ~ value + (1|Provenance), data=cor_provclim_long %>% filter(climvar==annual_climvar[i] & name==prov_climvar[i]))
+    mod_nog <- lmer(cor ~ value + (1|Provenance), data=cor_provclim_long %>% filter(climvar==annual_climvar[i] & name==prov_climvar[i]) %>% filter(!Provenance=="Gila NF"))
+    Cr2.lmer <- performance::r2(mod)$R2_conditional
+    Mr2.lmer <- performance::r2(mod)$R2_marginal
+    Cr2.lmer_nog <- performance::r2(mod_nog)$R2_conditional
+    Mr2.lmer_nog <- performance::r2(mod_nog)$R2_marginal
+
+    if(!is.na(Cr2.lmer) & !is.na(Cr2.lmer_nog)) (
+       correlation_strength_results <- bind_rows(correlation_strength_results, data.frame(annual_climvar = annual_climvar[i], prov_climvar = prov_climvar[i], pvalue_all = as.data.frame(summary(mod)$coefficients)[2,] %>% pull(`Pr(>|t|)`), pvalue_nog = as.data.frame(summary(mod_nog)$coefficients)[2,] %>% pull(`Pr(>|t|)`), r2.lmer=Cr2.lmer, r2type="C", r2.lmer_nog=Cr2.lmer_nog, r2nogtype="C"))
+    )
+    
+        if(is.na(Cr2.lmer) & is.na(Cr2.lmer_nog)) (
+       correlation_strength_results <- bind_rows(correlation_strength_results, data.frame(annual_climvar = annual_climvar[i], prov_climvar = prov_climvar[i], pvalue_all = as.data.frame(summary(mod)$coefficients)[2,] %>% pull(`Pr(>|t|)`), pvalue_nog = as.data.frame(summary(mod_nog)$coefficients)[2,] %>% pull(`Pr(>|t|)`), r2.lmer=Mr2.lmer, r2type="M", r2.lmer_nog=Mr2.lmer_nog, r2nogtype="M"))
+    )
+    
+        if(!is.na(Cr2.lmer) & is.na(Cr2.lmer_nog)) (
+       correlation_strength_results <- bind_rows(correlation_strength_results, data.frame(annual_climvar = annual_climvar[i], prov_climvar = prov_climvar[i], pvalue_all = as.data.frame(summary(mod)$coefficients)[2,] %>% pull(`Pr(>|t|)`), pvalue_nog = as.data.frame(summary(mod_nog)$coefficients)[2,] %>% pull(`Pr(>|t|)`), r2.lmer=Cr2.lmer, r2type="C", r2.lmer_nog=Mr2.lmer_nog, r2nogtype="M"))
+    )
+        if(is.na(Cr2.lmer) & !is.na(Cr2.lmer_nog)) (
+       correlation_strength_results <- bind_rows(correlation_strength_results, data.frame(annual_climvar = annual_climvar[i], prov_climvar = prov_climvar[i], pvalue_all = as.data.frame(summary(mod)$coefficients)[2,] %>% pull(`Pr(>|t|)`), pvalue_nog = as.data.frame(summary(mod_nog)$coefficients)[2,] %>% pull(`Pr(>|t|)`), r2.lmer=Mr2.lmer, r2type="M", r2.lmer_nog=Cr2.lmer_nog, r2nogtype="C"))
+    )
+}
+
+correlation_strength_results %>% 
+  filter(pvalue_nog<0.05)
+
+#write.csv(correlation_strength_results %>% 
+#  filter(pvalue_nog<0.05), "sig_correlations.csv")
+
+ggplot(data=left_join(correlation_strength_results %>% 
+  filter(pvalue_nog<0.05), cor_provclim_long, by=c("annual_climvar"="climvar", "prov_climvar"="name")) , aes(x=value, y=cor))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_grid(annual_climvar~prov_climvar, scales="free")+
+  geom_hline(yintercept=0, col="red")
+
+##########individual model results
+
+### WY CWD -- ppt_wt
+wycwd_pptwt_mod<- lmer(cor ~ value + (1|Provenance), data=cor_provclim_long %>% filter(climvar=="cwd_wy" & name=="PPTwt") %>% filter(!Provenance=="Gila NF"))
+plot(wycwd_pptwt_mod)
+qqmath(wycwd_pptwt_mod)
+summary(wycwd_pptwt_mod)
+
+### First fall frost -- TD
+fff_td_mod<- lmer(cor ~ value + (1|Provenance), data=cor_provclim_long %>% filter(climvar=="day_of_first_fall_frost" & name=="TD") %>% filter(!Provenance=="Gila NF"))
+plot(fff_td_mod)
+qqmath(fff_td_mod)
+summary(fff_td_mod)
+
+### Winter tmean -- CMD
+wt_tmean_td_mod<- lmer(cor ~ value + (1|Provenance), data=cor_provclim_long %>% filter(climvar=="value_wt_tmean" & name=="CMD") %>% filter(!Provenance=="Gila NF"))
+plot(wt_tmean_td_mod)
+qqmath(wt_tmean_td_mod)
+summary(wt_tmean_td_mod)
+
+
+### Summer VPD -- MCMT
+vpd_sm_td_mod<- lmer(cor ~ value + (1|Provenance), data=cor_provclim_long %>% filter(climvar=="vpdmax_sm" & name=="MCMT") %>% filter(!Provenance=="Gila NF"))
+plot(vpd_sm_td_mod)
+qqmath(vpd_sm_td_mod)
+summary(vpd_sm_td_mod)
+
+
+### Last spring frost -- bFFP
+lsf_td_mod<- lmer(cor ~ value + (1|Provenance), data=cor_provclim_long %>% filter(climvar=="day_of_last_spring_frost" & name=="bFFP") %>% filter(!Provenance=="Gila NF"))
+plot(lsf_td_mod)
+qqmath(lsf_td_mod)
+summary(lsf_td_mod)
 
 ```
 
