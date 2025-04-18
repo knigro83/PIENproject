@@ -3708,6 +3708,18 @@ cone_plot_height<- ggplot(CCnewdata3_cone_nog_height %>% mutate(var="Height"), a
 cone_plot_height
 ```
 
+```{r}
+##just height model
+ht_cone_mod <- glmmTMB(cbind(n_cones, total-n_cones) ~ height, data= moniger_subset, family = binomial)
+summary(ht_cone_mod)
+
+
+
+x = (log(.5) + 1.45593)/.44148
+x
+
+```
+
 ###individual climate variables
 ```{r}
 moniger_provclim<- moniger_subset %>% 
