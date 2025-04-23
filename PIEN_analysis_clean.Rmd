@@ -1678,8 +1678,8 @@ plot(mod_dbh_pca)
 qqmath(mod_dbh_pca)
 summary(mod_dbh_pca)
 options(na.action="na.fail")
-mod_dbh_pca_dredge<- dredge(mod_dbh_pca)
-mod_dbh_pca_dredge
+# mod_dbh_pca_dredge<- dredge(mod_dbh_pca)
+# mod_dbh_pca_dredge
 
 bestmod_dbh_pca <- lmer(DBH ~ PC2 + (1|Provenance) + (1|BLK) + (1|year), data=dbh_numeric_time)
 summary(bestmod_dbh_pca)
@@ -1691,8 +1691,8 @@ mod_dbh_pca_noG <- lmer(DBH ~ PC1*PC2 + I(PC1^2) + I(PC2^2)+ (1|Provenance) + (1
 plot(mod_dbh_pca_noG)
 qqmath(mod_dbh_pca_noG)
 summary(mod_dbh_pca_noG)
-mod_dbh_pca_noG_dredge<- dredge(mod_dbh_pca_noG)
-mod_dbh_pca_noG_dredge #null is best
+# mod_dbh_pca_noG_dredge<- dredge(mod_dbh_pca_noG)
+# mod_dbh_pca_noG_dredge #null is best
 
 ```
 
@@ -1707,8 +1707,8 @@ mod_dbh_pca_2014 <- lmer(DBH ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + 
 plot(mod_dbh_pca_2014)
 qqmath(mod_dbh_pca_2014)
 summary(mod_dbh_pca_2014)
-mod_dbh_pca_2014_dredge<- dredge(mod_dbh_pca_2014)
-mod_dbh_pca_2014_dredge
+# mod_dbh_pca_2014_dredge<- dredge(mod_dbh_pca_2014)
+# mod_dbh_pca_2014_dredge
 
 bestmod_dbh_pca_2014 <- lmer(DBH ~ PC2 + (1|Provenance) + (1|BLK) , data=dbh_numeric_time_2014)
 summary(bestmod_dbh_pca_2014)
@@ -1721,8 +1721,8 @@ mod_dbh_pca_2014_noG <- lmer(DBH ~ PC1*PC2 + I(PC1^2) + I(PC2^2)+ (1|Provenance)
 plot(mod_dbh_pca_2014_noG)
 qqmath(mod_dbh_pca_2014_noG)
 summary(mod_dbh_pca_2014_noG)
-mod_dbh_pca_2014_noG_dredge<- dredge(mod_dbh_pca_2014_noG)
-mod_dbh_pca_2014_noG_dredge #null is best
+# mod_dbh_pca_2014_noG_dredge<- dredge(mod_dbh_pca_2014_noG)
+# mod_dbh_pca_2014_noG_dredge #null is best
 
 bestmod_dbh_pca_2014_noG <- lmer(DBH ~  (1|Provenance) + (1|BLK) , data=dbh_numeric_time_2014_nog)
 summary(bestmod_dbh_pca_2014_noG)
@@ -1737,8 +1737,8 @@ mod_dbh_pca_2006 <- lmer(DBH ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + 
 plot(mod_dbh_pca_2006)
 qqmath(mod_dbh_pca_2006)
 summary(mod_dbh_pca_2006)
-mod_dbh_pca_2006_dredge<- dredge(mod_dbh_pca_2006)
-mod_dbh_pca_2006_dredge
+# mod_dbh_pca_2006_dredge<- dredge(mod_dbh_pca_2006)
+# mod_dbh_pca_2006_dredge
 
 bestmod_dbh_pca_2006 <- lmer(DBH ~ PC2 + (1|Provenance) + (1|BLK) , data=dbh_numeric_time_2006)
 summary(bestmod_dbh_pca_2006)
@@ -1751,8 +1751,8 @@ mod_dbh_pca_2006_noG <- lmer(DBH ~ PC1*PC2 + I(PC1^2) + I(PC2^2)+ (1|Provenance)
 plot(mod_dbh_pca_2006_noG)
 qqmath(mod_dbh_pca_2006_noG)
 summary(mod_dbh_pca_2006_noG)
-mod_dbh_pca_2006_noG_dredge<- dredge(mod_dbh_pca_2006_noG)
-mod_dbh_pca_2006_noG_dredge #null is best
+# mod_dbh_pca_2006_noG_dredge<- dredge(mod_dbh_pca_2006_noG)
+# mod_dbh_pca_2006_noG_dredge #null is best
 
 bestmod_dbh_pca_2006_noG <- lmer(DBH ~  (1|Provenance) + (1|BLK) , data=dbh_numeric_time_2006_nog)
 summary(bestmod_dbh_pca_2006_noG)
@@ -1767,8 +1767,8 @@ mod_dbh_pca_1996 <- lmer(DBH ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + 
 plot(mod_dbh_pca_1996)
 qqmath(mod_dbh_pca_1996)
 summary(mod_dbh_pca_1996)
-mod_dbh_pca_1996_dredge<- dredge(mod_dbh_pca_1996)
-mod_dbh_pca_1996_dredge #null is best
+# mod_dbh_pca_1996_dredge<- dredge(mod_dbh_pca_1996)
+# mod_dbh_pca_1996_dredge #null is best
 
 bestmod_dbh_pca_1996 <- lmer(DBH ~  (1|Provenance) + (1|BLK) , data=dbh_numeric_time_1996)
 summary(bestmod_dbh_pca_1996)
@@ -1781,8 +1781,8 @@ mod_dbh_pca_1996_noG <- lmer(DBH ~ PC1*PC2 + I(PC1^2) + I(PC2^2)+ (1|Provenance)
 plot(mod_dbh_pca_1996_noG)
 qqmath(mod_dbh_pca_1996_noG)
 summary(mod_dbh_pca_1996_noG)
-mod_dbh_pca_1996_noG_dredge<- dredge(mod_dbh_pca_1996_noG)
-mod_dbh_pca_1996_noG_dredge #null is best
+# mod_dbh_pca_1996_noG_dredge<- dredge(mod_dbh_pca_1996_noG)
+# mod_dbh_pca_1996_noG_dredge #null is best
 
 bestmod_dbh_pca_1996_noG <- lmer(DBH ~  (1|Provenance) + (1|BLK) , data=dbh_numeric_time_1996_nog)
 summary(bestmod_dbh_pca_1996_noG)
@@ -1797,8 +1797,8 @@ mod_dbh_pca_1991 <- lmer(DBH ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + 
 plot(mod_dbh_pca_1991)
 qqmath(mod_dbh_pca_1991)
 summary(mod_dbh_pca_1991)
-mod_dbh_pca_1991_dredge<- dredge(mod_dbh_pca_1991)
-mod_dbh_pca_1991_dredge #null is best
+# mod_dbh_pca_1991_dredge<- dredge(mod_dbh_pca_1991)
+# mod_dbh_pca_1991_dredge #null is best
 
 bestmod_dbh_pca_1991 <- lmer(DBH ~ (1|Provenance) + (1|BLK) , data=dbh_numeric_time_1991)
 summary(bestmod_dbh_pca_1991)
@@ -1811,8 +1811,8 @@ mod_dbh_pca_1991_noG <- lmer(DBH ~ PC1*PC2 + I(PC1^2) + I(PC2^2)+ (1|Provenance)
 plot(mod_dbh_pca_1991_noG)
 qqmath(mod_dbh_pca_1991_noG)
 summary(mod_dbh_pca_1991_noG)
-mod_dbh_pca_1991_noG_dredge<- dredge(mod_dbh_pca_1991_noG)
-mod_dbh_pca_1991_noG_dredge #null is best
+# mod_dbh_pca_1991_noG_dredge<- dredge(mod_dbh_pca_1991_noG)
+# mod_dbh_pca_1991_noG_dredge #null is best
 
 bestmod_dbh_pca_1991_noG <- lmer(DBH ~  (1|Provenance) + (1|BLK) , data=dbh_numeric_time_1991_nog)
 summary(bestmod_dbh_pca_1991_noG)
@@ -2009,16 +2009,16 @@ mod_dbhgr_pca <- lmer(sqrt(value) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenanc
 plot(mod_dbhgr_pca)
 qqmath(mod_dbhgr_pca)
 summary(mod_dbhgr_pca)
-mod_dbhgr_pca_dredge<- dredge(mod_dbhgr_pca)
-mod_dbhgr_pca_dredge #null is best
+# mod_dbhgr_pca_dredge<- dredge(mod_dbhgr_pca)
+# mod_dbhgr_pca_dredge #null is best
 
 #no gila
 mod_dbhgr_pca_noG <- lmer(sqrt(value) ~ PC1*PC2 +  I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK) + (1|name), data=dbh_growth_clim_noG)
 plot(mod_dbhgr_pca_noG)
 qqmath(mod_dbhgr_pca_noG)
 summary(mod_dbhgr_pca_noG)
-mod_dbhgr_pca_noG_dredge<- dredge(mod_dbhgr_pca_noG)
-mod_dbhgr_pca_noG_dredge #null is best
+# mod_dbhgr_pca_noG_dredge<- dredge(mod_dbhgr_pca_noG)
+# mod_dbhgr_pca_noG_dredge #null is best
 ```
 
 #####each year separate
@@ -2033,8 +2033,8 @@ mod_dbhgr_pca_96 <- lmer(sqrt(value) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Proven
 plot(mod_dbhgr_pca_96)
 qqmath(mod_dbhgr_pca_96)
 summary(mod_dbhgr_pca_96)
-mod_dbhgr_pca_96_dredge<- dredge(mod_dbhgr_pca_96)
-mod_dbhgr_pca_96_dredge #null is best
+# mod_dbhgr_pca_96_dredge<- dredge(mod_dbhgr_pca_96)
+# mod_dbhgr_pca_96_dredge #null is best
 
 #no gila
 
@@ -2042,8 +2042,8 @@ mod_dbhgr_pca_96_noG <- lmer(sqrt(value) ~ PC1*PC2 +  I(PC1^2) + I(PC2^2) + (1|P
 plot(mod_dbhgr_pca_96_noG)
 qqmath(mod_dbhgr_pca_96_noG)
 summary(mod_dbhgr_pca_96_noG)
-mod_dbhgr_pca_96_noG_dredge<- dredge(mod_dbhgr_pca_96_noG)
-mod_dbhgr_pca_96_noG_dredge #null is best
+# mod_dbhgr_pca_96_noG_dredge<- dredge(mod_dbhgr_pca_96_noG)
+# mod_dbhgr_pca_96_noG_dredge #null is best
 
 ```
 
@@ -2057,8 +2057,8 @@ mod_dbhgr_pca_06 <- lmer(sqrt(value) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Proven
 plot(mod_dbhgr_pca_06)
 qqmath(mod_dbhgr_pca_06)
 summary(mod_dbhgr_pca_06)
-mod_dbhgr_pca_06_dredge<- dredge(mod_dbhgr_pca_06)
-mod_dbhgr_pca_06_dredge #null is best
+# mod_dbhgr_pca_06_dredge<- dredge(mod_dbhgr_pca_06)
+# mod_dbhgr_pca_06_dredge #null is best
 
 #no gila
 
@@ -2066,8 +2066,8 @@ mod_dbhgr_pca_06_noG <- lmer(sqrt(value) ~ PC1*PC2 +  I(PC1^2) + I(PC2^2) + (1|P
 plot(mod_dbhgr_pca_06_noG)
 qqmath(mod_dbhgr_pca_06_noG)
 summary(mod_dbhgr_pca_06_noG)
-mod_dbhgr_pca_06_noG_dredge<- dredge(mod_dbhgr_pca_06_noG)
-mod_dbhgr_pca_06_noG_dredge #null is best
+# mod_dbhgr_pca_06_noG_dredge<- dredge(mod_dbhgr_pca_06_noG)
+# mod_dbhgr_pca_06_noG_dredge #null is best
 
 ```
 
@@ -2081,8 +2081,8 @@ mod_dbhgr_pca_14 <- lmer(sqrt(value) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Proven
 plot(mod_dbhgr_pca_14)
 qqmath(mod_dbhgr_pca_14)
 summary(mod_dbhgr_pca_14)
-mod_dbhgr_pca_14_dredge<- dredge(mod_dbhgr_pca_14)
-mod_dbhgr_pca_14_dredge #null is best
+# mod_dbhgr_pca_14_dredge<- dredge(mod_dbhgr_pca_14)
+# mod_dbhgr_pca_14_dredge #null is best
 
 #no gila
 
@@ -2090,8 +2090,8 @@ mod_dbhgr_pca_14_noG <- lmer(sqrt(value) ~ PC1*PC2 +  I(PC1^2) + I(PC2^2) + (1|P
 plot(mod_dbhgr_pca_14_noG)
 qqmath(mod_dbhgr_pca_14_noG)
 summary(mod_dbhgr_pca_14_noG)
-mod_dbhgr_pca_14_noG_dredge<- dredge(mod_dbhgr_pca_14_noG)
-mod_dbhgr_pca_14_noG_dredge #null is best
+# mod_dbhgr_pca_14_noG_dredge<- dredge(mod_dbhgr_pca_14_noG)
+# mod_dbhgr_pca_14_noG_dredge #null is best
 
 ```
 
@@ -2289,8 +2289,8 @@ mod_DBHrel_pca <- lmer(sqrt(value) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenan
 plot(mod_DBHrel_pca)
 qqmath(mod_DBHrel_pca)
 summary(mod_DBHrel_pca)
-mod_DBHrel_pca_dredge<- dredge(mod_DBHrel_pca)
-mod_DBHrel_pca_dredge #null is best
+# mod_DBHrel_pca_dredge<- dredge(mod_DBHrel_pca)
+# mod_DBHrel_pca_dredge #null is best
 
 #no gila
 
@@ -2298,8 +2298,8 @@ mod_DBHrel_pca_noG <- lmer(sqrt(value) ~ PC1*PC2 +  I(PC1^2) + I(PC2^2) + (1|Pro
 plot(mod_DBHrel_pca_noG)
 qqmath(mod_DBHrel_pca_noG)
 summary(mod_DBHrel_pca_noG)
-mod_DBHrel_pca_noG_dredge<- dredge(mod_DBHrel_pca_noG)
-mod_DBHrel_pca_noG_dredge #null is best
+# mod_DBHrel_pca_noG_dredge<- dredge(mod_DBHrel_pca_noG)
+# mod_DBHrel_pca_noG_dredge #null is best
 
 ```
 
@@ -2315,8 +2315,8 @@ mod_DBHrel_pca_96 <- lmer(sqrt(value) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Prove
 plot(mod_DBHrel_pca_96)
 qqmath(mod_DBHrel_pca_96)
 summary(mod_DBHrel_pca_96)
-mod_DBHrel_pca_96_dredge<- dredge(mod_DBHrel_pca_96)
-mod_DBHrel_pca_96_dredge #null is best
+# mod_DBHrel_pca_96_dredge<- dredge(mod_DBHrel_pca_96)
+# mod_DBHrel_pca_96_dredge #null is best
 
 #no gila
 
@@ -2324,8 +2324,8 @@ mod_DBHrel_pca_96_noG <- lmer(sqrt(value) ~ PC1*PC2 +  I(PC1^2) + I(PC2^2) + (1|
 plot(mod_DBHrel_pca_96_noG)
 qqmath(mod_DBHrel_pca_96_noG)
 summary(mod_DBHrel_pca_96_noG)
-mod_DBHrel_pca_96_noG_dredge<- dredge(mod_DBHrel_pca_96_noG)
-mod_DBHrel_pca_96_noG_dredge #null is best
+# mod_DBHrel_pca_96_noG_dredge<- dredge(mod_DBHrel_pca_96_noG)
+# mod_DBHrel_pca_96_noG_dredge #null is best
 
 ```
 
@@ -2339,8 +2339,8 @@ mod_DBHrel_pca_06 <- lmer(sqrt(value) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Prove
 plot(mod_DBHrel_pca_06)
 qqmath(mod_DBHrel_pca_06)
 summary(mod_DBHrel_pca_06)
-mod_DBHrel_pca_06_dredge<- dredge(mod_DBHrel_pca_06)
-mod_DBHrel_pca_06_dredge #null is best
+# mod_DBHrel_pca_06_dredge<- dredge(mod_DBHrel_pca_06)
+# mod_DBHrel_pca_06_dredge #null is best
 
 #no gila
 
@@ -2348,8 +2348,8 @@ mod_DBHrel_pca_06_noG <- lmer(sqrt(value) ~ PC1*PC2 +  I(PC1^2) + I(PC2^2) + (1|
 plot(mod_DBHrel_pca_06_noG)
 qqmath(mod_DBHrel_pca_06_noG)
 summary(mod_DBHrel_pca_06_noG)
-mod_DBHrel_pca_06_noG_dredge<- dredge(mod_DBHrel_pca_06_noG)
-mod_DBHrel_pca_06_noG_dredge #null is best
+# mod_DBHrel_pca_06_noG_dredge<- dredge(mod_DBHrel_pca_06_noG)
+# mod_DBHrel_pca_06_noG_dredge #null is best
 
 ```
 
@@ -2363,8 +2363,8 @@ mod_DBHrel_pca_14 <- lmer(sqrt(value) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Prove
 plot(mod_DBHrel_pca_14)
 qqmath(mod_DBHrel_pca_14)
 summary(mod_DBHrel_pca_14)
-mod_DBHrel_pca_14_dredge<- dredge(mod_DBHrel_pca_14)
-mod_DBHrel_pca_14_dredge #null is best
+# mod_DBHrel_pca_14_dredge<- dredge(mod_DBHrel_pca_14)
+# mod_DBHrel_pca_14_dredge #null is best
 
 #no gila
 
@@ -2372,8 +2372,8 @@ mod_DBHrel_pca_14_noG <- lmer(sqrt(value) ~ PC1*PC2 +  I(PC1^2) + I(PC2^2) + (1|
 plot(mod_DBHrel_pca_14_noG)
 qqmath(mod_DBHrel_pca_14_noG)
 summary(mod_DBHrel_pca_14_noG)
-mod_DBHrel_pca_14_noG_dredge<- dredge(mod_DBHrel_pca_14_noG)
-mod_DBHrel_pca_14_noG_dredge #null is best
+# mod_DBHrel_pca_14_noG_dredge<- dredge(mod_DBHrel_pca_14_noG)
+# mod_DBHrel_pca_14_noG_dredge #null is best
 
 ```
 
@@ -2805,8 +2805,8 @@ mod_ht_pca <- lmer(log(value) ~ PC1*PC2 +  I(PC1^2) + I(PC2^2) + (1|Provenance) 
 plot(mod_ht_pca)
 qqmath(mod_ht_pca)
 summary(mod_ht_pca)
-mod_ht_pca_dredge<- dredge(mod_ht_pca)
-mod_ht_pca_dredge #null is best
+# mod_ht_pca_dredge<- dredge(mod_ht_pca)
+# mod_ht_pca_dredge #null is best
 
 #no gila
 
@@ -2814,8 +2814,8 @@ mod_ht_pca_noG <- lmer(log(value) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenanc
 plot(mod_ht_pca_noG)
 qqmath(mod_ht_pca_noG)
 summary(mod_ht_pca_noG)
-mod_ht_pca_noG_dredge<- dredge(mod_ht_pca_noG)
-mod_ht_pca_noG_dredge #null is best
+# mod_ht_pca_noG_dredge<- dredge(mod_ht_pca_noG)
+# mod_ht_pca_noG_dredge #null is best
 ```
 
 
@@ -3390,8 +3390,8 @@ mod_relht_pca <- lmer(value ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (
 plot(mod_relht_pca)
 qqmath(mod_relht_pca)
 summary(mod_relht_pca)
-mod_relht_pca_dredge<- dredge(mod_relht_pca)
-mod_relht_pca_dredge
+# mod_relht_pca_dredge<- dredge(mod_relht_pca)
+# mod_relht_pca_dredge
 
 bestmod_relht_pca <- lmer(value ~  PC2 + (1|Provenance) + (1|BLK) + (1|name), data=ht_growth_rel_clim)
 summary(bestmod_relht_pca)
@@ -3403,8 +3403,8 @@ mod_relht_pca_noG <- lmer(value ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance)
 plot(mod_relht_pca_noG)
 qqmath(mod_relht_pca_noG)
 summary(mod_relht_pca_noG)
-mod_relht_pca_noG_dredge<- dredge(mod_relht_pca_noG)
-mod_relht_pca_noG_dredge #null is best, then PC2
+# mod_relht_pca_noG_dredge<- dredge(mod_relht_pca_noG)
+# mod_relht_pca_noG_dredge #null is best, then PC2
 summary(lmer(value ~ PC2 + (1|Provenance) + (1|BLK) + (1|name), data=ht_growth_rel_clim_noG))
 r2(lmer(value ~ PC2 + (1|Provenance) + (1|BLK) + (1|name), data=ht_growth_rel_clim_noG))
 
@@ -3921,8 +3921,8 @@ summary(cone_clim_mod_dbh)
 
 AICc(cone_clim_mod_ht, cone_clim_mod_dbh) #ht is lowest
 
-dredge.cone.clim <- dredge(cone_clim_mod_ht)
-dredge.cone.clim
+# dredge.cone.clim <- dredge(cone_clim_mod_ht)
+# dredge.cone.clim
 
 best.mod.cone.clim <- glmmTMB(cbind(n_cones, total-n_cones) ~ PC1 + I(PC1^2) + scale(height)+ (1|code) + (1|year) + (1|BLK), data= moniger_subset, family = binomial)
 summary(best.mod.cone.clim)
@@ -3962,8 +3962,8 @@ cone_clim_mod_ht_nog <- glmmTMB(cbind(n_cones, total-n_cones) ~ scale(height)*PC
 summary(cone_clim_mod_ht_nog)
 r2(cone_clim_mod_ht_nog)
 
-dredge.cone.clim.nog <- dredge(cone_clim_mod_ht_nog)
-dredge.cone.clim.nog
+# dredge.cone.clim.nog <- dredge(cone_clim_mod_ht_nog)
+# dredge.cone.clim.nog
 
 best.mod.cone.clim_nog <- glmmTMB(cbind(n_cones, total-n_cones) ~ height + (1|code) + (1|year) + (1|BLK), data= moniger_subset %>% filter(!code=="GiNF"), family = binomial)
 summary(best.mod.cone.clim_nog)
@@ -4008,16 +4008,17 @@ cone_plot_height
 moniger_provclim<- cone_data_binom %>% 
   left_join(as.data.frame(moniger_data_comb) %>% dplyr::select(c(Provenance,BLK, REP, code,PC1,PC2,AHM:SHM,x:monsoonality))) %>% 
   pivot_longer(c(PC1,PC2,AHM:SHM, x:monsoonality), names_to="climvar.name", values_to = "climvar.value") %>% 
-  filter(!is.na(total))
+  filter(!is.na(total)) %>% 
+  left_join(moniger_subset %>% dplyr::select(Provenance:year))
 
 cone_mods<- data.frame()
 
 for(i in 1:length(provenance_climvars)){
-mod <- glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value + (1|year) + (1|code) + (1|BLK), data=moniger_provclim %>% filter(climvar.name==provenance_climvars[i]), family=binomial)
+mod <- glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value*height + (1|year) + (1|code) + (1|BLK), data=moniger_provclim %>% filter(climvar.name==provenance_climvars[i]), family=binomial)
 pvalue<- summary(mod)$coefficients$cond[2,]["Pr(>|z|)"]
 Mr2=r2(mod)$R2_marginal
 
-mod_nog <- glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value + (1|year) + (1|code) + (1|BLK), data=moniger_provclim %>% filter(climvar.name==provenance_climvars[i]) %>% filter(!code=="GiNF"), family=binomial)
+mod_nog <- glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value*height + (1|year) + (1|code) + (1|BLK), data=moniger_provclim %>% filter(climvar.name==provenance_climvars[i]) %>% filter(!code=="GiNF"), family=binomial)
 pvalue_nog<- summary(mod_nog)$coefficients$cond[2,]["Pr(>|z|)"]
 Mr2_nog=r2(mod_nog)$R2_marginal
 
@@ -4107,11 +4108,11 @@ cone_smrpb_plot
 cone_mods_quad<- data.frame()
 
 for(i in 1:length(provenance_climvars)){
-mod <- glmmTMB(cbind(n_cones,total-n_cones) ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|code) + (1|year) + (1|BLK), data=moniger_provclim %>% filter(climvar.name==provenance_climvars[i]), family=binomial)
+mod <- glmmTMB(cbind(n_cones,total-n_cones) ~ scale(climvar.value)*height + I(scale(climvar.value)^2) + (1|code) + (1|year) + (1|BLK), data=moniger_provclim %>% filter(climvar.name==provenance_climvars[i]), family=binomial)
 pvalues<- as.data.frame(summary(mod)$coefficients$cond[2:3,])$`Pr(>|z|)`
 Mr2 <- r2(mod)$R2_marginal
 
-mod_nog <- glmmTMB(cbind(n_cones,total-n_cones) ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|code) + (1|year) + (1|BLK), data=moniger_provclim %>% filter(climvar.name==provenance_climvars[i]) %>% filter(!code=="GiNF"), family=binomial)
+mod_nog <- glmmTMB(cbind(n_cones,total-n_cones) ~ scale(climvar.value)*height + I(scale(climvar.value)^2) + (1|code) + (1|year) + (1|BLK), data=moniger_provclim %>% filter(climvar.name==provenance_climvars[i]) %>% filter(!code=="GiNF"), family=binomial)
 pvalues_nog<- as.data.frame(summary(mod_nog)$coefficients$cond[2:3,])$`Pr(>|z|)`
 Mr2_nog <- r2(mod_nog)$R2_marginal
 
@@ -4121,6 +4122,64 @@ cone_mods_quad <- bind_rows(cone_mods_quad, data.frame(var=provenance_climvars[i
 cone_mods_quad %>% arrange(pvalue2_nog) ##none significant 
 ```
 
+######height
+
+```{r}
+moniger_provclim<- cone_data_binom %>% 
+  left_join(as.data.frame(moniger_data_comb) %>% dplyr::select(c(Provenance,BLK, REP, code,PC1,PC2,AHM:SHM,x:monsoonality))) %>% 
+  pivot_longer(c(PC1,PC2,AHM:SHM, x:monsoonality), names_to="climvar.name", values_to = "climvar.value") %>% 
+  filter(!is.na(total)) %>% 
+  left_join(moniger_subset %>% dplyr::select(Provenance:year)) %>% 
+  filter(!is.na(height))
+
+cone_mods<- data.frame()
+
+for(i in 1:length(provenance_climvars)){
+mod <- glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value*height + (1|year) + (1|code) + (1|BLK), data=moniger_provclim %>% filter(climvar.name==provenance_climvars[i]), family=binomial)
+pvalue<- summary(mod)$coefficients$cond[2,]["Pr(>|z|)"]
+Mr2=r2(mod)$R2_marginal
+
+mod_nog <- glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value*height + (1|year) + (1|code) + (1|BLK), data=moniger_provclim %>% filter(climvar.name==provenance_climvars[i]) %>% filter(!code=="GiNF"), family=binomial)
+pvalue_nog<- summary(mod_nog)$coefficients$cond[2,]["Pr(>|z|)"]
+Mr2_nog=r2(mod_nog)$R2_marginal
+
+cone_mods <- bind_rows(cone_mods, data.frame(var=provenance_climvars[i], pvalue = pvalue, Mr2=Mr2, pvalue_nog = pvalue_nog, Mr2_nog = Mr2_nog))
+
+}
+
+cone_mods %>% arrange(pvalue_nog) 
+cone_mods %>% 
+  filter(pvalue_nog<0.05) %>% 
+  arrange(desc(Mr2_nog))
+
+###PPTsm
+cone_pptsm_mod <- glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value*height + (1|year) + (1|code) + (1|BLK), data=moniger_provclim %>% filter(!Provenance=="Gila NF") %>% filter(climvar.name=="PPTsm"), family=binomial)
+summary(cone_pptsm_mod)
+r2(cone_pptsm_mod)
+
+###TD
+cone_TD_mod <- glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value*height + (1|year) + (1|code) + (1|BLK), data=moniger_provclim %>% filter(climvar.name=="TD"), family=binomial)
+summary(cone_TD_mod) ##provenances with lower TD have higher probability of producing cones at a given height. 
+r2(cone_TD_mod)
+
+###quadratic
+
+cone_mods_quad<- data.frame()
+
+for(i in 1:length(provenance_climvars)){
+mod <- glmmTMB(cbind(n_cones,total-n_cones) ~ scale(climvar.value)*height + I(scale(climvar.value)^2) + (1|code) + (1|year) + (1|BLK), data=moniger_provclim %>% filter(climvar.name==provenance_climvars[i]), family=binomial)
+pvalues<- as.data.frame(summary(mod)$coefficients$cond[c(2,4),])$`Pr(>|z|)`
+Mr2 <- r2(mod)$R2_marginal
+
+mod_nog <- glmmTMB(cbind(n_cones,total-n_cones) ~ scale(climvar.value)*height + I(scale(climvar.value)^2) + (1|code) + (1|year) + (1|BLK), data=moniger_provclim %>% filter(climvar.name==provenance_climvars[i]) %>% filter(!code=="GiNF"), family=binomial)
+pvalues_nog<- as.data.frame(summary(mod_nog)$coefficients$cond[c(2,4),])$`Pr(>|z|)`
+Mr2_nog <- r2(mod_nog)$R2_marginal
+
+cone_mods_quad <- bind_rows(cone_mods_quad, data.frame(var=provenance_climvars[i], pvalue1 = pvalues[1], pvalue2 = pvalues[2], Mr2 = Mr2, pvalue1_nog = pvalues_nog[1], pvalue2_nog = pvalues_nog[2], Mr2_nog = Mr2_nog))
+}
+
+cone_mods_quad %>% arrange(pvalue2_nog) ##none significant 
+```
 
 #####transfer distance
 ```{r}
@@ -4133,11 +4192,11 @@ cone_clim_long_transfer_nog <- cone_clim_long_transfer %>% filter(!Provenance=="
 
 cone_mods_transfer<- data.frame()
 for(i in 1:length(provenance_climvars)){
-mod <- glmmTMB(cbind(n_cones,total-n_cones) ~ diff_plant + (1|code) + (1|year) + (1|BLK), data=cone_clim_long_transfer %>% filter(climvar.name==provenance_climvars[i]), family=binomial)
+mod <- glmmTMB(cbind(n_cones,total-n_cones) ~ diff_plant*height + (1|code) + (1|year) + (1|BLK), data=cone_clim_long_transfer %>% filter(climvar.name==provenance_climvars[i]), family=binomial)
 p.value<- summary(mod)$coefficients$cond[2,]["Pr(>|z|)"]
 Mr2 <- r2(mod)$R2_marginal
 
-mod_nog <- glmmTMB(cbind(n_cones,total-n_cones) ~ diff_plant + (1|code) + (1|year) + (1|BLK), data=cone_clim_long_transfer_nog %>% filter(climvar.name==provenance_climvars[i]), family=binomial)
+mod_nog <- glmmTMB(cbind(n_cones,total-n_cones) ~ diff_plant*height + (1|code) + (1|year) + (1|BLK), data=cone_clim_long_transfer_nog %>% filter(climvar.name==provenance_climvars[i]), family=binomial)
 p.value_nog<- summary(mod_nog)$coefficients$cond[2,]["Pr(>|z|)"]
 Mr2_nog <- r2(mod_nog)$R2_marginal
 
@@ -4149,12 +4208,12 @@ cone_mods_transfer %>% arrange(p.value_nog) #PPTsm and PPTsp
 cone_mods_transfer %>% filter(p.value_nog<0.05) %>% arrange(Mr2_nog) 
 
 #PPTsm
-cone_pptsm_mod_nog <- glmmTMB(cbind(n_cones,total-n_cones) ~ diff_plant + (1|year) + (1|code)+(1|BLK), data=cone_clim_long_transfer_nog %>% filter(climvar.name=="PPTsm"), family=binomial)
+cone_pptsm_mod_nog <- glmmTMB(cbind(n_cones,total-n_cones) ~ diff_plant*height + (1|year) + (1|code)+(1|BLK), data=cone_clim_long_transfer_nog %>% filter(climvar.name=="PPTsm"), family=binomial)
 summary(cone_pptsm_mod_nog) #provenances with summer precip more different from the plantation have higher likelihood of cones.
 r2(cone_pptsm_mod_nog)
 
 #PPTsp
-cone_pptsp_mod_nog <- glmmTMB(cbind(n_cones,total-n_cones) ~ diff_plant + (1|year) + (1|code)+(1|BLK), data=cone_clim_long_transfer_nog %>% filter(climvar.name=="PPTsp"), family=binomial)
+cone_pptsp_mod_nog <- glmmTMB(cbind(n_cones,total-n_cones) ~ diff_plant*height + (1|year) + (1|code)+(1|BLK), data=cone_clim_long_transfer_nog %>% filter(climvar.name=="PPTsp"), family=binomial)
 summary(cone_pptsp_mod_nog) #provenances with spring precip more similar to the plantation have higher probability of cones. 
 r2(cone_pptsp_mod_nog)
 
@@ -4166,7 +4225,7 @@ cone_climdist_df <- cone_clim_long_transfer %>%
   pivot_wider(names_from=climvar.name,values_from = diff_plant) %>% 
   mutate(dist_2d = sqrt(PC1^2 + PC2^2))
   
-cone_climdist_mod <- glmmTMB(cbind(n_cones,total-n_cones) ~ dist_2d + (1|Provenance) + (1|year) + (1|BLK), data=cone_climdist_df, family=binomial)
+cone_climdist_mod <- glmmTMB(cbind(n_cones,total-n_cones) ~ dist_2d*height + (1|Provenance) + (1|year) + (1|BLK), data=cone_climdist_df, family=binomial)
 summary(cone_climdist_mod) # the closer in climate to the plantation, the higher probability of cones. 
 r2(cone_climdist_mod)
 
@@ -4186,7 +4245,7 @@ cone_climdist_df_2020s <- moniger_provclim %>%
   pivot_wider(names_from=climvar.name,values_from = diff_plant) %>% 
   mutate(dist_2d = sqrt(PC1^2 + PC2^2))
   
-cone_climdist_mod_20s <- glmmTMB(cbind(n_cones,total-n_cones) ~ dist_2d + (1|Provenance) + (1|year) + (1|BLK), data=cone_climdist_df_2020s, family=binomial)
+cone_climdist_mod_20s <- glmmTMB(cbind(n_cones,total-n_cones) ~ dist_2d*height + (1|Provenance) + (1|year) + (1|BLK), data=cone_climdist_df_2020s, family=binomial)
 summary(cone_climdist_mod_20s) # the closer in climate to the plantation, the higher probability of cones. 
 r2(cone_climdist_mod_20s)
 
@@ -4205,7 +4264,7 @@ cone_climdist_df_2050s <- moniger_provclim %>%
   pivot_wider(names_from=climvar.name,values_from = diff_plant) %>% 
   mutate(dist_2d = sqrt(PC1^2 + PC2^2))
   
-cone_climdist_mod_50s <- glmmTMB(cbind(n_cones,total-n_cones) ~ dist_2d + (1|Provenance) + (1|year) + (1|BLK), data=cone_climdist_df_2050s, family=binomial)
+cone_climdist_mod_50s <- glmmTMB(cbind(n_cones,total-n_cones) ~ dist_2d*height + (1|Provenance) + (1|year) + (1|BLK), data=cone_climdist_df_2050s, family=binomial)
 summary(cone_climdist_mod_50s) # not significant
 
 #2080's
@@ -4223,7 +4282,7 @@ cone_climdist_df_2080s <- moniger_provclim %>%
   pivot_wider(names_from=climvar.name,values_from = diff_plant) %>% 
   mutate(dist_2d = sqrt(PC1^2 + PC2^2))
   
-cone_climdist_mod_80s <- glmmTMB(cbind(n_cones,total-n_cones) ~ dist_2d + (1|Provenance) + (1|year) + (1|BLK), data=cone_climdist_df_2080s, family=binomial)
+cone_climdist_mod_80s <- glmmTMB(cbind(n_cones,total-n_cones) ~ dist_2d*height + (1|Provenance) + (1|year) + (1|BLK), data=cone_climdist_df_2080s, family=binomial)
 summary(cone_climdist_mod_80s) # not significant
 
 ```
@@ -4402,8 +4461,8 @@ ggarrange(survival_means_fig, dbh_means_fig, ht_means_fig, cone_means_fig, ncol=
 survmod_pc<- glmmTMB(cbind(alive,died) ~  PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK) + (1|year), data=moniger_survival_byyr_binom, family=binomial) 
 summary(survmod_pc)
 
-dredge_survmod_pc <- dredge(survmod_pc)
-dredge_survmod_pc ##null is best
+# dredge_survmod_pc <- dredge(survmod_pc)
+# dredge_survmod_pc ##null is best
 
 moniger_survival_nog <- moniger_survival_byyr_binom %>% filter(!Provenance%in%c("Gila NF"))
 
@@ -4411,8 +4470,8 @@ moniger_survival_nog <- moniger_survival_byyr_binom %>% filter(!Provenance%in%c(
 survmod_pc_nog<- glmmTMB(cbind(alive,died) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK) + (1|year), data=moniger_survival_nog, family=binomial)
 
 summary(survmod_pc_nog)
-dredge_survmod_pc_nog <- dredge(survmod_pc_nog)
-dredge_survmod_pc_nog ##null is best
+# dredge_survmod_pc_nog <- dredge(survmod_pc_nog)
+# dredge_survmod_pc_nog ##null is best
 ```
 
 ####individual climate variables
@@ -4963,9 +5022,9 @@ CLD_alltree_survmod14
 ##with gila
 alltree_survmod_pc<- glmmTMB(cbind(alive,died) ~  PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK) + (1|year), data=moniger_survival_byyr_binom_zeros, family=binomial) 
 summary(alltree_survmod_pc)
-
-dredge_alltree_survmod_pc <- dredge(alltree_survmod_pc)
-dredge_alltree_survmod_pc ##null is best
+# 
+# dredge_alltree_survmod_pc <- dredge(alltree_survmod_pc)
+# dredge_alltree_survmod_pc ##null is best
 
 moniger_survival_alltree_nog <- moniger_survival_byyr_binom_zeros %>% filter(!Provenance%in%c("Gila NF"))
 
@@ -4973,8 +5032,8 @@ moniger_survival_alltree_nog <- moniger_survival_byyr_binom_zeros %>% filter(!Pr
 alltree_survmod_pc_nog<- glmmTMB(cbind(alive,died) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK) + (1|year), data=moniger_survival_alltree_nog, family=binomial)
 
 summary(alltree_survmod_pc_nog)
-dredge_alltree_survmod_pc_nog <- dredge(alltree_survmod_pc_nog)
-dredge_alltree_survmod_pc_nog ##null is best
+# dredge_alltree_survmod_pc_nog <- dredge(alltree_survmod_pc_nog)
+# dredge_alltree_survmod_pc_nog ##null is best
 ```
 
 ###individual climate variables
@@ -6072,7 +6131,7 @@ plot(resis_mod_pc_noG)
 qqmath(resis_mod_pc_noG)
 summary(resis_mod_pc_noG) 
 
-dredge(resis_mod_pc) ##null model is the best
+#dredge(resis_mod_pc) ##null model is the best
 ```
 
 ```{r}
@@ -6091,7 +6150,7 @@ plot(resis_0102mod_pc_noG)
 qqmath(resis_0102mod_pc_noG)
 summary(resis_0102mod_pc_noG) #nothing significant when Gila removed
 
-dredge(resis_0102mod_pc) ##null model is the best
+#dredge(resis_0102mod_pc) ##null model is the best
 ```
 
 ```{r}
@@ -6110,7 +6169,7 @@ plot(resis_0203mod_pc_noG)
 qqmath(resis_0203mod_pc_noG)
 summary(resis_0203mod_pc_noG) #nothing significant when Gila removed
 
-dredge(resis_0203mod_pc) ##null model is the best
+#dredge(resis_0203mod_pc) ##null model is the best
 ```
 
 ```{r}
@@ -6129,7 +6188,7 @@ plot(resis_0003mod_pc_noG)
 qqmath(resis_0003mod_pc_noG)
 summary(resis_0003mod_pc_noG) #nothing significant when Gila removed
 
-dredge(resis_0003mod_pc) ##null model is the best
+#dredge(resis_0003mod_pc) ##null model is the best
 ```
 
 ```{r}
@@ -6148,7 +6207,7 @@ plot(resis_0005mod_pc_noG)
 qqmath(resis_0005mod_pc_noG)
 summary(resis_0005mod_pc_noG) #nothing significant when Gila removed
 
-dredge(resis_0005mod_pc) ##null model is the best
+#dredge(resis_0005mod_pc) ##null model is the best
 ```
 
 ```{r}
@@ -6167,7 +6226,7 @@ plot(resis_9904mod_pc_noG)
 qqmath(resis_9904mod_pc_noG)
 summary(resis_9904mod_pc_noG) #nothing significant when Gila removed
 
-dredge(resis_9904mod_pc) ##null model is the best
+#dredge(resis_9904mod_pc) ##null model is the best
 ```
 
 ```{r}
@@ -6186,7 +6245,7 @@ plot(resis_1mod_pc_noG)
 qqmath(resis_1mod_pc_noG)
 summary(resis_1mod_pc_noG) #nothing significant when Gila removed
 
-dredge(resis_1mod_pc) ##null model is the best
+#dredge(resis_1mod_pc) ##null model is the best
 ```
 
 ```{r}
@@ -6205,7 +6264,7 @@ plot(resis_3mod_pc_noG)
 qqmath(resis_3mod_pc_noG)
 summary(resis_3mod_pc_noG) #nothing significant when Gila removed
 
-dredge(resis_3mod_pc) ##null model is the best
+#dredge(resis_3mod_pc) ##null model is the best
 ```
 
 ```{r}
@@ -6224,7 +6283,7 @@ plot(resis_5mod_pc_noG)
 qqmath(resis_5mod_pc_noG)
 summary(resis_5mod_pc_noG) #nothing significant when Gila removed
 
-dredge(resis_5mod_pc) ##null model is the best
+#dredge(resis_5mod_pc) ##null model is the best
 ```
 
 ```{r}
@@ -6243,7 +6302,7 @@ plot(resis_7mod_pc_noG)
 qqmath(resis_7mod_pc_noG)
 summary(resis_7mod_pc_noG) #nothing significant when Gila removed
 
-dredge(resis_7mod_pc) ##null model is the best
+#dredge(resis_7mod_pc) ##null model is the best
 ```
 
 #####resilience
@@ -6262,8 +6321,8 @@ plot(resil_mod_pc_noG)
 qqmath(resil_mod_pc_noG)
 summary(resil_mod_pc_noG)
 
-dredge(resil_mod_pc) #null model is best when Gila is included
-dredge(resil_mod_pc_noG) #null is best when Gila is excluded
+# dredge(resil_mod_pc) #null model is best when Gila is included
+# dredge(resil_mod_pc_noG) #null is best when Gila is excluded
 ```
 
 ```{r}
@@ -6282,8 +6341,8 @@ plot(resil_0102mod_pc_noG)
 qqmath(resil_0102mod_pc_noG)
 summary(resil_0102mod_pc_noG) #nothing significant when Gila removed
 
-dredge(resil_0102mod_pc) ##null model is the best
-dredge(resil_0102mod_pc_noG) ##null model is the best
+# dredge(resil_0102mod_pc) ##null model is the best
+# dredge(resil_0102mod_pc_noG) ##null model is the best
 ```
 
 ```{r}
@@ -6299,7 +6358,7 @@ plot(resil_0203mod_pc_noG)
 qqmath(resil_0203mod_pc_noG)
 summary(resil_0203mod_pc_noG) #nothing significant when Gila removed
 
-dredge(resil_0203mod_pc) ##null model is the best
+# dredge(resil_0203mod_pc) ##null model is the best
 ```
 
 ```{r}
@@ -6315,7 +6374,7 @@ plot(resil_0003mod_pc_noG)
 qqmath(resil_0003mod_pc_noG)
 summary(resil_0003mod_pc_noG) #nothing significant when Gila removed
 
-dredge(resil_0003mod_pc) ##null model is the best
+# dredge(resil_0003mod_pc) ##null model is the best
 ```
 
 ```{r}
@@ -6333,7 +6392,7 @@ plot(resil_0005mod_pc_noG)
 qqmath(resil_0005mod_pc_noG)
 summary(resil_0005mod_pc_noG) #nothing significant when Gila removed
 
-dredge(resil_0005mod_pc) ##null model is the best
+# dredge(resil_0005mod_pc) ##null model is the best
 ```
 
 ```{r}
@@ -6349,7 +6408,7 @@ plot(resil_9904mod_pc_noG)
 qqmath(resil_9904mod_pc_noG)
 summary(resil_9904mod_pc_noG) #nothing significant when Gila removed
 
-dredge(resil_9904mod_pc) ##null model is the best
+# dredge(resil_9904mod_pc) ##null model is the best
 ```
 
 ```{r}
@@ -6365,7 +6424,7 @@ plot(resil_1mod_pc_noG)
 qqmath(resil_1mod_pc_noG)
 summary(resil_1mod_pc_noG) #nothing significant 
 
-dredge(resil_1mod_pc) ##null model is the best
+# dredge(resil_1mod_pc) ##null model is the best
 ```
 
 ```{r}
@@ -6381,7 +6440,7 @@ plot(resil_3mod_pc_noG)
 qqmath(resil_3mod_pc_noG)
 summary(resil_3mod_pc_noG) #nothing significant 
 
-dredge(resil_3mod_pc) ##null model is the best
+# dredge(resil_3mod_pc) ##null model is the best
 ```
 
 ```{r}
@@ -6397,7 +6456,7 @@ plot(resil_5mod_pc_noG)
 qqmath(resil_5mod_pc_noG)
 summary(resil_5mod_pc_noG) #nothing significant 
 
-dredge(resil_5mod_pc) ##null model is the best
+# dredge(resil_5mod_pc) ##null model is the best
 ```
 
 ```{r}
@@ -6415,7 +6474,7 @@ plot(resil_7mod_pc_noG)
 qqmath(resil_7mod_pc_noG)
 summary(resil_7mod_pc_noG) #nothing significant 
 
-dredge(resil_7mod_pc) ##null model is the best
+# dredge(resil_7mod_pc) ##null model is the best
 ```
 
 ###Other Metrics
@@ -6523,7 +6582,7 @@ recov_mod_pca <- lmer(log(recoverytime) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Pro
 plot(recov_mod_pca)
 qqmath(recov_mod_pca)
 summary(recov_mod_pca)
-dredge(recov_mod_pca) #null model is best
+# dredge(recov_mod_pca) #null model is best
 
 ###
 not_recovered<- dbh_age_good %>% 
@@ -6563,7 +6622,7 @@ mgr.pcmod <- lmer(max.growth.red ~ PC1*PC2 + (1|Provenance) + (1|BLK), data=grow
 plot(mgr.pcmod)
 qqmath(mgr.pcmod)
 summary(mgr.pcmod)
-dredge(mgr.pcmod) #null is best
+# dredge(mgr.pcmod) #null is best
 
 ##sum growth reduction models
 #anova
@@ -6577,7 +6636,7 @@ sumgr.pcmod <- lmer(log(sum.growth.red) ~ PC1*PC2 + (1|Provenance) + (1|BLK), da
 plot(sumgr.pcmod)
 qqmath(sumgr.pcmod)
 summary(sumgr.pcmod)
-dredge(sumgr.pcmod) #null is best
+# dredge(sumgr.pcmod) #null is best
 
 ```
 
