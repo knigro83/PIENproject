@@ -3890,7 +3890,7 @@ cone_fig<- ggplot(newdata3, aes(x = year, y = PredictedProb)) + geom_ribbon(aes(
 ###PC only mods
 
 ```{r}
-moniger_subset <- left_join(moniger_data_comb %>% 
+moniger_subset <- moniger_data_comb %>% 
   filter(! (LOC==30 & BLK=="D" & REP==3)) %>%  ##excluding Gila tree that was outlier for height in 1996
   dplyr::select(c(Provenance, BLK, REP, HT85, HT91, HT96, HT06, code)) %>%
   pivot_longer(HT85:HT06, values_to = "height") %>% 
@@ -3898,28 +3898,15 @@ moniger_subset <- left_join(moniger_data_comb %>%
                         name == "HT91" ~ 1991,
                         name == "HT96" ~ 1996,
                         name == "HT06" ~ 2006)) %>% 
-  dplyr::select(-name),
-moniger_data_comb %>% 
-  filter(! (LOC==30 & BLK=="D" & REP==3)) %>%  ##excluding Gila tree that was outlier for height in 1996
-  dplyr::select(c(Provenance, BLK, REP, DBH91, DBH96, DBH06, code)) %>%
-  pivot_longer(DBH91:DBH06, values_to = "DBH") %>% 
-    mutate(year=case_when(name == "DBH91" ~ 1991,
-                        name == "DBH96" ~ 1996,
-                        name == "DBH06" ~ 2006)) %>% 
-  dplyr::select(-name)) %>% 
+  dplyr::select(-name) %>% 
 left_join(cone_data_binom) %>% 
 left_join(moniger_data_comb %>% 
   filter(! (LOC==30 & BLK=="D" & REP==3)) %>%  ##excluding Gila tree that was outlier for height in 1996
   dplyr::select(c(BLK, REP, PC1, PC2, PC3, x, y, code))) %>% 
-  filter(!(is.na(height)|is.na(DBH)|is.na(n_cones)))
+  filter(!(is.na(height)|is.na(n_cones)))
 
 cone_clim_mod_ht <- glmmTMB(cbind(n_cones, total-n_cones) ~ scale(height)*PC1 + I(PC1^2) + scale(height)*PC2 + I(PC2^2) + (1|code) + (1|year) + (1|BLK), data=moniger_subset, family=binomial)
 summary(cone_clim_mod_ht)
-
-cone_clim_mod_dbh <- glmmTMB(cbind(n_cones, total-n_cones) ~ scale(DBH)*PC1 + I(PC1^2) + scale(DBH)*PC2 + I(PC2^2) + (1|code) + (1|year) + (1|BLK), data=moniger_subset, family=binomial)
-summary(cone_clim_mod_dbh)
-
-AICc(cone_clim_mod_ht, cone_clim_mod_dbh) #ht is lowest
 
 # dredge.cone.clim <- dredge(cone_clim_mod_ht)
 # dredge.cone.clim
@@ -3927,6 +3914,7 @@ AICc(cone_clim_mod_ht, cone_clim_mod_dbh) #ht is lowest
 best.mod.cone.clim <- glmmTMB(cbind(n_cones, total-n_cones) ~ PC1 + I(PC1^2) + scale(height)+ (1|code) + (1|year) + (1|BLK), data= moniger_subset, family = binomial)
 summary(best.mod.cone.clim)
 r2(best.mod.cone.clim)
+plot(simulateResiduals(best.mod.cone.clim))
 
 ##predictions
 CCnewdata1_cone <- expand.grid(height=c(3,6,9),
@@ -3965,18 +3953,15 @@ r2(cone_clim_mod_ht_nog)
 # dredge.cone.clim.nog <- dredge(cone_clim_mod_ht_nog)
 # dredge.cone.clim.nog
 
-best.mod.cone.clim_nog <- glmmTMB(cbind(n_cones, total-n_cones) ~ height + (1|code) + (1|year) + (1|BLK), data= moniger_subset %>% filter(!code=="GiNF"), family = binomial)
+best.mod.cone.clim_nog <- glmmTMB(cbind(n_cones, total-n_cones) ~ height + (1|code) + (1|year) + (1|BLK), data= moniger_subset_nog, family = binomial)
 summary(best.mod.cone.clim_nog)
-
-##testing other no Gila models
-cone_clim_mod_dbh_nog <- glmmTMB(cbind(n_cones, total-n_cones) ~ scale(DBH)*PC1 + I(PC1^2) + scale(DBH)*PC2 + I(PC2^2)+ (1|code) + (1|year) + (1|BLK), data=moniger_subset_nog, family=binomial)
-
-AICc(cone_clim_mod_ht_nog,cone_clim_mod_dbh_nog) #ht is better
+plot(simulateResiduals(best.mod.cone.clim_nog))
 
 ##predictions - no gila - height
 
 newmod <- glmmTMB(cbind(n_cones, total-n_cones) ~  height, data= moniger_subset_nog, family = binomial)
 summary(newmod)
+plot(simulateResiduals(newmod))
 
 CCnewdata1_cone_nog_height <- expand.grid(height=seq(min(moniger_subset_nog$height),max(moniger_subset_nog$height),0.1))
 
@@ -4000,6 +3985,35 @@ cone_plot_height<- ggplot(CCnewdata3_cone_nog_height %>% mutate(var="Height"), a
   facet_grid(~var)
 
 cone_plot_height
+
+###height needed for 50% chance of having cones
+summary(newmod)
+predict(newmod, newdata=data.frame(height=3.85),type="response")
+
+#log(p/(1-p)) = b0 + b1*height
+
+b0 = summary(newmod)$coefficients$cond[1,"Estimate"]
+b1 = summary(newmod)$coefficients$cond[2,"Estimate"]
+
+#25%
+p=0.25
+height = (log(p/(1-p))-b0)/b1
+height
+
+#50%
+p=0.5
+height = (log(p/(1-p))-b0)/b1
+height
+
+#75%
+p=0.75
+height = (log(p/(1-p))-b0)/b1
+height
+
+#95%
+p=0.95
+height = (log(p/(1-p))-b0)/b1
+height
 ```
 
 
@@ -4132,7 +4146,7 @@ moniger_provclim<- cone_data_binom %>%
   left_join(moniger_subset %>% dplyr::select(Provenance:year)) %>% 
   filter(!is.na(height))
 
-cone_mods<- data.frame()
+cone_ht_mods<- data.frame()
 
 for(i in 1:length(provenance_climvars)){
 mod <- glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value*height + (1|year) + (1|code) + (1|BLK), data=moniger_provclim %>% filter(climvar.name==provenance_climvars[i]), family=binomial)
@@ -4143,28 +4157,117 @@ mod_nog <- glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value*height + (1|year
 pvalue_nog<- summary(mod_nog)$coefficients$cond[2,]["Pr(>|z|)"]
 Mr2_nog=r2(mod_nog)$R2_marginal
 
-cone_mods <- bind_rows(cone_mods, data.frame(var=provenance_climvars[i], pvalue = pvalue, Mr2=Mr2, pvalue_nog = pvalue_nog, Mr2_nog = Mr2_nog))
+cone_ht_mods <- bind_rows(cone_ht_mods, data.frame(var=provenance_climvars[i], pvalue = pvalue, Mr2=Mr2, pvalue_nog = pvalue_nog, Mr2_nog = Mr2_nog))
 
 }
 
-cone_mods %>% arrange(pvalue_nog) 
-cone_mods %>% 
+cone_ht_mods %>% arrange(pvalue_nog) 
+cone_ht_mods %>% 
   filter(pvalue_nog<0.05) %>% 
   arrange(desc(Mr2_nog))
+cone_ht_mods %>% arrange(pvalue) 
 
 ###PPTsm
-cone_pptsm_mod <- glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value*height + (1|year) + (1|code) + (1|BLK), data=moniger_provclim %>% filter(!Provenance=="Gila NF") %>% filter(climvar.name=="PPTsm"), family=binomial)
-summary(cone_pptsm_mod)
-r2(cone_pptsm_mod)
+cone_ht_pptsm_mod <- glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value*height + (1|year) + (1|code) + (1|BLK), data=moniger_provclim %>% filter(climvar.name=="PPTsm"), family=binomial)
+summary(cone_ht_pptsm_mod)
+r2(cone_ht_pptsm_mod)
+
+cone_ht_pptsm_mod_nog <- glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value*height + (1|year) + (1|code) + (1|BLK), data=moniger_provclim %>% filter(!Provenance=="Gila NF") %>% filter(climvar.name=="PPTsm"), family=binomial)
+summary(cone_ht_pptsm_mod_nog)
+r2(cone_ht_pptsm_mod_nog)
+
+cone_ht_pptsm_data_nog <- moniger_provclim %>% filter(!Provenance=="Gila NF") %>% filter(climvar.name=="PPTsm")
+
+#prediction
+##take random effect out to make predictions
+cone_ht_pptsm_nog_glm <- glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value*height, data=cone_ht_pptsm_data_nog, family=binomial)
+
+##predictions - 3.9m
+cone_ht_pptsm_nog_newdata1 <- with(cone_ht_pptsm_data_nog, data.frame(climvar.value = seq(min(climvar.value),max(climvar.value),length.out=50), height=3.9))
+
+cone_ht_pptsm_nog_newdata2 <- cbind(cone_ht_pptsm_nog_newdata1, predict(cone_ht_pptsm_nog_glm, newdata = cone_ht_pptsm_nog_newdata1, type = "link", se=TRUE))
+cone_ht_pptsm_nog_newdata3 <- within(cone_ht_pptsm_nog_newdata2, {
+    PredictedProb <- plogis(fit)
+    LL <- plogis(fit - (1.96 * se.fit))
+    UL <- plogis(fit + (1.96 * se.fit))
+})
+
+ggplot(cone_ht_pptsm_nog_newdata3, aes(x = climvar.value, y = PredictedProb)) + 
+  geom_ribbon(aes(ymin = LL,ymax = UL), alpha = 0.2) + 
+  geom_line(linewidth = 1)+
+  geom_rug(data=moniger_provclim %>% filter(climvar.name=="PPTsm") %>% mutate(PredictedProb=0.6), sides="b", linewidth=1, color="black", alpha=0.5)+
+  scale_linetype_manual(values=c(2,1))+
+  scale_fill_manual(values=c("darkgray","black"))+
+  ylim(c(0,1))+
+  xlab("Provenance summer precip")+
+  ylab("Predicted Probability of Cones at 3.9m")+
+  theme_bw()
+
 
 ###TD
-cone_TD_mod <- glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value*height + (1|year) + (1|code) + (1|BLK), data=moniger_provclim %>% filter(climvar.name=="TD"), family=binomial)
-summary(cone_TD_mod) ##provenances with lower TD have higher probability of producing cones at a given height. 
-r2(cone_TD_mod)
+cone_ht_TD_mod <- glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value*height + (1|year) + (1|code) + (1|BLK), data=moniger_provclim %>% filter(climvar.name=="TD"), family=binomial)
+summary(cone_ht_TD_mod) 
+r2(cone_ht_TD_mod)
+
+cone_ht_TD_mod_nog <- glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value*height + (1|year) + (1|code) + (1|BLK), data=moniger_provclim %>% filter(climvar.name=="TD") %>% filter(!Provenance=="Gila NF"), family=binomial)
+summary(cone_ht_TD_mod_nog) 
+r2(cone_ht_TD_mod_nog)
+
+cone_ht_td_data_nog<- moniger_provclim %>% filter(climvar.name=="TD") %>% filter(!Provenance=="Gila NF")
+
+##predictions
+cone_ht_td_nog_glm <-  glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value*height, data=cone_ht_td_data_nog, family=binomial)
+
+cone_ht_td_nog_newdata1 <- expand.grid(climvar.value = with(cone_ht_td_data_nog, seq(min(climvar.value),max(climvar.value),length.out=50)), height=c(2.6,5.1,3.9))
+
+cone_ht_td_nog_newdata2 <- cbind(cone_ht_td_nog_newdata1, predict(cone_ht_td_nog_glm, newdata = cone_ht_td_nog_newdata1, type = "link", se=TRUE))
+cone_ht_td_nog_newdata3 <- within(cone_ht_td_nog_newdata2, {
+    PredictedProb <- plogis(fit)
+    LL <- plogis(fit - (1.96 * se.fit))
+    UL <- plogis(fit + (1.96 * se.fit))
+})
+
+ggplot() + 
+  geom_ribbon(data=cone_ht_td_nog_newdata3, aes(ymin = LL,ymax = UL, x = climvar.value, col=factor(height), fill=factor(height)), alpha = 0.2) + 
+  geom_line(data=cone_ht_td_nog_newdata3, aes(x = climvar.value, y = PredictedProb, col=factor(height), fill=factor(height)), linewidth = 1)+
+  geom_rug(data=moniger_provclim %>% filter(climvar.name=="TD") %>% mutate(PredictedProb=0.6) %>% dplyr::select(-height), aes(x=climvar.value), sides="b", linewidth=1, color="black", alpha=0.5)+
+  ylim(c(0,1))+
+  xlab("Provenance TD")+
+  ylab("Predicted Probability of Cones")+
+  theme_bw()
+
+###DD5
+cone_ht_DD5_mod <- glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value*height + (1|year) + (1|code) + (1|BLK), data=moniger_provclim %>% filter(climvar.name=="DD5"), family=binomial)
+summary(cone_ht_DD5_mod) 
+r2(cone_ht_DD5_mod)
+
+cone_ht_dd5_data<- moniger_provclim %>% filter(climvar.name=="DD5") 
+
+##predictions
+cone_ht_dd5_glm <-  glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value*height, data=cone_ht_dd5_data, family=binomial)
+
+cone_ht_dd5_newdata1 <- expand.grid(climvar.value = with(cone_ht_dd5_data, seq(min(climvar.value),max(climvar.value),length.out=50)), height=c(2.6,5.1,3.9))
+
+cone_ht_dd5_newdata2 <- cbind(cone_ht_dd5_newdata1, predict(cone_ht_dd5_glm, newdata = cone_ht_dd5_newdata1, type = "link", se=TRUE))
+cone_ht_dd5_newdata3 <- within(cone_ht_dd5_newdata2, {
+    PredictedProb <- plogis(fit)
+    LL <- plogis(fit - (1.96 * se.fit))
+    UL <- plogis(fit + (1.96 * se.fit))
+})
+
+ggplot() + 
+  geom_ribbon(data=cone_ht_dd5_newdata3, aes(ymin = LL,ymax = UL, x = climvar.value, col=factor(height), fill=factor(height)), alpha = 0.2) + 
+  geom_line(data=cone_ht_dd5_newdata3, aes(x = climvar.value, y = PredictedProb, col=factor(height), fill=factor(height)), linewidth = 1)+
+  geom_rug(data=moniger_provclim %>% filter(climvar.name=="DD5") %>% mutate(PredictedProb=0.6) %>% dplyr::select(-height), aes(x=climvar.value), sides="b", linewidth=1, color="black", alpha=0.5)+
+  ylim(c(0,1))+
+  xlab("Provenance DD5")+
+  ylab("Predicted Probability of Cones")+
+  theme_bw()
+
 
 ###quadratic
 
-cone_mods_quad<- data.frame()
+cone_ht_mods_quad<- data.frame()
 
 for(i in 1:length(provenance_climvars)){
 mod <- glmmTMB(cbind(n_cones,total-n_cones) ~ scale(climvar.value)*height + I(scale(climvar.value)^2) + (1|code) + (1|year) + (1|BLK), data=moniger_provclim %>% filter(climvar.name==provenance_climvars[i]), family=binomial)
@@ -4175,10 +4278,47 @@ mod_nog <- glmmTMB(cbind(n_cones,total-n_cones) ~ scale(climvar.value)*height + 
 pvalues_nog<- as.data.frame(summary(mod_nog)$coefficients$cond[c(2,4),])$`Pr(>|z|)`
 Mr2_nog <- r2(mod_nog)$R2_marginal
 
-cone_mods_quad <- bind_rows(cone_mods_quad, data.frame(var=provenance_climvars[i], pvalue1 = pvalues[1], pvalue2 = pvalues[2], Mr2 = Mr2, pvalue1_nog = pvalues_nog[1], pvalue2_nog = pvalues_nog[2], Mr2_nog = Mr2_nog))
+cone_ht_mods_quad <- bind_rows(cone_ht_mods_quad, data.frame(var=provenance_climvars[i], pvalue1 = pvalues[1], pvalue2 = pvalues[2], Mr2 = Mr2, pvalue1_nog = pvalues_nog[1], pvalue2_nog = pvalues_nog[2], Mr2_nog = Mr2_nog))
 }
 
-cone_mods_quad %>% arrange(pvalue2_nog) ##none significant 
+cone_ht_mods_quad %>% arrange(pvalue2_nog) ##PPTsm significant again
+
+
+###PPTsm
+cone_ht_pptsm_quad_mod <- glmmTMB(cbind(n_cones,total-n_cones) ~ scale(climvar.value)*height + I(scale(climvar.value)^2) + (1|year) + (1|code) + (1|BLK), data=moniger_provclim %>% filter(climvar.name=="PPTsm"), family=binomial)
+summary(cone_ht_pptsm_quad_mod)
+r2(cone_ht_pptsm_quad_mod)
+
+cone_ht_pptsm_quad_mod_nog <- glmmTMB(cbind(n_cones,total-n_cones) ~  scale(climvar.value)*height + I(scale(climvar.value)^2)+ (1|year) + (1|code) + (1|BLK), data=moniger_provclim %>% filter(!Provenance=="Gila NF") %>% filter(climvar.name=="PPTsm"), family=binomial)
+summary(cone_ht_pptsm_quad_mod_nog)
+r2(cone_ht_pptsm_quad_mod_nog)
+
+
+#prediction
+##take random effect out to make predictions
+cone_ht_pptsm_quad_nog_glm <- glmmTMB(cbind(n_cones,total-n_cones) ~ scale(climvar.value)*height + I(scale(climvar.value)^2), data=cone_ht_pptsm_data_nog, family=binomial)
+
+##predictions 
+cone_ht_pptsm_quad_nog_newdata1 <- with(cone_ht_pptsm_data_nog, data.frame(climvar.value = seq(min(climvar.value),max(climvar.value),length.out=50), height=3.9))
+
+cone_ht_pptsm_quad_nog_newdata2 <- cbind(cone_ht_pptsm_quad_nog_newdata1, predict(cone_ht_pptsm_quad_nog_glm, newdata = cone_ht_pptsm_quad_nog_newdata1, type = "link", se=TRUE))
+cone_ht_pptsm_quad_nog_newdata3 <- within(cone_ht_pptsm_quad_nog_newdata2, {
+    PredictedProb <- plogis(fit)
+    LL <- plogis(fit - (1.96 * se.fit))
+    UL <- plogis(fit + (1.96 * se.fit))
+})
+
+ggplot(cone_ht_pptsm_quad_nog_newdata3, aes(x = climvar.value, y = PredictedProb)) + 
+  geom_ribbon(aes(ymin = LL,ymax = UL), alpha = 0.2) + 
+  geom_line(linewidth = 1)+
+  geom_rug(data=moniger_provclim %>% filter(climvar.name=="PPTsm") %>% mutate(PredictedProb=0.6), sides="b", linewidth=1, color="black", alpha=0.5)+
+  scale_linetype_manual(values=c(2,1))+
+  scale_fill_manual(values=c("darkgray","black"))+
+  ylim(c(0,1))+
+  xlab("Provenance summer precip")+
+  ylab("Predicted Probability of Cones at 3.9m")+
+  theme_bw()
+
 ```
 
 #####transfer distance
@@ -4220,13 +4360,13 @@ r2(cone_pptsp_mod_nog)
 ##distance in 2d climate space
 
 cone_climdist_df <- cone_clim_long_transfer %>% 
-  dplyr::select(Provenance, BLK, REP, year, n_cones, total, climvar.name, diff_plant) %>% 
+  dplyr::select(Provenance, BLK, REP, year, n_cones, total, climvar.name, diff_plant, height) %>% 
   filter(climvar.name %in% c("PC1","PC2")) %>% 
   pivot_wider(names_from=climvar.name,values_from = diff_plant) %>% 
   mutate(dist_2d = sqrt(PC1^2 + PC2^2))
   
 cone_climdist_mod <- glmmTMB(cbind(n_cones,total-n_cones) ~ dist_2d*height + (1|Provenance) + (1|year) + (1|BLK), data=cone_climdist_df, family=binomial)
-summary(cone_climdist_mod) # the closer in climate to the plantation, the higher probability of cones. 
+summary(cone_climdist_mod) # not significant 
 r2(cone_climdist_mod)
 
 ##look at distance to different projections for the plantation
@@ -4240,7 +4380,7 @@ plantation_climNA_20s <- prov_vars %>%
 cone_climdist_df_2020s <- moniger_provclim %>%
   left_join(plantation_climNA_20s, by=c("climvar.name"="var")) %>% 
   mutate(diff_plant = abs(plant_value - climvar.value)) %>% 
-  dplyr::select(Provenance,BLK, REP, year, n_cones, total, climvar.name, diff_plant) %>% 
+  dplyr::select(Provenance,BLK, REP, year, n_cones, total, climvar.name, diff_plant,height) %>% 
   filter(climvar.name %in% c("PC1","PC2")) %>% 
   pivot_wider(names_from=climvar.name,values_from = diff_plant) %>% 
   mutate(dist_2d = sqrt(PC1^2 + PC2^2))
@@ -4259,7 +4399,7 @@ plantation_climNA_50s <- prov_vars %>%
 cone_climdist_df_2050s <- moniger_provclim %>%
   left_join(plantation_climNA_50s, by=c("climvar.name"="var")) %>% 
   mutate(diff_plant = abs(plant_value - climvar.value)) %>% 
-  dplyr::select(Provenance,BLK, REP, year, n_cones, total, climvar.name, diff_plant) %>% 
+  dplyr::select(Provenance,BLK, REP, year, n_cones, total, climvar.name, diff_plant, height) %>% 
   filter(climvar.name %in% c("PC1","PC2")) %>% 
   pivot_wider(names_from=climvar.name,values_from = diff_plant) %>% 
   mutate(dist_2d = sqrt(PC1^2 + PC2^2))
@@ -4277,7 +4417,7 @@ plantation_climNA_80s <- prov_vars %>%
 cone_climdist_df_2080s <- moniger_provclim %>%
   left_join(plantation_climNA_80s, by=c("climvar.name"="var")) %>% 
   mutate(diff_plant = abs(plant_value - climvar.value)) %>% 
-  dplyr::select(Provenance,BLK, REP, year, n_cones, total, climvar.name, diff_plant) %>% 
+  dplyr::select(Provenance,BLK, REP, year, n_cones, total, climvar.name, diff_plant, height) %>% 
   filter(climvar.name %in% c("PC1","PC2")) %>% 
   pivot_wider(names_from=climvar.name,values_from = diff_plant) %>% 
   mutate(dist_2d = sqrt(PC1^2 + PC2^2))
