@@ -63,6 +63,7 @@ library(performance)
 library("factoextra")
 library("corrplot")
 library(DescTools)
+library(DHARMa)
 ```
 
 ##Plot locations
@@ -2666,6 +2667,8 @@ plot(totht_mod)
 qqmath(totht_mod)
 Anova(totht_mod, type="3") ##there is a significant year by provenance interaction
 
+totht_mod_lm <- lm(log(value) ~ Provenance*year, data=ht_data_year)
+
 #no gila
 totht_mod_nog <- lmer(log(value) ~ Provenance*year + (1|BLK), data=ht_data_year %>% filter(!Provenance=="Gila NF"))
 plot(totht_mod_nog)
@@ -4028,11 +4031,11 @@ moniger_provclim<- cone_data_binom %>%
 cone_mods<- data.frame()
 
 for(i in 1:length(provenance_climvars)){
-mod <- glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value*height + (1|year) + (1|code) + (1|BLK), data=moniger_provclim %>% filter(climvar.name==provenance_climvars[i]), family=binomial)
+mod <- glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value + (1|year) + (1|code) + (1|BLK), data=moniger_provclim %>% filter(climvar.name==provenance_climvars[i]), family=binomial)
 pvalue<- summary(mod)$coefficients$cond[2,]["Pr(>|z|)"]
 Mr2=r2(mod)$R2_marginal
 
-mod_nog <- glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value*height + (1|year) + (1|code) + (1|BLK), data=moniger_provclim %>% filter(climvar.name==provenance_climvars[i]) %>% filter(!code=="GiNF"), family=binomial)
+mod_nog <- glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value + (1|year) + (1|code) + (1|BLK), data=moniger_provclim %>% filter(climvar.name==provenance_climvars[i]) %>% filter(!code=="GiNF"), family=binomial)
 pvalue_nog<- summary(mod_nog)$coefficients$cond[2,]["Pr(>|z|)"]
 Mr2_nog=r2(mod_nog)$R2_marginal
 
@@ -4122,11 +4125,11 @@ cone_smrpb_plot
 cone_mods_quad<- data.frame()
 
 for(i in 1:length(provenance_climvars)){
-mod <- glmmTMB(cbind(n_cones,total-n_cones) ~ scale(climvar.value)*height + I(scale(climvar.value)^2) + (1|code) + (1|year) + (1|BLK), data=moniger_provclim %>% filter(climvar.name==provenance_climvars[i]), family=binomial)
+mod <- glmmTMB(cbind(n_cones,total-n_cones) ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|code) + (1|year) + (1|BLK), data=moniger_provclim %>% filter(climvar.name==provenance_climvars[i]), family=binomial)
 pvalues<- as.data.frame(summary(mod)$coefficients$cond[2:3,])$`Pr(>|z|)`
 Mr2 <- r2(mod)$R2_marginal
 
-mod_nog <- glmmTMB(cbind(n_cones,total-n_cones) ~ scale(climvar.value)*height + I(scale(climvar.value)^2) + (1|code) + (1|year) + (1|BLK), data=moniger_provclim %>% filter(climvar.name==provenance_climvars[i]) %>% filter(!code=="GiNF"), family=binomial)
+mod_nog <- glmmTMB(cbind(n_cones,total-n_cones) ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|code) + (1|year) + (1|BLK), data=moniger_provclim %>% filter(climvar.name==provenance_climvars[i]) %>% filter(!code=="GiNF"), family=binomial)
 pvalues_nog<- as.data.frame(summary(mod_nog)$coefficients$cond[2:3,])$`Pr(>|z|)`
 Mr2_nog <- r2(mod_nog)$R2_marginal
 
@@ -4139,21 +4142,21 @@ cone_mods_quad %>% arrange(pvalue2_nog) ##none significant
 ######height
 
 ```{r}
-moniger_provclim<- cone_data_binom %>% 
+moniger_provclim_ht<- cone_data_binom %>% 
   left_join(as.data.frame(moniger_data_comb) %>% dplyr::select(c(Provenance,BLK, REP, code,PC1,PC2,AHM:SHM,x:monsoonality))) %>% 
   pivot_longer(c(PC1,PC2,AHM:SHM, x:monsoonality), names_to="climvar.name", values_to = "climvar.value") %>% 
   filter(!is.na(total)) %>% 
   left_join(moniger_subset %>% dplyr::select(Provenance:year)) %>% 
-  filter(!is.na(height))
+  filter(!is.na(height)) #this removes Gila tree that was outlier for height in 96
 
 cone_ht_mods<- data.frame()
 
 for(i in 1:length(provenance_climvars)){
-mod <- glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value*height + (1|year) + (1|code) + (1|BLK), data=moniger_provclim %>% filter(climvar.name==provenance_climvars[i]), family=binomial)
+mod <- glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value*height + (1|year) + (1|code) + (1|BLK), data=moniger_provclim_ht %>% filter(climvar.name==provenance_climvars[i]), family=binomial)
 pvalue<- summary(mod)$coefficients$cond[2,]["Pr(>|z|)"]
 Mr2=r2(mod)$R2_marginal
 
-mod_nog <- glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value*height + (1|year) + (1|code) + (1|BLK), data=moniger_provclim %>% filter(climvar.name==provenance_climvars[i]) %>% filter(!code=="GiNF"), family=binomial)
+mod_nog <- glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value*height + (1|year) + (1|code) + (1|BLK), data=moniger_provclim_ht %>% filter(climvar.name==provenance_climvars[i]) %>% filter(!code=="GiNF"), family=binomial)
 pvalue_nog<- summary(mod_nog)$coefficients$cond[2,]["Pr(>|z|)"]
 Mr2_nog=r2(mod_nog)$R2_marginal
 
@@ -4168,15 +4171,15 @@ cone_ht_mods %>%
 cone_ht_mods %>% arrange(pvalue) 
 
 ###PPTsm
-cone_ht_pptsm_mod <- glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value*height + (1|year) + (1|code) + (1|BLK), data=moniger_provclim %>% filter(climvar.name=="PPTsm"), family=binomial)
+cone_ht_pptsm_mod <- glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value*height + (1|year) + (1|code) + (1|BLK), data=moniger_provclim_ht %>% filter(climvar.name=="PPTsm"), family=binomial)
 summary(cone_ht_pptsm_mod)
 r2(cone_ht_pptsm_mod)
 
-cone_ht_pptsm_mod_nog <- glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value*height + (1|year) + (1|code) + (1|BLK), data=moniger_provclim %>% filter(!Provenance=="Gila NF") %>% filter(climvar.name=="PPTsm"), family=binomial)
+cone_ht_pptsm_mod_nog <- glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value*height + (1|year) + (1|code) + (1|BLK), data=moniger_provclim_ht %>% filter(!Provenance=="Gila NF") %>% filter(climvar.name=="PPTsm"), family=binomial)
 summary(cone_ht_pptsm_mod_nog)
 r2(cone_ht_pptsm_mod_nog)
 
-cone_ht_pptsm_data_nog <- moniger_provclim %>% filter(!Provenance=="Gila NF") %>% filter(climvar.name=="PPTsm")
+cone_ht_pptsm_data_nog <- moniger_provclim_ht %>% filter(!Provenance=="Gila NF") %>% filter(climvar.name=="PPTsm")
 
 #prediction
 ##take random effect out to make predictions
@@ -4205,15 +4208,15 @@ ggplot(cone_ht_pptsm_nog_newdata3, aes(x = climvar.value, y = PredictedProb)) +
 
 
 ###TD
-cone_ht_TD_mod <- glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value*height + (1|year) + (1|code) + (1|BLK), data=moniger_provclim %>% filter(climvar.name=="TD"), family=binomial)
+cone_ht_TD_mod <- glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value*height + (1|year) + (1|code) + (1|BLK), data=moniger_provclim_ht %>% filter(climvar.name=="TD"), family=binomial)
 summary(cone_ht_TD_mod) 
 r2(cone_ht_TD_mod)
 
-cone_ht_TD_mod_nog <- glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value*height + (1|year) + (1|code) + (1|BLK), data=moniger_provclim %>% filter(climvar.name=="TD") %>% filter(!Provenance=="Gila NF"), family=binomial)
+cone_ht_TD_mod_nog <- glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value*height + (1|year) + (1|code) + (1|BLK), data=moniger_provclim_ht %>% filter(climvar.name=="TD") %>% filter(!Provenance=="Gila NF"), family=binomial)
 summary(cone_ht_TD_mod_nog) 
 r2(cone_ht_TD_mod_nog)
 
-cone_ht_td_data_nog<- moniger_provclim %>% filter(climvar.name=="TD") %>% filter(!Provenance=="Gila NF")
+cone_ht_td_data_nog<- moniger_provclim_ht %>% filter(climvar.name=="TD") %>% filter(!Provenance=="Gila NF")
 
 ##predictions
 cone_ht_td_nog_glm <-  glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value*height, data=cone_ht_td_data_nog, family=binomial)
@@ -4230,18 +4233,18 @@ cone_ht_td_nog_newdata3 <- within(cone_ht_td_nog_newdata2, {
 ggplot() + 
   geom_ribbon(data=cone_ht_td_nog_newdata3, aes(ymin = LL,ymax = UL, x = climvar.value, col=factor(height), fill=factor(height)), alpha = 0.2) + 
   geom_line(data=cone_ht_td_nog_newdata3, aes(x = climvar.value, y = PredictedProb, col=factor(height), fill=factor(height)), linewidth = 1)+
-  geom_rug(data=moniger_provclim %>% filter(climvar.name=="TD") %>% mutate(PredictedProb=0.6) %>% dplyr::select(-height), aes(x=climvar.value), sides="b", linewidth=1, color="black", alpha=0.5)+
+  geom_rug(data=moniger_provclim_ht %>% filter(climvar.name=="TD") %>% mutate(PredictedProb=0.6) %>% dplyr::select(-height), aes(x=climvar.value), sides="b", linewidth=1, color="black", alpha=0.5)+
   ylim(c(0,1))+
   xlab("Provenance TD")+
   ylab("Predicted Probability of Cones")+
   theme_bw()
 
 ###DD5
-cone_ht_DD5_mod <- glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value*height + (1|year) + (1|code) + (1|BLK), data=moniger_provclim %>% filter(climvar.name=="DD5"), family=binomial)
+cone_ht_DD5_mod <- glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value*height + (1|year) + (1|code) + (1|BLK), data=moniger_provclim_ht %>% filter(climvar.name=="DD5"), family=binomial)
 summary(cone_ht_DD5_mod) 
 r2(cone_ht_DD5_mod)
 
-cone_ht_dd5_data<- moniger_provclim %>% filter(climvar.name=="DD5") 
+cone_ht_dd5_data<- moniger_provclim_ht %>% filter(climvar.name=="DD5") 
 
 ##predictions
 cone_ht_dd5_glm <-  glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value*height, data=cone_ht_dd5_data, family=binomial)
@@ -4258,7 +4261,7 @@ cone_ht_dd5_newdata3 <- within(cone_ht_dd5_newdata2, {
 ggplot() + 
   geom_ribbon(data=cone_ht_dd5_newdata3, aes(ymin = LL,ymax = UL, x = climvar.value, col=factor(height), fill=factor(height)), alpha = 0.2) + 
   geom_line(data=cone_ht_dd5_newdata3, aes(x = climvar.value, y = PredictedProb, col=factor(height), fill=factor(height)), linewidth = 1)+
-  geom_rug(data=moniger_provclim %>% filter(climvar.name=="DD5") %>% mutate(PredictedProb=0.6) %>% dplyr::select(-height), aes(x=climvar.value), sides="b", linewidth=1, color="black", alpha=0.5)+
+  geom_rug(data=moniger_provclim_ht %>% filter(climvar.name=="DD5") %>% mutate(PredictedProb=0.6) %>% dplyr::select(-height), aes(x=climvar.value), sides="b", linewidth=1, color="black", alpha=0.5)+
   ylim(c(0,1))+
   xlab("Provenance DD5")+
   ylab("Predicted Probability of Cones")+
@@ -4270,11 +4273,11 @@ ggplot() +
 cone_ht_mods_quad<- data.frame()
 
 for(i in 1:length(provenance_climvars)){
-mod <- glmmTMB(cbind(n_cones,total-n_cones) ~ scale(climvar.value)*height + I(scale(climvar.value)^2) + (1|code) + (1|year) + (1|BLK), data=moniger_provclim %>% filter(climvar.name==provenance_climvars[i]), family=binomial)
+mod <- glmmTMB(cbind(n_cones,total-n_cones) ~ scale(climvar.value)*height + I(scale(climvar.value)^2) + (1|code) + (1|year) + (1|BLK), data=moniger_provclim_ht %>% filter(climvar.name==provenance_climvars[i]), family=binomial)
 pvalues<- as.data.frame(summary(mod)$coefficients$cond[c(2,4),])$`Pr(>|z|)`
 Mr2 <- r2(mod)$R2_marginal
 
-mod_nog <- glmmTMB(cbind(n_cones,total-n_cones) ~ scale(climvar.value)*height + I(scale(climvar.value)^2) + (1|code) + (1|year) + (1|BLK), data=moniger_provclim %>% filter(climvar.name==provenance_climvars[i]) %>% filter(!code=="GiNF"), family=binomial)
+mod_nog <- glmmTMB(cbind(n_cones,total-n_cones) ~ scale(climvar.value)*height + I(scale(climvar.value)^2) + (1|code) + (1|year) + (1|BLK), data=moniger_provclim_ht %>% filter(climvar.name==provenance_climvars[i]) %>% filter(!code=="GiNF"), family=binomial)
 pvalues_nog<- as.data.frame(summary(mod_nog)$coefficients$cond[c(2,4),])$`Pr(>|z|)`
 Mr2_nog <- r2(mod_nog)$R2_marginal
 
@@ -4285,11 +4288,11 @@ cone_ht_mods_quad %>% arrange(pvalue2_nog) ##PPTsm significant again
 
 
 ###PPTsm
-cone_ht_pptsm_quad_mod <- glmmTMB(cbind(n_cones,total-n_cones) ~ scale(climvar.value)*height + I(scale(climvar.value)^2) + (1|year) + (1|code) + (1|BLK), data=moniger_provclim %>% filter(climvar.name=="PPTsm"), family=binomial)
+cone_ht_pptsm_quad_mod <- glmmTMB(cbind(n_cones,total-n_cones) ~ scale(climvar.value)*height + I(scale(climvar.value)^2) + (1|year) + (1|code) + (1|BLK), data=moniger_provclim_ht %>% filter(climvar.name=="PPTsm"), family=binomial)
 summary(cone_ht_pptsm_quad_mod)
 r2(cone_ht_pptsm_quad_mod)
 
-cone_ht_pptsm_quad_mod_nog <- glmmTMB(cbind(n_cones,total-n_cones) ~  scale(climvar.value)*height + I(scale(climvar.value)^2)+ (1|year) + (1|code) + (1|BLK), data=moniger_provclim %>% filter(!Provenance=="Gila NF") %>% filter(climvar.name=="PPTsm"), family=binomial)
+cone_ht_pptsm_quad_mod_nog <- glmmTMB(cbind(n_cones,total-n_cones) ~  scale(climvar.value)*height + I(scale(climvar.value)^2)+ (1|year) + (1|code) + (1|BLK), data=moniger_provclim_ht %>% filter(!Provenance=="Gila NF") %>% filter(climvar.name=="PPTsm"), family=binomial)
 summary(cone_ht_pptsm_quad_mod_nog)
 r2(cone_ht_pptsm_quad_mod_nog)
 
@@ -4324,7 +4327,7 @@ ggplot(cone_ht_pptsm_quad_nog_newdata3, aes(x = climvar.value, y = PredictedProb
 #####transfer distance
 ```{r}
 
-cone_clim_long_transfer <- moniger_provclim %>%
+cone_clim_long_transfer <- moniger_provclim_ht %>%
   left_join(plantation_climNA, by=c("climvar.name"="var")) %>% 
   mutate(diff_plant = abs(plant_value - climvar.value))
 
@@ -4344,7 +4347,7 @@ cone_mods_transfer <- bind_rows(cone_mods_transfer, data.frame(var=provenance_cl
 
 }
 
-cone_mods_transfer %>% arrange(p.value_nog) #PPTsm and PPTsp
+cone_mods_transfer %>% arrange(p.value_nog) #PPTsm and smrpb
 cone_mods_transfer %>% filter(p.value_nog<0.05) %>% arrange(Mr2_nog) 
 
 #PPTsm
@@ -4352,10 +4355,10 @@ cone_pptsm_mod_nog <- glmmTMB(cbind(n_cones,total-n_cones) ~ diff_plant*height +
 summary(cone_pptsm_mod_nog) #provenances with summer precip more different from the plantation have higher likelihood of cones.
 r2(cone_pptsm_mod_nog)
 
-#PPTsp
-cone_pptsp_mod_nog <- glmmTMB(cbind(n_cones,total-n_cones) ~ diff_plant*height + (1|year) + (1|code)+(1|BLK), data=cone_clim_long_transfer_nog %>% filter(climvar.name=="PPTsp"), family=binomial)
-summary(cone_pptsp_mod_nog) #provenances with spring precip more similar to the plantation have higher probability of cones. 
-r2(cone_pptsp_mod_nog)
+#smrpb
+cone_smrpb_mod_nog <- glmmTMB(cbind(n_cones,total-n_cones) ~ diff_plant*height + (1|year) + (1|code)+(1|BLK), data=cone_clim_long_transfer_nog %>% filter(climvar.name=="smrpb"), family=binomial)
+summary(cone_smrpb_mod_nog) #provenances with smrpb more different from the plantation have higher probability of cones. 
+r2(cone_smrpb_mod_nog)
 
 ##distance in 2d climate space
 
@@ -4377,7 +4380,7 @@ plantation_climNA_20s <- prov_vars %>%
   rename(plant_value = value) %>% 
   bind_rows(data.frame(var=c("PC1","PC2"), plant_value=c(plant_pca_scores %>% filter(period=="2020s") %>% pull(PC1),plant_pca_scores %>% filter(period=="2020s") %>% pull(PC2)) ))
 
-cone_climdist_df_2020s <- moniger_provclim %>%
+cone_climdist_df_2020s <- moniger_provclim_ht %>%
   left_join(plantation_climNA_20s, by=c("climvar.name"="var")) %>% 
   mutate(diff_plant = abs(plant_value - climvar.value)) %>% 
   dplyr::select(Provenance,BLK, REP, year, n_cones, total, climvar.name, diff_plant,height) %>% 
@@ -4396,7 +4399,7 @@ plantation_climNA_50s <- prov_vars %>%
   rename(plant_value = value) %>% 
   bind_rows(data.frame(var=c("PC1","PC2"), plant_value=c(plant_pca_scores %>% filter(period=="2050s") %>% pull(PC1),plant_pca_scores %>% filter(period=="2050s") %>% pull(PC2)) ))
 
-cone_climdist_df_2050s <- moniger_provclim %>%
+cone_climdist_df_2050s <- moniger_provclim_ht %>%
   left_join(plantation_climNA_50s, by=c("climvar.name"="var")) %>% 
   mutate(diff_plant = abs(plant_value - climvar.value)) %>% 
   dplyr::select(Provenance,BLK, REP, year, n_cones, total, climvar.name, diff_plant, height) %>% 
@@ -4414,7 +4417,7 @@ plantation_climNA_80s <- prov_vars %>%
   rename(plant_value = value) %>% 
   bind_rows(data.frame(var=c("PC1","PC2"), plant_value=c(plant_pca_scores %>% filter(period=="2080s") %>% pull(PC1),plant_pca_scores %>% filter(period=="2080s") %>% pull(PC2)) ))
 
-cone_climdist_df_2080s <- moniger_provclim %>%
+cone_climdist_df_2080s <- moniger_provclim_ht %>%
   left_join(plantation_climNA_80s, by=c("climvar.name"="var")) %>% 
   mutate(diff_plant = abs(plant_value - climvar.value)) %>% 
   dplyr::select(Provenance,BLK, REP, year, n_cones, total, climvar.name, diff_plant, height) %>% 
@@ -4428,7 +4431,7 @@ summary(cone_climdist_mod_80s) # not significant
 ```
 
 
-##Survival - Elimate trees
+##Survival by year
 
 ####ANOVA
 ```{r}
@@ -4634,7 +4637,7 @@ Mr2_nog=r2(mod_nog)$R2_marginal
 
 surv_mods <- bind_rows(surv_mods, data.frame(var=provenance_climvars[i], pvalue = pvalue, Mr2=Mr2, pvalue_nog = pvalue_nog, Mr2_nog = Mr2_nog))}
 
-surv_mods %>% arrange(pvalue_nog) ##length of growing season seems to be influential both with and without Gila, also smrpb
+surv_mods %>% arrange(pvalue_nog) ##length of growing season seems to be influential both with and without Gila, also smrpb & PPTsp
 surv_mods %>% 
   filter(pvalue_nog<0.05) %>% 
   arrange(desc(Mr2_nog))
@@ -4728,7 +4731,7 @@ ggplot(survsmrpb_newdata3, aes(x = climvar.value, y = PredictedProb)) + geom_rib
   geom_line(linewidth = 1)+
   xlab("smrpb")
 
-#without Gila is still significant
+#without Gila is significant
 surv_smrpb_mod_nog <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + (1|Provenance)+(1|BLK) + (1|year), data=moniger_survival_long %>% filter(climvar.name=="smrpb") %>% filter(!Provenance=="Gila NF"), family="binomial")
 summary(surv_smrpb_mod_nog)
 
@@ -5049,12 +5052,12 @@ summary(surv_climdist_mod) # not significant
 
 ```
 
-##Survival - all trees
+##Survival 2014
 
 ###ANOVA
 
 ```{r}
-### do survival analyses without eliminating trees that didn't survive in the next year's survival numbers. So, this is taking more of a year by year approach, asking how was survival to 1979? to 1985? to 1991? etc. 
+### do survival analyses for each year independently (since overall survival for each year are not independent of each other). For the climate analysis, I'm just going to look at how provenance climate impacted survival to 2014, since this is the most informative for longevity of these trees. 
 
 moniger_survival_byyr_zeros <- moniger_data_comb %>% 
   mutate(Stat79 = ifelse(Stat74 == 9, 0, Stat79)) %>% 
@@ -5083,11 +5086,6 @@ moniger_survival_byyr_binom_zeros<- moniger_survival_byyr_zeros %>%
          alive=ifelse(is.na(alive),0,alive),
          died=ifelse(is.na(died),4,died)) %>% 
   left_join(moniger_survival %>% dplyr::select(c(Provenance,BLK,PC1,PC2,AHM:SHM,x,y,smrpb,monsoonality)) %>% unique()) 
-
-survmod_byyear_alltrees<- glmmTMB(cbind(alive, died) ~ factor(year)*Provenance, data=moniger_survival_byyr_binom_zeros, family=binomial) 
-summary(survmod_byyear_alltrees)
-Anova(survmod_byyear, type="3")
-
 
 ####ANOVAs for each year separately
 
@@ -5136,7 +5134,7 @@ CLD_alltree_survmod96 = cld(alltree_survmod96_marg,
           Letters=letters)
 CLD_alltree_survmod96 
 
-alltree_survmod06 <- glmmTMB(cbind(alive, died) ~ Provenance + (1|BLK), data=moniger_survival_byyr_binom_zeros %>% filter(year==2006), family=binomial) ###this doesn't converge probably because of few deaths
+alltree_survmod06 <- glmmTMB(cbind(alive, died) ~ Provenance + (1|BLK), data=moniger_survival_byyr_binom_zeros %>% filter(year==2006), family=binomial) 
 Anova(alltree_survmod06, type="3")
 alltree_survmod06_marg = lsmeans(alltree_survmod06, ~ Provenance)
 
@@ -5158,101 +5156,99 @@ CLD_alltree_survmod14
 
 ###PC only mods
 ```{r}
+moniger_survival_byyr_binom_zeros_2014<- moniger_survival_byyr_binom_zeros %>% filter(year=="2014")
 
 ##with gila
-alltree_survmod_pc<- glmmTMB(cbind(alive,died) ~  PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK) + (1|year), data=moniger_survival_byyr_binom_zeros, family=binomial) 
-summary(alltree_survmod_pc)
+survmod2014_pc<- glmmTMB(cbind(alive,died) ~  PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK) , data=moniger_survival_byyr_binom_zeros_2014, family=binomial) 
+summary(survmod2014_pc)
 # 
-# dredge_alltree_survmod_pc <- dredge(alltree_survmod_pc)
-# dredge_alltree_survmod_pc ##null is best
+# dredge_survmod2014_pc <- dredge(survmod2014_pc)
+# dredge_survmod2014_pc 
 
-moniger_survival_alltree_nog <- moniger_survival_byyr_binom_zeros %>% filter(!Provenance%in%c("Gila NF"))
+best_survmod2014_pc<- glmmTMB(cbind(alive,died) ~  PC2 + I(PC2^2) + (1|Provenance) + (1|BLK) , data=moniger_survival_byyr_binom_zeros_2014, family=binomial) 
+summary(best_survmod2014_pc) #nothing significant
+
+moniger_survival_2014_nog <- moniger_survival_byyr_binom_zeros_2014 %>% filter(!Provenance%in%c("Gila NF"))
 
 ##no gila
-alltree_survmod_pc_nog<- glmmTMB(cbind(alive,died) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK) + (1|year), data=moniger_survival_alltree_nog, family=binomial)
+survmod2014_pc_nog<- glmmTMB(cbind(alive,died) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK) , data=moniger_survival_2014_nog, family=binomial)
 
-summary(alltree_survmod_pc_nog)
-# dredge_alltree_survmod_pc_nog <- dredge(alltree_survmod_pc_nog)
-# dredge_alltree_survmod_pc_nog ##null is best
+summary(survmod2014_pc_nog)
+#dredge_survmod2014_pc_nog <- dredge(survmod2014_pc_nog)
+#dredge_survmod2014_pc_nog ##null is best
 ```
 
 ###individual climate variables
 
 ```{r}
-moniger_survival_alltree_long <- moniger_survival_byyr_binom_zeros %>% 
+moniger_survival2014_long <- moniger_survival_byyr_binom_zeros_2014 %>% 
   pivot_longer(c(PC1,PC2,AHM:SHM, x:monsoonality), names_to="climvar.name", values_to = "climvar.value")
 
-surv_mods_alltree<- data.frame()
+surv_mods_2014<- data.frame()
 
 for(i in 1:length(provenance_climvars)){
-mod <- glmmTMB(cbind(alive,died) ~ climvar.value + (1|Provenance) + (1|BLK) + (1|year), data=moniger_survival_alltree_long %>% filter(climvar.name==provenance_climvars[i]), family=binomial)
+mod <- glmmTMB(cbind(alive,died) ~ climvar.value + (1|Provenance) + (1|BLK), data=moniger_survival2014_long %>% filter(climvar.name==provenance_climvars[i]), family=binomial)
 pvalue<- as.data.frame(summary(mod)$coefficients$cond)[2,]$`Pr(>|z|)`
 Mr2=r2(mod)$R2_marginal
 
-mod_nog <- glmmTMB(cbind(alive,died) ~ climvar.value + (1|Provenance)+ (1|BLK) + (1|year), data=moniger_survival_alltree_long %>% filter(climvar.name==provenance_climvars[i]) %>% filter(!Provenance=="Gila NF"), family=binomial)
+mod_nog <- glmmTMB(cbind(alive,died) ~ climvar.value + (1|Provenance)+ (1|BLK), data=moniger_survival2014_long %>% filter(climvar.name==provenance_climvars[i]) %>% filter(!Provenance=="Gila NF"), family=binomial)
 pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients$cond)[2,]$`Pr(>|z|)`
 Mr2_nog=r2(mod_nog)$R2_marginal
 
 
-surv_mods_alltree <- bind_rows(surv_mods_alltree, data.frame(var=provenance_climvars[i], pvalue = pvalue, Mr2=Mr2, pvalue_nog = pvalue_nog, Mr2_nog = Mr2_nog))}
+surv_mods_2014 <- bind_rows(surv_mods_2014, data.frame(var=provenance_climvars[i], pvalue = pvalue, Mr2=Mr2, pvalue_nog = pvalue_nog, Mr2_nog = Mr2_nog))}
 
-surv_mods_alltree %>% arrange(pvalue_nog) ##length of growing season seems to be influential both with and without Gila, also smrpb
-surv_mods_alltree %>% 
+surv_mods_2014 %>% arrange(pvalue_nog) ##length of growing season seems to be influential both with and without Gila, also smrpb
+surv_mods_2014 %>% 
   filter(pvalue_nog<0.05) %>% 
   arrange(desc(Mr2_nog))
 
 #eFFP
-surv_alltreeeFFP_mod <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + (1|Provenance)+ (1|BLK) + (1|year), data=moniger_survival_alltree_long %>% filter(climvar.name=="eFFP"), family="binomial")
-summary(surv_alltreeeFFP_mod)
+surv_eFFP_mod2014 <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + (1|Provenance)+ (1|BLK), data=moniger_survival2014_long %>% filter(climvar.name=="eFFP"), family="binomial")
+summary(surv_eFFP_mod2014)
 
-surv_alltreeeFFP_data <- moniger_survival_alltree_long %>% filter(climvar.name=="eFFP")
+surv_eFFP_data2014 <- moniger_survival2014_long %>% filter(climvar.name=="eFFP")
 
-newdata_eFFP_surv <- data.frame(
-    climvar.value = seq(min(surv_alltreeeFFP_data$climvar.value), 
-                      max(surv_alltreeeFFP_data$climvar.value), 
+newdata_eFFP_surv2014 <- data.frame(
+    climvar.value = seq(min(surv_eFFP_data2014$climvar.value), 
+                      max(surv_eFFP_data2014$climvar.value), 
                       length.out = 100
                       ))
 
 ##predictions
-surveFFP_newdata1 <-  expand.grid(climvar.value = seq(min(newdata_eFFP_surv$climvar.value),max(newdata_eFFP_surv$climvar.value),length.out=50))
+surv2014eFFP_newdata1 <-  expand.grid(climvar.value = seq(min(newdata_eFFP_surv2014$climvar.value),max(newdata_eFFP_surv2014$climvar.value),length.out=50))
 
-surv_alltreeeFFP_mod_glm <- glmmTMB(cbind(alive,died) ~ scale(climvar.value), data=moniger_survival_alltree_long %>% filter(climvar.name=="eFFP"), family="binomial")
+surv2014_eFFP_mod_glm <- glmmTMB(cbind(alive,died) ~ scale(climvar.value), data=moniger_survival2014_long %>% filter(climvar.name=="eFFP"), family="binomial")
 
-surveFFP_newdata2 <- cbind(surveFFP_newdata1, predict(surv_alltreeeFFP_mod_glm, newdata = surveFFP_newdata1, type = "link", se=TRUE))
-surveFFP_newdata3 <- within(surveFFP_newdata2, {
+surv2014_eFFP_newdata2 <- cbind(surv2014eFFP_newdata1, predict(surv2014_eFFP_mod_glm, newdata = surv2014eFFP_newdata1, type = "link", se=TRUE))
+surv2014_eFFP_newdata3 <- within(surv2014_eFFP_newdata2, {
     PredictedProb <- plogis(fit)
     LL <- plogis(fit - (1.96 * se.fit))
     UL <- plogis(fit + (1.96 * se.fit))
 })
-
-ggplot(surveFFP_newdata3, aes(x = climvar.value, y = PredictedProb)) + geom_ribbon(aes(ymin = LL,
-    ymax = UL), alpha = 0.2) + 
-  geom_line(linewidth = 1)+
-  xlab("eFFP")
 
 #without Gila is still significant
-surv_alltreeeFFP_mod_nog <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + (1|Provenance)+(1|BLK) + (1|year), data=moniger_survival_alltree_long %>% filter(climvar.name=="eFFP") %>% filter(!Provenance=="Gila NF"), family="binomial")
-summary(surv_alltreeeFFP_mod_nog)
+surv2014_eFFP_mod_nog <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + (1|Provenance)+(1|BLK) , data=moniger_survival2014_long %>% filter(climvar.name=="eFFP") %>% filter(!Provenance=="Gila NF"), family="binomial")
+summary(surv2014_eFFP_mod_nog)
 
-surv_alltreeeFFP_mod_nog_glm <- glmmTMB(cbind(alive,died) ~ scale(climvar.value), data=moniger_survival_alltree_long %>% filter(climvar.name=="eFFP") %>% filter(!Provenance=="Gila NF"), family="binomial")
-summary(surv_alltreeeFFP_mod_nog)
+surv2014_eFFP_mod_nog_glm <- glmmTMB(cbind(alive,died) ~ scale(climvar.value), data=moniger_survival2014_long %>% filter(climvar.name=="eFFP") %>% filter(!Provenance=="Gila NF"), family="binomial")
 
 ##predictions
-surv_alltreeeFFP_data_nog <- moniger_survival_alltree_long %>% filter(climvar.name=="eFFP") %>% filter(!Provenance=="Gila NF")
+surv2014_eFFP_data_nog <- moniger_survival2014_long %>% filter(climvar.name=="eFFP") %>% filter(!Provenance=="Gila NF")
 
-surveFFP_nog_newdata1 <- expand.grid(climvar.value = seq(min(surv_alltreeeFFP_data_nog$climvar.value),max(surv_alltreeeFFP_data_nog$climvar.value),length.out=50))
+surv2014_effp_nog_newdata1 <- expand.grid(climvar.value = seq(min(surv2014_eFFP_data_nog$climvar.value),max(surv2014_eFFP_data_nog$climvar.value),length.out=50))
 
-surveFFP_nog_newdata2 <- cbind(surveFFP_nog_newdata1, predict(surv_alltreeeFFP_mod_nog_glm, newdata = surveFFP_nog_newdata1, type = "link", se=TRUE))
-surveFFP_nog_newdata3 <- within(surveFFP_nog_newdata2, {
+surv2014_effp_nog_newdata2 <- cbind(surv2014_effp_nog_newdata1, predict(surv2014_eFFP_mod_nog_glm, newdata = surv2014_effp_nog_newdata1, type = "link", se=TRUE))
+surv2014_effp_nog_newdata3 <- within(surv2014_effp_nog_newdata2, {
     PredictedProb <- plogis(fit)
     LL <- plogis(fit - (1.96 * se.fit))
     UL <- plogis(fit + (1.96 * se.fit))
 })
 
-surveFFP_bothmod_data<- bind_rows(surveFFP_newdata3 %>% mutate(model="with Gila NF"),
-surveFFP_nog_newdata3 %>% mutate(model="without Gila NF"))
+surv2014_effp_bothmod_data<- bind_rows(surv2014_eFFP_newdata3 %>% mutate(model="with Gila NF"),
+surv2014_effp_nog_newdata3 %>% mutate(model="without Gila NF"))
 
-ggplot(surveFFP_bothmod_data, aes(x = climvar.value, y = PredictedProb, linetype=model)) + geom_ribbon(aes(ymin = LL,
+ggplot(surv2014_effp_bothmod_data, aes(x = climvar.value, y = PredictedProb, linetype=model)) + geom_ribbon(aes(ymin = LL,
     ymax = UL), alpha = 0.2) + 
   geom_line(linewidth = 1)+
   xlab("eFFP")
@@ -5260,57 +5256,57 @@ ggplot(surveFFP_bothmod_data, aes(x = climvar.value, y = PredictedProb, linetype
 #########
 
 #smrpb
-surv_alltreesmrpb_mod <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + (1|Provenance)+ (1|BLK) + (1|year), data=moniger_survival_alltree_long %>% filter(climvar.name=="smrpb"), family="binomial")
-summary(surv_alltreesmrpb_mod)
+surv2014_smrpb_mod <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + (1|Provenance)+ (1|BLK), data=moniger_survival2014_long %>% filter(climvar.name=="smrpb"), family="binomial")
+summary(surv2014_smrpb_mod)
 
-surv_alltreesmrpb_data <- moniger_survival_alltree_long %>% filter(climvar.name=="smrpb")
+surv2014_smrpb_data <- moniger_survival2014_long %>% filter(climvar.name=="smrpb")
 
-newdata_smrpb_surv <- data.frame(
-    climvar.value = seq(min(surv_alltreesmrpb_data$climvar.value), 
-                      max(surv_alltreesmrpb_data$climvar.value), 
+newdata_smrpb_surv2014 <- data.frame(
+    climvar.value = seq(min(surv2014_smrpb_data$climvar.value), 
+                      max(surv2014_smrpb_data$climvar.value), 
                       length.out = 100
                       ))
 
 ##predictions
-survsmrpb_newdata1 <-  expand.grid(climvar.value = seq(min(newdata_smrpb_surv$climvar.value),max(newdata_smrpb_surv$climvar.value),length.out=50))
+surv2014_smrpb_newdata1 <-  expand.grid(climvar.value = seq(min(newdata_smrpb_surv2014$climvar.value),max(newdata_smrpb_surv2014$climvar.value),length.out=50))
 
-surv_alltreesmrpb_mod_glm <- glmmTMB(cbind(alive,died) ~ scale(climvar.value), data=moniger_survival_alltree_long %>% filter(climvar.name=="smrpb"), family="binomial")
+surv2014_smrpb_mod_glm <- glmmTMB(cbind(alive,died) ~ scale(climvar.value), data=moniger_survival2014_long %>% filter(climvar.name=="smrpb"), family="binomial")
 
-survsmrpb_newdata2 <- cbind(survsmrpb_newdata1, predict(surv_alltreesmrpb_mod_glm, newdata = survsmrpb_newdata1, type = "link", se=TRUE))
-survsmrpb_newdata3 <- within(survsmrpb_newdata2, {
+surv2014_smrpb_newdata2 <- cbind(surv2014_smrpb_newdata1, predict(surv2014_smrpb_mod_glm, newdata = surv2014_smrpb_newdata1, type = "link", se=TRUE))
+surv2014_smrpb_newdata3 <- within(surv2014_smrpb_newdata2, {
     PredictedProb <- plogis(fit)
     LL <- plogis(fit - (1.96 * se.fit))
     UL <- plogis(fit + (1.96 * se.fit))
 })
 
-ggplot(survsmrpb_newdata3, aes(x = climvar.value, y = PredictedProb)) + geom_ribbon(aes(ymin = LL,
+ggplot(surv2014_smrpb_newdata3, aes(x = climvar.value, y = PredictedProb)) + geom_ribbon(aes(ymin = LL,
     ymax = UL), alpha = 0.2) + 
   geom_line(linewidth = 1)+
   xlab("smrpb")
 
 #without Gila is still significant
-surv_alltreesmrpb_mod_nog <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + (1|Provenance)+(1|BLK) + (1|year), data=moniger_survival_alltree_long %>% filter(climvar.name=="smrpb") %>% filter(!Provenance=="Gila NF"), family="binomial")
-summary(surv_alltreesmrpb_mod_nog)
+surv2014_smrpb_mod_nog <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + (1|Provenance)+(1|BLK) , data=moniger_survival2014_long %>% filter(climvar.name=="smrpb") %>% filter(!Provenance=="Gila NF"), family="binomial")
+summary(surv2014_smrpb_mod_nog)
 
 ##predictions
-surv_alltreesmrpb_data_nog <- moniger_survival_alltree_long %>% filter(climvar.name=="smrpb") %>% filter(!Provenance=="Gila NF")
+surv2014_smrpb_data_nog <- moniger_survival2014_long %>% filter(climvar.name=="smrpb") %>% filter(!Provenance=="Gila NF")
 
-survsmrpb_nog_newdata1 <- expand.grid(climvar.value = seq(min(surv_alltreesmrpb_data_nog$climvar.value),max(surv_alltreesmrpb_data_nog$climvar.value),length.out=50),
+surv2014_smrpb_nog_newdata1 <- expand.grid(climvar.value = seq(min(surv2014_smrpb_data_nog$climvar.value),max(surv2014_smrpb_data_nog$climvar.value),length.out=50),
                                  Provenance = "Pike NF",
                                  BLK = "C",
                                  year=2006)
 
-survsmrpb_nog_newdata2 <- cbind(survsmrpb_nog_newdata1, predict(surv_alltreesmrpb_mod_nog, newdata = survsmrpb_nog_newdata1, type = "link", se=TRUE))
-survsmrpb_nog_newdata3 <- within(survsmrpb_nog_newdata2, {
+surv2014_smrpb_nog_newdata2 <- cbind(surv2014_smrpb_nog_newdata1, predict(surv2014_smrpb_mod_nog, newdata = surv2014_smrpb_nog_newdata1, type = "link", se=TRUE))
+surv2014_smrpb_nog_newdata3 <- within(surv2014_smrpb_nog_newdata2, {
     PredictedProb <- plogis(fit)
     LL <- plogis(fit - (1.96 * se.fit))
     UL <- plogis(fit + (1.96 * se.fit))
 })
 
-survsmrpb_bothmod_data<- bind_rows(survsmrpb_newdata3 %>% mutate(model="with Gila NF"),
-survsmrpb_nog_newdata3 %>% mutate(model="without Gila NF"))
+surv2014_smrpb_bothmod_data<- bind_rows(surv2014_smrpb_newdata3 %>% mutate(model="with Gila NF"),
+surv2014_smrpb_nog_newdata3 %>% mutate(model="without Gila NF"))
 
-ggplot(survsmrpb_bothmod_data, aes(x = climvar.value, y = PredictedProb, linetype=model)) + geom_ribbon(aes(ymin = LL,
+ggplot(surv2014_smrpb_bothmod_data, aes(x = climvar.value, y = PredictedProb, linetype=model)) + geom_ribbon(aes(ymin = LL,
     ymax = UL), alpha = 0.2) + 
   geom_line(linewidth = 1)+
   xlab("smrpb")
@@ -5318,62 +5314,62 @@ ggplot(survsmrpb_bothmod_data, aes(x = climvar.value, y = PredictedProb, linetyp
 
 ###quadratic
 
-surv_alltreemods_quad<- data.frame()
+surv2014_mods_quad<- data.frame()
 
 for(i in 1:length(provenance_climvars)){
-mod <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance) + (1|BLK) + (1|year), data=moniger_survival_alltree_long %>% filter(climvar.name==provenance_climvars[i]), family="binomial")
+mod <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance) + (1|BLK) , data=moniger_survival2014_long %>% filter(climvar.name==provenance_climvars[i]), family="binomial")
 pvalues<- as.data.frame(summary(mod)$coefficients$cond)[2:3,]$`Pr(>|z|)`
 Mr2 <- r2(mod)$R2_marginal
 
-mod_nog <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance) + (1|BLK) + (1|year), data=moniger_survival_alltree_long %>% filter(climvar.name==provenance_climvars[i]) %>% filter(!Provenance=="Gila NF"), family="binomial")
+mod_nog <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance) + (1|BLK), data=moniger_survival2014_long %>% filter(climvar.name==provenance_climvars[i]) %>% filter(!Provenance=="Gila NF"), family="binomial")
 pvalues_nog<- as.data.frame(summary(mod_nog)$coefficients$cond)[2:3,]$`Pr(>|z|)`
 Mr2_nog <- r2(mod_nog)$R2_marginal
 
-surv_alltreemods_quad <- bind_rows(surv_alltreemods_quad, data.frame(var=provenance_climvars[i], pvalue1 = pvalues[1], pvalue2 = pvalues[2], Mr2 = Mr2, pvalue1_nog = pvalues_nog[1], pvalue2_nog = pvalues_nog[2], Mr2_nog = Mr2_nog))
+surv2014_mods_quad <- bind_rows(surv2014_mods_quad, data.frame(var=provenance_climvars[i], pvalue1 = pvalues[1], pvalue2 = pvalues[2], Mr2 = Mr2, pvalue1_nog = pvalues_nog[1], pvalue2_nog = pvalues_nog[2], Mr2_nog = Mr2_nog))
 
 }
 
-surv_alltreemods_quad %>% arrange(pvalue2_nog) ##Eref and CMD are significant both with and without Gila, but they are positively correlated so I will just use Eref since it has a larger r2.
+surv2014_mods_quad %>% arrange(pvalue2_nog) ##Eref and CMD are significant both with and without Gila, but they are positively correlated so I will just use Eref since it has a larger r2. Also MCMT
 
 ##Eref
-surv_alltreeEref_mod <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance) + (1|BLK) + (1|year), data=moniger_survival_alltree_long %>% filter(climvar.name=="Eref"), family="binomial")
-summary(surv_alltreeEref_mod)
-r2(surv_alltreeEref_mod)
+surv2014_eref_mod <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance) + (1|BLK), data=moniger_survival2014_long %>% filter(climvar.name=="Eref"), family="binomial")
+summary(surv2014_eref_mod)
+r2(surv2014_eref_mod)
 
-surv_alltreeEref_mod_glm <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2), data=moniger_survival_alltree_long %>% filter(climvar.name=="Eref"), family="binomial")
+surv2014_eref_mod_glm <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2), data=moniger_survival2014_long %>% filter(climvar.name=="Eref"), family="binomial")
 
-surv_alltreeEref_data <- moniger_survival_alltree_long %>% filter(climvar.name=="Eref")
+surv2014_eref_data <- moniger_survival2014_long %>% filter(climvar.name=="Eref")
 
 ##predictions
-survEref_newdata1 <- expand.grid(climvar.value = seq(min(surv_alltreeEref_data$climvar.value),max(surv_alltreeEref_data$climvar.value),length.out=50))
+surv2014_eref_newdata1 <- expand.grid(climvar.value = seq(min(surv2014_eref_data$climvar.value),max(surv2014_eref_data$climvar.value),length.out=50))
 
-survEref_newdata2 <- cbind(survEref_newdata1, predict(surv_alltreeEref_mod_glm, newdata = survEref_newdata1, type = "link", se=TRUE))
-survEref_newdata3 <- within(survEref_newdata2, {
+surv2014_eref_newdata2 <- cbind(surv2014_eref_newdata1, predict(surv2014_eref_mod_glm, newdata = surv2014_eref_newdata1, type = "link", se=TRUE))
+surv2014_eref_newdata3 <- within(surv2014_eref_newdata2, {
     PredictedProb <- plogis(fit)
     LL <- plogis(fit - (1.96 * se.fit))
     UL <- plogis(fit + (1.96 * se.fit))
 })
 
 #without Gila is still significant
-surv_alltreeeref_mod_nog <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance) + (1|BLK) + (1|year), data=moniger_survival_alltree_long %>% filter(climvar.name=="Eref") %>% filter(!Provenance=="Gila NF"), family="binomial")
-summary(surv_alltreeeref_mod_nog)
-r2(surv_alltreeeref_mod_nog)
+surv2014_eref_mod_nog <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance) + (1|BLK), data=moniger_survival2014_long %>% filter(climvar.name=="Eref") %>% filter(!Provenance=="Gila NF"), family="binomial")
+summary(surv2014_eref_mod_nog)
+r2(surv2014_eref_mod_nog)
 
-surv_alltreeeref_mod_nog_glm <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2), data=moniger_survival_alltree_long %>% filter(climvar.name=="Eref") %>% filter(!Provenance=="Gila NF"), family="binomial")
+surv2014_eref_mod_nog_glm <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2), data=moniger_survival2014_long %>% filter(climvar.name=="Eref") %>% filter(!Provenance=="Gila NF"), family="binomial")
 
 ##predictions
-surveref_newdata1_nog <- expand.grid(climvar.value = seq(min(moniger_survival_alltree_long %>% filter(climvar.name=="Eref") %>% filter(!Provenance=="Gila NF") %>% pull(climvar.value)),max(moniger_survival_alltree_long %>% filter(climvar.name=="Eref") %>% filter(!Provenance=="Gila NF") %>% pull(climvar.value)),length.out=50))
+surv2014_eref_newdata1_nog <- expand.grid(climvar.value = seq(min(moniger_survival2014_long %>% filter(climvar.name=="Eref") %>% filter(!Provenance=="Gila NF") %>% pull(climvar.value)),max(moniger_survival2014_long %>% filter(climvar.name=="Eref") %>% filter(!Provenance=="Gila NF") %>% pull(climvar.value)),length.out=50))
 
-surveref_newdata2_nog <- cbind(surveref_newdata1_nog, predict(surv_alltreeeref_mod_nog_glm, newdata = surveref_newdata1_nog, type = "link", se=TRUE))
-surveref_newdata3_nog <- within(surveref_newdata2_nog, {
+surv2014_eref_newdata2_nog <- cbind(surv2014_eref_newdata1_nog, predict(surv2014_eref_mod_nog_glm, newdata = surv2014_eref_newdata1_nog, type = "link", se=TRUE))
+surv2014_eref_newdata3_nog <- within(surv2014_eref_newdata2_nog, {
     PredictedProb <- plogis(fit)
     LL <- plogis(fit - (1.96 * se.fit))
     UL <- plogis(fit + (1.96 * se.fit))
 })
 
-surv_alltreeeref_bothmod <- bind_rows(survEref_newdata3 %>% mutate(model="with Gila NF"),surveref_newdata3_nog %>% mutate(model="without Gila NF"))
+surv2014_eref_bothmod <- bind_rows(surv2014_eref_newdata3 %>% mutate(model="with Gila NF"),surv2014_eref_newdata3_nog %>% mutate(model="without Gila NF"))
 
-ggplot(surv_alltreeeref_bothmod, aes(x = climvar.value, y = PredictedProb, linetype=model)) + geom_ribbon(aes(ymin = LL,
+ggplot(surv2014_eref_bothmod, aes(x = climvar.value, y = PredictedProb, linetype=model)) + geom_ribbon(aes(ymin = LL,
     ymax = UL), alpha = 0.2) + 
   geom_line(linewidth = 1)+
   xlab("Eref")+
@@ -5382,45 +5378,92 @@ ggplot(surv_alltreeeref_bothmod, aes(x = climvar.value, y = PredictedProb, linet
   theme_bw()
 #########
 
-##y
-surv_alltreey_mod <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance) + (1|BLK) + (1|year), data=moniger_survival_alltree_long %>% filter(climvar.name=="y"), family="binomial")
-summary(surv_alltreey_mod)
-r2(surv_alltreey_mod)
+##MCMT
+surv2014_mcmt_mod <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance) + (1|BLK), data=moniger_survival2014_long %>% filter(climvar.name=="MCMT"), family="binomial")
+summary(surv2014_mcmt_mod)
+r2(surv2014_mcmt_mod)
 
-surv_alltreey_mod_glm <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2), data=moniger_survival_alltree_long %>% filter(climvar.name=="y"), family="binomial")
+surv2014_mcmt_mod_glm <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2), data=moniger_survival2014_long %>% filter(climvar.name=="MCMT"), family="binomial")
 
-surv_alltreey_data <- moniger_survival_alltree_long %>% filter(climvar.name=="y")
+surv2014_mcmt_data <- moniger_survival2014_long %>% filter(climvar.name=="MCMT")
 
 ##predictions
-survy_alltree_newdata1 <- expand.grid(climvar.value = seq(min(surv_alltreey_data$climvar.value),max(surv_alltreey_data$climvar.value),length.out=50))
+surv2014_mcmt_newdata1 <- expand.grid(climvar.value = seq(min(surv2014_mcmt_data$climvar.value),max(surv2014_mcmt_data$climvar.value),length.out=50))
 
-survy_alltree_newdata2 <- cbind(survy_alltree_newdata1, predict(surv_alltreey_mod_glm, newdata = survy_alltree_newdata1, type = "link", se=TRUE))
-survy_alltree_newdata3 <- within(survy_alltree_newdata2, {
+surv2014_mcmt_newdata2 <- cbind(surv2014_mcmt_newdata1, predict(surv2014_mcmt_mod_glm, newdata = surv2014_mcmt_newdata1, type = "link", se=TRUE))
+surv2014_mcmt_newdata3 <- within(surv2014_mcmt_newdata2, {
     PredictedProb <- plogis(fit)
     LL <- plogis(fit - (1.96 * se.fit))
     UL <- plogis(fit + (1.96 * se.fit))
 })
 
 #without Gila is still significant
-surv_y_alltree_mod_nog <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance) + (1|BLK) + (1|year), data=moniger_survival_alltree_long %>% filter(climvar.name=="y") %>% filter(!Provenance=="Gila NF"), family="binomial")
-summary(surv_y_alltree_mod_nog)
-r2(surv_y_alltree_mod_nog)
+surv2014_mcmt_mod_nog <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance) + (1|BLK), data=moniger_survival2014_long %>% filter(climvar.name=="MCMT") %>% filter(!Provenance=="Gila NF"), family="binomial")
+summary(surv2014_mcmt_mod_nog)
+r2(surv2014_mcmt_mod_nog)
 
-surv_y_alltree_mod_nog_glm <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2), data=moniger_survival_alltree_long %>% filter(climvar.name=="y") %>% filter(!Provenance=="Gila NF"), family="binomial")
+surv2014_mcmt_mod_nog_glm <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2), data=moniger_survival2014_long %>% filter(climvar.name=="MCMT") %>% filter(!Provenance=="Gila NF"), family="binomial")
 
 ##predictions
-survy_alltree_newdata1_nog <- expand.grid(climvar.value = seq(min(moniger_survival_alltree_long %>% filter(climvar.name=="y") %>% filter(!Provenance=="Gila NF") %>% pull(climvar.value)),max(moniger_survival_alltree_long %>% filter(climvar.name=="y") %>% filter(!Provenance=="Gila NF") %>% pull(climvar.value)),length.out=50))
+surv2014_mcmt_newdata1_nog <- expand.grid(climvar.value = seq(min(moniger_survival2014_long %>% filter(climvar.name=="MCMT") %>% filter(!Provenance=="Gila NF") %>% pull(climvar.value)),max(moniger_survival2014_long %>% filter(climvar.name=="MCMT") %>% filter(!Provenance=="Gila NF") %>% pull(climvar.value)),length.out=50))
 
-survy_alltree_newdata2_nog <- cbind(survy_alltree_newdata1_nog, predict(surv_y_alltree_mod_nog_glm, newdata = survy_alltree_newdata1_nog, type = "link", se=TRUE))
-survy_alltree_newdata3_nog <- within(survy_alltree_newdata2_nog, {
+surv2014_mcmt_newdata2_nog <- cbind(surv2014_mcmt_newdata1_nog, predict(surv2014_mcmt_mod_nog_glm, newdata = surv2014_mcmt_newdata1_nog, type = "link", se=TRUE))
+surv2014_mcmt_newdata3_nog <- within(surv2014_mcmt_newdata2_nog, {
     PredictedProb <- plogis(fit)
     LL <- plogis(fit - (1.96 * se.fit))
     UL <- plogis(fit + (1.96 * se.fit))
 })
 
-survy_alltree_bothmod <- bind_rows(survy_alltree_newdata3 %>% mutate(model="with Gila NF"),survy_alltree_newdata3_nog %>% mutate(model="without Gila NF"))
+surv2014_mcmt_bothmod <- bind_rows(surv2014_mcmt_newdata3 %>% mutate(model="with Gila NF"),surv2014_mcmt_newdata3_nog %>% mutate(model="without Gila NF"))
 
-ggplot(survy_alltree_bothmod, aes(x = climvar.value, y = PredictedProb, linetype=model)) + geom_ribbon(aes(ymin = LL,
+ggplot(surv2014_mcmt_bothmod, aes(x = climvar.value, y = PredictedProb, linetype=model)) + geom_ribbon(aes(ymin = LL,
+    ymax = UL), alpha = 0.2) + 
+  geom_line(linewidth = 1)+
+  xlab("MCMT")+
+    ylab("Predicted Probability")+
+  ggtitle("Survival")+
+  theme_bw()
+#########
+
+##y
+surv2014_y_mod <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance) + (1|BLK), data=moniger_survival2014_long %>% filter(climvar.name=="y"), family="binomial")
+summary(surv2014_y_mod)
+r2(surv2014_y_mod)
+
+surv2014_y_mod_glm <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2), data=moniger_survival2014_long %>% filter(climvar.name=="y"), family="binomial")
+
+surv2014_y_data <- moniger_survival2014_long %>% filter(climvar.name=="y")
+
+##predictions
+surv2014_y_newdata1 <- expand.grid(climvar.value = seq(min(surv2014_y_data$climvar.value),max(surv2014_y_data$climvar.value),length.out=50))
+
+surv2014_y_newdata2 <- cbind(surv2014_y_newdata1, predict(surv2014_y_mod_glm, newdata = surv2014_y_newdata1, type = "link", se=TRUE))
+surv2014_y_newdata3 <- within(surv2014_y_newdata2, {
+    PredictedProb <- plogis(fit)
+    LL <- plogis(fit - (1.96 * se.fit))
+    UL <- plogis(fit + (1.96 * se.fit))
+})
+
+#without Gila is marginally significant
+surv2014_y_mod_nog <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance) + (1|BLK), data=moniger_survival2014_long %>% filter(climvar.name=="y") %>% filter(!Provenance=="Gila NF"), family="binomial")
+summary(surv2014_y_mod_nog)
+r2(surv2014_y_mod_nog)
+
+surv2014_y_mod_nog_glm <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2), data=moniger_survival2014_long %>% filter(climvar.name=="y") %>% filter(!Provenance=="Gila NF"), family="binomial")
+
+##predictions
+surv2014_y_newdata1_nog <- expand.grid(climvar.value = seq(min(moniger_survival2014_long %>% filter(climvar.name=="y") %>% filter(!Provenance=="Gila NF") %>% pull(climvar.value)),max(moniger_survival2014_long %>% filter(climvar.name=="y") %>% filter(!Provenance=="Gila NF") %>% pull(climvar.value)),length.out=50))
+
+surv2014_y_newdata2_nog <- cbind(surv2014_y_newdata1_nog, predict(surv_y_mod_nog_glm, newdata = surv2014_y_newdata1_nog, type = "link", se=TRUE))
+surv2014_y_newdata3_nog <- within(surv2014_y_newdata2_nog, {
+    PredictedProb <- plogis(fit)
+    LL <- plogis(fit - (1.96 * se.fit))
+    UL <- plogis(fit + (1.96 * se.fit))
+})
+
+surv2014_y_bothmod <- bind_rows(surv2014_y_newdata3 %>% mutate(model="with Gila NF"),surv2014_y_newdata3_nog %>% mutate(model="without Gila NF"))
+
+ggplot(surv2014_y_bothmod, aes(x = climvar.value, y = PredictedProb, linetype=model)) + geom_ribbon(aes(ymin = LL,
     ymax = UL), alpha = 0.2) + 
   geom_line(linewidth = 1)+
   xlab("y")+
@@ -5434,7 +5477,7 @@ ggplot(survy_alltree_bothmod, aes(x = climvar.value, y = PredictedProb, linetype
 
 ```{r}
 
-surv0_clim_long_transfer <- moniger_survival_alltree_long %>%
+surv0_clim_long_transfer <- moniger_survival2014_long %>%
   left_join(plantation_climNA, by=c("climvar.name"="var")) %>% 
   mutate(diff_plant = abs(plant_value - climvar.value))
 
