@@ -1936,6 +1936,24 @@ plot(dbh_y_transfermod_nog)
 qqmath(dbh_y_transfermod_nog)
 summary(dbh_y_transfermod_nog) #further away from plantation in latitude = bigger DBH
 
+dbh_y_transfermod_nog_lm <- lm(DBH ~ diff_plant, data=dbh_clim_long_transfer_nog %>% filter(name=="y") %>% filter(!Provenance=="Gila NF"))
+
+newdata_lat_dbh_transfer <-  expand.grid(diff_plant=seq(dbh_clim_long_transfer_nog %>% filter(!Provenance == "Gila NF") %>% filter(name=="y") %>% pull(diff_plant) %>% min(), dbh_clim_long_transfer_nog %>% filter(!Provenance == "Gila NF") %>% filter(name=="y") %>% pull(diff_plant) %>% max(),1))
+dbh_y_transfer_predict <- predict(dbh_y_transfermod_nog_lm, newdata = newdata_lat_dbh_transfer, interval="confidence")
+
+predictdata_lat_dbh_transfer <- cbind(newdata_lat_dbh_transfer, dbh_y_transfer_predict) %>% mutate(var="Latitude")
+
+ggplot()+
+  geom_ribbon(data=predictdata_lat_dbh_transfer, aes(x=diff_plant, ymin=lwr, ymax=upr), alpha=0.2)+
+  geom_line(data=predictdata_lat_dbh_transfer, aes(x=diff_plant,y=fit), color="black")+
+  geom_rug(data=dbh_clim_long_transfer_nog %>% filter(!Provenance == "Gila NF") %>% filter(name=="y") %>% mutate(fit=9), aes(x=diff_plant,y=fit), linewidth=1, col="black", sides="b")+
+  xlab("Difference in latitude from plantation")+
+  ylab("Absolute DBH")+
+  facet_grid(~var)+
+  theme_bw()+
+  theme(legend.position="none")
+
+
 ###each year separately
 ##2014
 dbh_y_transfermod_nog14 <- lmer(DBH ~ diff_plant + (1|Provenance)+ (1|BLK), data=dbh_clim_long_transfer_nog %>% filter(name=="y" & year=="2014") %>% filter(!Provenance=="Gila NF"))
@@ -2206,6 +2224,23 @@ dbhg_y_transfermod_nog <- lmer(growth ~ diff_plant + (1|Provenance)+ (1|BLK) + (
 plot(dbhg_y_transfermod_nog)
 qqmath(dbhg_y_transfermod_nog)
 summary(dbhg_y_transfermod_nog) #further away from plantation in latitude = bigger growth
+
+dbhg_y_transfermod_nog_lm <- lm(growth ~ diff_plant, data=dbh_growth_clim_long_transfer_nog %>% filter(name=="y") %>% filter(!Provenance=="Gila NF"))
+
+newdata_lat_dbhg_transfer <-  expand.grid(diff_plant=seq(dbh_growth_clim_long_transfer_nog %>% filter(!Provenance == "Gila NF") %>% filter(name=="y") %>% pull(diff_plant) %>% min(), dbh_growth_clim_long_transfer_nog %>% filter(!Provenance == "Gila NF") %>% filter(name=="y") %>% pull(diff_plant) %>% max(),1))
+dbhg_y_transfer_predict <- predict(dbhg_y_transfermod_nog_lm, newdata = newdata_lat_dbhg_transfer, interval="confidence")
+
+predictdata_lat_dbhg_transfer <- cbind(newdata_lat_dbhg_transfer, dbhg_y_transfer_predict) %>% mutate(var="Latitude")
+
+ggplot()+
+  geom_ribbon(data=predictdata_lat_dbhg_transfer, aes(x=diff_plant, ymin=lwr, ymax=upr), alpha=0.2)+
+  geom_line(data=predictdata_lat_dbhg_transfer, aes(x=diff_plant,y=fit), color="black")+
+  geom_rug(data=dbh_growth_clim_long_transfer_nog %>% filter(!Provenance == "Gila NF") %>% filter(name=="y") %>% mutate(fit=7), aes(x=diff_plant,y=fit), linewidth=1, col="black", sides="b")+
+  xlab("Difference in latitude from plantation")+
+  ylab("DBH growth rate")+
+  facet_grid(~var)+
+  theme_bw()+
+  theme(legend.position="none")
 
 ###each year separately
 ##2014
@@ -2490,6 +2525,24 @@ plot(dbh_relgrowth_y_transfermod_nog)
 qqmath(dbh_relgrowth_y_transfermod_nog)
 summary(dbh_relgrowth_y_transfermod_nog) #further away from plantation in latitude = less relative growth
 
+
+dbh_relgrowth_y_transfermod_nog_lm <- lm(relgrowth ~ diff_plant, data=dbh_relgrowth_clim_long_transfer_nog %>% filter(name=="y") %>% filter(!Provenance=="Gila NF"))
+
+newdata_lat_dbh_relgrowth_transfer <-  expand.grid(diff_plant=seq(dbh_relgrowth_clim_long_transfer_nog %>% filter(!Provenance == "Gila NF") %>% filter(name=="y") %>% pull(diff_plant) %>% min(), dbh_relgrowth_clim_long_transfer_nog %>% filter(!Provenance == "Gila NF") %>% filter(name=="y") %>% pull(diff_plant) %>% max(),1))
+dbh_relgrowth_y_transfer_predict <- predict(dbh_relgrowth_y_transfermod_nog_lm, newdata = newdata_lat_dbh_relgrowth_transfer, interval="confidence")
+
+predictdata_lat_dbh_relgrowth_transfer <- cbind(newdata_lat_dbh_relgrowth_transfer, dbh_relgrowth_y_transfer_predict) %>% mutate(var="Latitude")
+
+ggplot()+
+  geom_ribbon(data=predictdata_lat_dbh_relgrowth_transfer, aes(x=diff_plant, ymin=lwr, ymax=upr), alpha=0.2)+
+  geom_line(data=predictdata_lat_dbh_relgrowth_transfer, aes(x=diff_plant,y=fit), color="black")+
+  geom_rug(data=dbh_relgrowth_clim_long_transfer_nog %>% filter(!Provenance == "Gila NF") %>% filter(name=="y") %>% mutate(fit=20), aes(x=diff_plant,y=fit), linewidth=1, col="black", sides="b")+
+  xlab("Difference in latitude from plantation")+
+  ylab("Relativized DBH growth rate (%/yr)")+
+  facet_grid(~var)+
+  theme_bw()+
+  theme(legend.position="none")
+
 #####look at latitude effect for each growth period separately
 dbh_relgrowth_y_transfermod_nog14 <- lmer(relgrowth ~ diff_plant + (1|Provenance)+ (1|BLK), data=dbh_relgrowth_clim_long_transfer_nog %>% filter(name=="y"&year=="relareagrowth14") %>% filter(!Provenance=="Gila NF"))
 summary(dbh_relgrowth_y_transfermod_nog14) ###no significant effect of latitude difference in 2014.
@@ -2582,10 +2635,18 @@ summary(smrpb_nht_mod)
 
 ggarrange(ggplot(data=nursery_ht_clim %>% filter(name=="smrpb"), aes(x=value, y=nursery_ht_m))+
   geom_point()+
-  geom_smooth(method="lm"),
+  geom_smooth(method="lm")+
+  theme_bw()+
+  xlab("Summer Precip Ratio")+
+  ylab("Nursery Height (m)")+
+    ggtitle("with Gila"),
 ggplot(data=nursery_ht_clim %>% filter(name=="smrpb" & !Provenance=="Gila NF"), aes(x=value, y=nursery_ht_m))+
   geom_point()+
-  geom_smooth(method="lm"), nrow=2)
+  geom_smooth(method="lm")+
+  theme_bw()+
+  xlab("Summer Precip Ratio")+
+  ylab("Nursery Height (m)")+
+  ggtitle("without Gila"), nrow=2)
 
 ```
 
@@ -2602,6 +2663,13 @@ nurse_ht_mod_nog <- lmer(log(value) ~ nursery_ht_m*scale(year) + (1|Provenance) 
 plot(nurse_ht_mod_nog)
 qqmath(nurse_ht_mod_nog)
 summary(nurse_ht_mod_nog)   #significant effect of nursery height when Gila is removed
+
+ggplot(data=ht_data_year %>% filter(!Provenance=="Gila NF"), aes(x=nursery_ht_m, y=log(value)))+
+  geom_smooth(method="lm")+
+  theme_bw()+
+  ylab("Log(Height)")+
+  xlab("Nursery Height(m)")
+
 
 #1974
 nurse_ht_mod74 <- lmer(value ~ nursery_ht_m + (1|Provenance)+ (1|BLK), data=ht_data %>% filter(name=="HT74"))
@@ -2880,9 +2948,9 @@ lat_ht_predict <- predict(lat_ht_mod_nog_lm, newdata = newdata_lat_ht, interval=
 predictdata_lat_ht <- cbind(newdata_lat_ht, lat_ht_predict) %>% mutate(var="Latitude")
 
 ggplot()+
-  geom_ribbon(data=predictdata_lat_ht, aes(x=climvar.value, ymin=lwr, ymax=upr), alpha=0.2)+
-  geom_line(data=predictdata_lat_ht, aes(x=climvar.value,y=fit), color="black")+
-  geom_rug(data=ht_data_year_clim_long_noG %>% filter(climvar.name=="y") %>% mutate(fit=.8), aes(x=climvar.value,y=fit), linewidth=1, col="black", sides="b")+
+  geom_ribbon(data=predictdata_lat_ht, aes(x=climvar.value, ymin=exp(lwr), ymax=exp(upr)), alpha=0.2)+
+  geom_line(data=predictdata_lat_ht, aes(x=climvar.value,y=exp(fit)), color="black")+
+  geom_rug(data=ht_data_year_clim_long_noG %>% filter(climvar.name=="y") %>% mutate(fit=2), aes(x=climvar.value,y=fit), linewidth=1, col="black", sides="b")+
   xlab("Provenance Latitude")+
   ylab("Absolute Height")+
   facet_grid(~var)+
@@ -3130,6 +3198,13 @@ plot(ht_lat_transfermod_nog)
 qqmath(ht_lat_transfermod_nog)
 summary(ht_lat_transfermod_nog) #further away from plantation in latitude = taller
 
+ggplot(data = ht_clim_long_transfer_nog%>% filter(climvar.name=="y"), aes(x=diff_plant, y=value))+
+  geom_smooth(method="lm")+
+  theme_bw()+
+  xlab("Difference in latitude from plantation")+
+  ylab("Absolute Height")
+
+
 ##distance in 2d climate space
 
 ht_climdist_df <- ht_clim_long_transfer %>% 
@@ -3152,6 +3227,7 @@ summary(ht_climdist_mod) #not significant
 #relative growth
 
 ht_growth_rel_data<- moniger_data_comb %>% 
+    filter(! (LOC==30 & BLK=="D" & REP==3)) %>%  ##excluding Gila tree that was outlier for height in 1996
   dplyr::select(c(LOC,BLK,REP,Provenance,HT74:HT14,Seedling.Ht..from.Nursery)) %>% 
   mutate(growth79=HT79-HT74, growth85 = HT85-HT79, growth91 = HT91-HT85, growth96=HT96-HT91, growth06=HT06-HT96, growth14=HT14-HT06) %>% 
   mutate(growth79rel=(growth79/HT74*100)/5, growth85rel=(growth85/HT79*100)/6, growth91rel=(growth91/HT85*100)/6, growth96rel=(growth96/HT91*100)/5, growth06rel=(growth06/HT96*100)/10, growth14rel=(growth14/HT06*100)/8) %>% 
@@ -3168,7 +3244,7 @@ ht_increment_rel_plot<- ggplot(ht_growth_rel_data, aes(x=factor(Provenance,level
 ht_increment_rel_plot
 
 ##who had overall highest relative growth rates across years?
-ggplot(ht_growth_rel_data %>% filter(value<300), aes(x=factor(Provenance,levels=provs_bylat$Provenance), y=value, fill=factor(Provenance,levels=provs_bylat$Provenance)))+
+ggplot(ht_growth_rel_data, aes(x=factor(Provenance,levels=provs_bylat$Provenance), y=value, fill=factor(Provenance,levels=provs_bylat$Provenance)))+
   geom_boxplot()+
   theme(axis.text.x=element_text(angle=45, hjust=1))+
   ylab("Relative Height Growth Per Year (%)")+ xlab("")+
@@ -3692,6 +3768,12 @@ plot(relht_climdist_mod)
 qqmath(relht_climdist_mod)
 summary(relht_climdist_mod) #climatically closer to the plantation = greater relative height growth
 
+ggplot(relht_climdist_df, aes(x=dist_2d, y=relht))+
+  geom_smooth(method="lm")+
+  xlab("Distance in PCA biplot from plantation")+
+  ylab("Relative height Growth Rate (%/yr)")+
+  theme_bw()
+
 ```
 
 
@@ -4019,125 +4101,7 @@ height = (log(p/(1-p))-b0)/b1
 height
 ```
 
-
-###individual climate variables
-```{r}
-moniger_provclim<- cone_data_binom %>% 
-  left_join(as.data.frame(moniger_data_comb) %>% dplyr::select(c(Provenance,BLK, REP, code,PC1,PC2,AHM:SHM,x:monsoonality))) %>% 
-  pivot_longer(c(PC1,PC2,AHM:SHM, x:monsoonality), names_to="climvar.name", values_to = "climvar.value") %>% 
-  filter(!is.na(total)) %>% 
-  left_join(moniger_subset %>% dplyr::select(Provenance:year))
-
-cone_mods<- data.frame()
-
-for(i in 1:length(provenance_climvars)){
-mod <- glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value + (1|year) + (1|code) + (1|BLK), data=moniger_provclim %>% filter(climvar.name==provenance_climvars[i]), family=binomial)
-pvalue<- summary(mod)$coefficients$cond[2,]["Pr(>|z|)"]
-Mr2=r2(mod)$R2_marginal
-
-mod_nog <- glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value + (1|year) + (1|code) + (1|BLK), data=moniger_provclim %>% filter(climvar.name==provenance_climvars[i]) %>% filter(!code=="GiNF"), family=binomial)
-pvalue_nog<- summary(mod_nog)$coefficients$cond[2,]["Pr(>|z|)"]
-Mr2_nog=r2(mod_nog)$R2_marginal
-
-cone_mods <- bind_rows(cone_mods, data.frame(var=provenance_climvars[i], pvalue = pvalue, Mr2=Mr2, pvalue_nog = pvalue_nog, Mr2_nog = Mr2_nog))
-
-}
-
-cone_mods %>% arrange(pvalue_nog) 
-cone_mods %>% 
-  filter(pvalue_nog<0.05) %>% 
-  arrange(desc(Mr2_nog))
-
-###PPTsm
-cone_pptsm_mod <- glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value + (1|year) + (1|code) + (1|BLK), data=moniger_provclim %>% filter(!Provenance=="Gila NF") %>% filter(climvar.name=="PPTsm"), family=binomial)
-summary(cone_pptsm_mod)
-r2(cone_pptsm_mod)
-
-###smrpb
-cone_smrpb_mod <- glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value + (1|year) + (1|code) + (1|BLK), data=moniger_provclim %>% filter(climvar.name=="smrpb"), family=binomial)
-summary(cone_smrpb_mod)
-r2(cone_smrpb_mod)
-
-cone_smrpb_data <- moniger_provclim %>% filter(climvar.name=="smrpb")
-
-newdata_smrpb_cone <- data.frame(
-    climvar.value = seq(min(cone_smrpb_data$climvar.value), 
-                      max(cone_smrpb_data$climvar.value), 
-                      length.out = 100
-                      ))
-
-##take random effect out to make predictions
-cone_smrpb_mod_glm <- glmmTMB(cbind(n_cones,total-n_cones) ~ scale(climvar.value), data=moniger_provclim %>% filter(climvar.name=="smrpb"), family=binomial)
-
-##predictions
-conesmrpb_newdata1 <- with(cone_smrpb_data, data.frame(climvar.value = seq(min(climvar.value),max(climvar.value),length.out=50)))
-
-conesmrpb_newdata2 <- cbind(conesmrpb_newdata1, predict(cone_smrpb_mod_glm, newdata = conesmrpb_newdata1, type = "link", se=TRUE))
-conesmrpb_newdata3 <- within(conesmrpb_newdata2, {
-    PredictedProb <- plogis(fit)
-    LL <- plogis(fit - (1.96 * se.fit))
-    UL <- plogis(fit + (1.96 * se.fit))
-})
-
-#without Gila is still significant, but in opposite direction
-cone_smrpb_mod_nog <- glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value + (1|year) + (1|Provenance)+(1|BLK), data=moniger_provclim %>% filter(climvar.name=="smrpb") %>% filter(!Provenance=="Gila NF"), family=binomial)
-summary(cone_smrpb_mod_nog)
-r2(cone_smrpb_mod_nog)
-
-cone_smrpb_data_nog <- moniger_provclim %>% filter(climvar.name=="smrpb") %>% filter(!Provenance=="Gila NF")
-
-#prediction
-##take random effect out to make predictions
-cone_smrpb_mod_nog_glm <- glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value, data=cone_smrpb_data_nog, family=binomial)
-
-##predictions
-conesmrpb_nog_newdata1 <- with(cone_smrpb_data_nog, data.frame(climvar.value = seq(min(climvar.value),max(climvar.value),length.out=50)))
-
-conesmrpb_nog_newdata2 <- cbind(conesmrpb_nog_newdata1, predict(cone_smrpb_mod_nog_glm, newdata = conesmrpb_nog_newdata1, type = "link", se=TRUE))
-conesmrpb_nog_newdata3 <- within(conesmrpb_nog_newdata2, {
-    PredictedProb <- plogis(fit)
-    LL <- plogis(fit - (1.96 * se.fit))
-    UL <- plogis(fit + (1.96 * se.fit))
-})
-
-
-cone_smrpb_plot_data<- conesmrpb_newdata3 %>% 
-  mutate(model="with Gila NF") %>% 
-  bind_rows(conesmrpb_nog_newdata3 %>% mutate(model="without Gila NF")) %>% 
-  mutate(var="Summer Precip Ratio")
-
-cone_smrpb_plot<- ggplot(cone_smrpb_plot_data, aes(x = climvar.value, y = PredictedProb)) + 
-  geom_ribbon(aes(ymin = LL,ymax = UL, fill=model), alpha = 0.2) + 
-  geom_line(linewidth = 1, aes(linetype=model))+
-  geom_rug(data=moniger_provclim %>% filter(climvar.name=="smrpb") %>% mutate(PredictedProb=0.6), sides="b", linewidth=1, color="black", alpha=0.5)+
-  scale_linetype_manual(values=c(2,1))+
-  scale_fill_manual(values=c("darkgray","black"))+
-  ylim(c(0,1))+
-  xlab("Provenance summer/spring precip ratio")+
-  ylab("Predicted Probability of Cones")+
-  theme_bw()+
-  facet_grid(~var)
-
-cone_smrpb_plot
-
-###quadratic
-
-cone_mods_quad<- data.frame()
-
-for(i in 1:length(provenance_climvars)){
-mod <- glmmTMB(cbind(n_cones,total-n_cones) ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|code) + (1|year) + (1|BLK), data=moniger_provclim %>% filter(climvar.name==provenance_climvars[i]), family=binomial)
-pvalues<- as.data.frame(summary(mod)$coefficients$cond[2:3,])$`Pr(>|z|)`
-Mr2 <- r2(mod)$R2_marginal
-
-mod_nog <- glmmTMB(cbind(n_cones,total-n_cones) ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|code) + (1|year) + (1|BLK), data=moniger_provclim %>% filter(climvar.name==provenance_climvars[i]) %>% filter(!code=="GiNF"), family=binomial)
-pvalues_nog<- as.data.frame(summary(mod_nog)$coefficients$cond[2:3,])$`Pr(>|z|)`
-Mr2_nog <- r2(mod_nog)$R2_marginal
-
-cone_mods_quad <- bind_rows(cone_mods_quad, data.frame(var=provenance_climvars[i], pvalue1 = pvalues[1], pvalue2 = pvalues[2], pvalue1_nog = pvalues_nog[1], pvalue2_nog = pvalues_nog[2]))
-}
-
-cone_mods_quad %>% arrange(pvalue2_nog) ##none significant 
-```
+####individual climate variables
 
 ######height
 
@@ -4351,14 +4315,14 @@ cone_mods_transfer %>% arrange(p.value_nog) #PPTsm and smrpb
 cone_mods_transfer %>% filter(p.value_nog<0.05) %>% arrange(Mr2_nog) 
 
 #PPTsm
-cone_pptsm_mod_nog <- glmmTMB(cbind(n_cones,total-n_cones) ~ diff_plant*height + (1|year) + (1|code)+(1|BLK), data=cone_clim_long_transfer_nog %>% filter(climvar.name=="PPTsm"), family=binomial)
-summary(cone_pptsm_mod_nog) #provenances with summer precip more different from the plantation have higher likelihood of cones.
-r2(cone_pptsm_mod_nog)
+cone_pptsm_mod_nog_transfer <- glmmTMB(cbind(n_cones,total-n_cones) ~ diff_plant*height + (1|year) + (1|code)+(1|BLK), data=cone_clim_long_transfer_nog %>% filter(climvar.name=="PPTsm"), family=binomial)
+summary(cone_pptsm_mod_nog_transfer) #provenances with summer precip more different from the plantation have higher likelihood of cones.
+r2(cone_pptsm_mod_nog_transfer)
 
 #smrpb
-cone_smrpb_mod_nog <- glmmTMB(cbind(n_cones,total-n_cones) ~ diff_plant*height + (1|year) + (1|code)+(1|BLK), data=cone_clim_long_transfer_nog %>% filter(climvar.name=="smrpb"), family=binomial)
-summary(cone_smrpb_mod_nog) #provenances with smrpb more different from the plantation have higher probability of cones. 
-r2(cone_smrpb_mod_nog)
+cone_smrpb_mod_nog_transfer <- glmmTMB(cbind(n_cones,total-n_cones) ~ diff_plant*height + (1|year) + (1|code)+(1|BLK), data=cone_clim_long_transfer_nog %>% filter(climvar.name=="smrpb"), family=binomial)
+summary(cone_smrpb_mod_nog_transfer) #provenances with smrpb more different from the plantation have higher probability of cones. 
+r2(cone_smrpb_mod_nog_transfer)
 
 ##distance in 2d climate space
 
@@ -4924,26 +4888,31 @@ clim_pien_cor[c("DD5", "MWMT", "Tavesm", "NFFD", "eFFP", "FFP", "Eref", "RH", "b
 surv_Eref_mod_nog <- glmmTMB(cbind(alive,died) ~ diff_plant + (1|year) + (1|Provenance)+(1|BLK), data=surv_clim_long_transfer_nog %>% filter(climvar.name=="Eref"), family=binomial)
 summary(surv_Eref_mod_nog) #provenances with Eref more similar to plantation had higher survival
 r2(surv_Eref_mod_nog)
+plot(ggpredict(surv_Eref_mod_nog, terms = "diff_plant"))
 
 #RH
 surv_RH_mod_nog <- glmmTMB(cbind(alive,died) ~ diff_plant + (1|year) + (1|Provenance)+(1|BLK), data=surv_clim_long_transfer_nog %>% filter(climvar.name=="RH"), family=binomial)
 summary(surv_RH_mod_nog) #provenances with RH more similar to plantation had higher survival
 r2(surv_RH_mod_nog)
+plot(ggpredict(surv_RH_mod_nog, terms = "diff_plant"))
 
 #CMD
 surv_CMD_mod_nog <- glmmTMB(cbind(alive,died) ~ diff_plant + (1|year) + (1|Provenance)+(1|BLK), data=surv_clim_long_transfer_nog %>% filter(climvar.name=="CMD"), family=binomial)
 summary(surv_CMD_mod_nog) #provenances with CMD more similar to plantation had higher survival
 r2(surv_CMD_mod_nog)
+plot(ggpredict(surv_CMD_mod_nog, terms = "diff_plant"))
 
 #bFFP - correlated to NFFD, FFP, eFFP
 surv_bFFP_mod_nog <- glmmTMB(cbind(alive,died) ~ diff_plant + (1|year) + (1|Provenance)+(1|BLK), data=surv_clim_long_transfer_nog %>% filter(climvar.name=="bFFP"), family=binomial)
 summary(surv_bFFP_mod_nog) #provenances with bFFP more similar to the plantation have higher probability of survival
 r2(surv_bFFP_mod_nog)
+plot(ggpredict(surv_bFFP_mod_nog, terms = "diff_plant"))
 
 #y
 surv_y_mod_nog <- glmmTMB(cbind(alive,died) ~ diff_plant + (1|year) + (1|Provenance)+(1|BLK), data=surv_clim_long_transfer_nog %>% filter(climvar.name=="y"), family=binomial)
 summary(surv_y_mod_nog) #provenances with y more similar to the plantation have higher probability of survival
 r2(surv_y_mod_nog)
+plot(ggpredict(surv_y_mod_nog, terms = "diff_plant"))
 
 ##distance in 2d climate space
 
@@ -5156,7 +5125,8 @@ surv2014_FFP_nog_newdata3 %>% mutate(model="without Gila NF"))
 ggplot(surv2014_FFP_bothmod_data, aes(x = climvar.value, y = PredictedProb, linetype=model)) + geom_ribbon(aes(ymin = LL,
     ymax = UL), alpha = 0.2) + 
   geom_line(linewidth = 1)+
-  xlab("FFP")
+  xlab("FFP")+
+  theme_bw()
 #########
 #########
 
@@ -5216,7 +5186,8 @@ surv2014_smrpb_nog_newdata3 %>% mutate(model="without Gila NF"))
 ggplot(surv2014_smrpb_bothmod_data, aes(x = climvar.value, y = PredictedProb, linetype=model)) + geom_ribbon(aes(ymin = LL,
     ymax = UL), alpha = 0.2) + 
   geom_line(linewidth = 1)+
-  xlab("smrpb")
+  xlab("smrpb")+
+  theme_bw()
 #########
 
 #y
@@ -5424,36 +5395,57 @@ surv2014_mods_transfer %>% filter(p.value_nog<0.05) %>% arrange(Mr2_nog)
 surv2014_Eref_mod_nog <- glmmTMB(cbind(alive,died) ~ diff_plant + (1|Provenance)+(1|BLK), data=surv2014_clim_long_transfer_nog %>% filter(climvar.name=="Eref"), family=binomial)
 summary(surv2014_Eref_mod_nog) #provenances with Eref more similar to plantation had higher survival
 r2(surv2014_Eref_mod_nog)
+plot(ggpredict(surv2014_Eref_mod_nog, terms = "diff_plant"))+
+  xlab("Eref difference from plantation")+
+  ylab("Survival Probability")+ggtitle("Eref")
 
 #CMD
 surv2014_CMD_mod_nog <- glmmTMB(cbind(alive,died) ~ diff_plant + (1|Provenance)+(1|BLK), data=surv2014_clim_long_transfer_nog %>% filter(climvar.name=="CMD"), family=binomial)
 summary(surv2014_CMD_mod_nog) #provenances with CMD more similar to the plantation have higher probability of survival
 r2(surv2014_CMD_mod_nog)
+plot(ggpredict(surv2014_CMD_mod_nog, terms = "diff_plant"))+
+  xlab("CMD difference from plantation")+
+  ylab("Survival Probability")+ggtitle("CMD")
 
 #FFP
 surv2014_FFP_mod_nog <- glmmTMB(cbind(alive,died) ~ diff_plant + (1|Provenance)+(1|BLK), data=surv2014_clim_long_transfer_nog %>% filter(climvar.name=="FFP"), family=binomial)
 summary(surv2014_FFP_mod_nog) #provenances with FFP more similar to the plantation have higher probability of survival
 r2(surv2014_FFP_mod_nog)
+plot(ggpredict(surv2014_FFP_mod_nog, terms = "diff_plant"))+
+  xlab("FFP difference from plantation")+
+  ylab("Survival Probability")+ggtitle("FFP")
 
 #bFFP
 surv2014_bFFP_mod_nog <- glmmTMB(cbind(alive,died) ~ diff_plant + (1|Provenance)+(1|BLK), data=surv2014_clim_long_transfer_nog %>% filter(climvar.name=="bFFP"), family=binomial)
 summary(surv2014_bFFP_mod_nog) #provenances with bFFP more similar to the plantation have higher probability of survival
 r2(surv2014_bFFP_mod_nog)
+plot(ggpredict(surv2014_bFFP_mod_nog, terms = "diff_plant"))+
+  xlab("bFFP difference from plantation")+
+  ylab("Survival Probability")+ggtitle("bFFP")
 
 #eFFP
 surv2014_eFFP_mod_nog <- glmmTMB(cbind(alive,died) ~ diff_plant + (1|Provenance)+(1|BLK), data=surv2014_clim_long_transfer_nog %>% filter(climvar.name=="eFFP"), family=binomial)
 summary(surv2014_eFFP_mod_nog) #provenances with eFFP more similar to the plantation have higher probability of survival
 r2(surv2014_eFFP_mod_nog)
+plot(ggpredict(surv2014_eFFP_mod_nog, terms = "diff_plant"))+
+  xlab("eFFP difference from plantation")+
+  ylab("Survival Probability")+ggtitle("eFFP")
 
 #RH
 surv2014_RH_mod_nog <- glmmTMB(cbind(alive,died) ~ diff_plant + (1|Provenance)+(1|BLK), data=surv2014_clim_long_transfer_nog %>% filter(climvar.name=="RH"), family=binomial)
 summary(surv2014_RH_mod_nog) #provenances with RH more similar to the plantation have higher probability of survival
 r2(surv2014_RH_mod_nog)
+plot(ggpredict(surv2014_RH_mod_nog, terms = "diff_plant"))+
+  xlab("RH difference from plantation")+
+  ylab("Survival Probability")+ggtitle("RH")
 
 #y
 surv2014_y_mod_nog <- glmmTMB(cbind(alive,died) ~ diff_plant + (1|Provenance)+(1|BLK), data=surv2014_clim_long_transfer_nog %>% filter(climvar.name=="y"), family=binomial)
 summary(surv2014_y_mod_nog) #provenances with y more similar to the plantation have higher probability of survival
 r2(surv2014_y_mod_nog)
+plot(ggpredict(surv2014_y_mod_nog, terms = "diff_plant"))+
+  xlab("Latitude difference from plantation")+
+  ylab("Survival Probability")+ggtitle("Latitude")
 
 ##distance in 2d climate space
 
@@ -5890,10 +5882,37 @@ plot(gini_dbh14_mod)
 qqmath(gini_dbh14_mod)
 summary(gini_dbh14_mod)
 
+##predict
+newdata_gini_dbh = data.frame(gini=seq(min(gini_all_data$gini), max(gini_all_data$gini),.01))
+
+gini_dbh14_mod_lm <- lm(DBH14 ~ gini, data=gini_all_data %>% filter(!is.na(DBH14)))
+predict_gini_dbh = data.frame(gini=newdata_gini_dbh,predict(gini_dbh14_mod_lm, newdata_gini_dbh, interval="confidence"))
+
+ggplot(predict_gini_dbh, aes(x=gini, y=fit))+
+  geom_ribbon(aes(ymin=lwr, ymax=upr), alpha=0.3)+
+  geom_line()+
+  ylab("DBH (cm)")+
+  xlab("Gini coefficient")+
+  theme_bw()
+
 gini_ht14_mod <- lmer(HT14 ~ gini + (1|code) + (1|BLK), data=gini_all_data %>% filter(!is.na(HT14)))
 plot(gini_ht14_mod)
 qqmath(gini_ht14_mod)
 summary(gini_ht14_mod)
+
+##predict
+newdata_gini_ht = data.frame(gini=seq(min(gini_all_data$gini), max(gini_all_data$gini),.01))
+
+gini_ht14_mod_lm <- lm(HT14 ~ gini, data=gini_all_data %>% filter(!is.na(HT14)))
+predict_gini_ht = data.frame(gini=newdata_gini_ht,predict(gini_ht14_mod_lm, newdata_gini_ht, interval="confidence"))
+
+ggplot(predict_gini_ht, aes(x=gini, y=fit))+
+  geom_ribbon(aes(ymin=lwr, ymax=upr), alpha=0.3)+
+  geom_line()+
+  ylab("Height (m)")+
+  xlab("Gini coefficient")+
+  theme_bw()
+
 
 gini_surv_df<- moniger_survival_byyr_zeros %>% 
   filter(year==2014) %>% 
