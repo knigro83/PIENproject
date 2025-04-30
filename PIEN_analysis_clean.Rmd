@@ -64,6 +64,7 @@ library("factoextra")
 library("corrplot")
 library(DescTools)
 library(DHARMa)
+library(ggeffects)
 ```
 
 ##Plot locations
@@ -4101,6 +4102,14 @@ height = (log(p/(1-p))-b0)/b1
 height
 ```
 
+```{r}
+moniger_subset
+
+cone_ht_anova <- glmmTMB(cbind(n_cones, total-n_cones) ~ scale(year)*Provenance*height + (1|BLK), data=moniger_subset, family=binomial)
+summary(cone_ht_anova)
+Anova(cone_ht_anova, type="3")
+```
+
 ####individual climate variables
 
 ######height
@@ -4150,7 +4159,7 @@ cone_ht_pptsm_data_nog <- moniger_provclim_ht %>% filter(!Provenance=="Gila NF")
 cone_ht_pptsm_nog_glm <- glmmTMB(cbind(n_cones,total-n_cones) ~ climvar.value*height, data=cone_ht_pptsm_data_nog, family=binomial)
 
 ##predictions - 3.9m
-cone_ht_pptsm_nog_newdata1 <- with(cone_ht_pptsm_data_nog, data.frame(climvar.value = seq(min(climvar.value),max(climvar.value),length.out=50), height=3.9))
+cone_ht_pptsm_nog_newdata1 <- with(cone_ht_pptsm_data_nog, expand.grid(climvar.value = seq(min(climvar.value),max(climvar.value),length.out=50), height=c(2.6,5.1,3.9)))
 
 cone_ht_pptsm_nog_newdata2 <- cbind(cone_ht_pptsm_nog_newdata1, predict(cone_ht_pptsm_nog_glm, newdata = cone_ht_pptsm_nog_newdata1, type = "link", se=TRUE))
 cone_ht_pptsm_nog_newdata3 <- within(cone_ht_pptsm_nog_newdata2, {
@@ -4160,14 +4169,14 @@ cone_ht_pptsm_nog_newdata3 <- within(cone_ht_pptsm_nog_newdata2, {
 })
 
 ggplot(cone_ht_pptsm_nog_newdata3, aes(x = climvar.value, y = PredictedProb)) + 
-  geom_ribbon(aes(ymin = LL,ymax = UL), alpha = 0.2) + 
-  geom_line(linewidth = 1)+
-  geom_rug(data=moniger_provclim %>% filter(climvar.name=="PPTsm") %>% mutate(PredictedProb=0.6), sides="b", linewidth=1, color="black", alpha=0.5)+
+  geom_ribbon(aes(ymin = LL,ymax = UL, col=factor(height), fill=factor(height)), alpha = 0.2) + 
+  geom_line(aes(col=factor(height)), linewidth = 1)+
+  geom_rug(data=moniger_provclim_ht %>% filter(climvar.name=="PPTsm") %>% mutate(PredictedProb=0.6), sides="b", linewidth=1, color="black", alpha=0.5)+
   scale_linetype_manual(values=c(2,1))+
-  scale_fill_manual(values=c("darkgray","black"))+
+  #scale_fill_manual(values=c("darkgray","black"))+
   ylim(c(0,1))+
   xlab("Provenance summer precip")+
-  ylab("Predicted Probability of Cones at 3.9m")+
+  ylab("Predicted Probability of Cones")+
   theme_bw()
 
 
@@ -4278,7 +4287,7 @@ cone_ht_pptsm_quad_nog_newdata3 <- within(cone_ht_pptsm_quad_nog_newdata2, {
 ggplot(cone_ht_pptsm_quad_nog_newdata3, aes(x = climvar.value, y = PredictedProb)) + 
   geom_ribbon(aes(ymin = LL,ymax = UL), alpha = 0.2) + 
   geom_line(linewidth = 1)+
-  geom_rug(data=moniger_provclim %>% filter(climvar.name=="PPTsm") %>% mutate(PredictedProb=0.6), sides="b", linewidth=1, color="black", alpha=0.5)+
+  geom_rug(data=moniger_provclim_ht %>% filter(climvar.name=="PPTsm") %>% mutate(PredictedProb=0.6), sides="b", linewidth=1, color="black", alpha=0.5)+
   scale_linetype_manual(values=c(2,1))+
   scale_fill_manual(values=c("darkgray","black"))+
   ylim(c(0,1))+
@@ -6950,6 +6959,54 @@ ttestdata %>% filter(pvalue < 0.05) %>%
   summarise(n=n()) %>% 
 arrange(n) %>% 
   print(n=56)  ##look at vars that have more than half of the provenances with significant values
+
+current_climvar_order<- ttestdata %>% filter(pvalue < 0.05) %>% 
+  filter(! str_detect(climvar, "prior")) %>% 
+  group_by(climvar) %>% 
+  summarise(n=n()) %>% 
+arrange(n) %>% 
+  mutate(color = case_when(str_detect(climvar, c("_sp")) == TRUE ~ "pink",
+                           str_detect(climvar, c("_at")) == TRUE ~ "orange",
+                           str_detect(climvar, c("_fa")) == TRUE ~ "orange",
+
+                           str_detect(climvar, c("_gs")) == TRUE ~ "green",
+                           str_detect(climvar, c("_sm")) == TRUE ~ "green",
+                           str_detect(climvar, c("PPTsp")) == TRUE ~ "pink",
+                           str_detect(climvar, c("PPTsm")) == TRUE ~ "green",                           
+                           str_detect(climvar, c("_wt")) == TRUE ~ "blue",
+
+                           .default = "brown4"))
+
+ggplot(data=ttestdata %>% filter(pvalue < 0.05) %>% mutate(count = 1) %>% filter(! str_detect(climvar,"prior")) %>% left_join(current_climvar_order), aes(x=factor(Provenance, levels=provs_bylat$Provenance), y=count, fill=color))+
+  scale_fill_manual(values=c("blue","brown4","green","orange","pink"))+
+  geom_bar(stat="identity")+
+  theme(axis.text.x=element_text(angle=45, hjust=1))
+
+prior_climvar_order<- ttestdata %>% filter(pvalue < 0.05) %>% 
+  filter(str_detect(climvar, "prior")) %>% 
+  group_by(climvar) %>% 
+  summarise(n=n()) %>% 
+arrange(n) %>% 
+  mutate(color = case_when(str_detect(climvar, c("_sp")) == TRUE ~ "pink",
+                           str_detect(climvar, c("_at")) == TRUE ~ "orange",
+                           str_detect(climvar, c("_fa")) == TRUE ~ "orange",
+
+                           str_detect(climvar, c("_gs")) == TRUE ~ "green",
+                           str_detect(climvar, c("_sm")) == TRUE ~ "green",
+                           str_detect(climvar, c("PPTsp")) == TRUE ~ "pink",
+                           str_detect(climvar, c("PPTsm")) == TRUE ~ "green",                           
+                           str_detect(climvar, c("_wt")) == TRUE ~ "blue",
+
+                           .default = "brown4")) %>% 
+  mutate(color = ifelse(climvar == "prior_spei_sum", "brown4",color))
+
+
+ggplot(data=ttestdata %>% filter(pvalue < 0.05) %>% mutate(count = 1) %>% filter(str_detect(climvar,"prior")) %>% left_join(prior_climvar_order), aes(x=factor(Provenance, levels=provs_bylat$Provenance), y=count, fill=color))+
+  scale_fill_manual(values=c("blue","brown4","green","orange","pink"))+
+  geom_bar(stat="identity")+
+  theme(axis.text.x=element_text(angle=45, hjust=1))
+
+
 
 sig.cors.byprov <- cor_clean %>% left_join(ttestdata %>% filter(pvalue < 0.05)) %>% 
   mutate(sig = case_when(!is.na(pvalue) ~ "*",
