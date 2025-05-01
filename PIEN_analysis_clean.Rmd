@@ -2649,6 +2649,16 @@ ggplot(data=nursery_ht_clim %>% filter(name=="smrpb" & !Provenance=="Gila NF"), 
   ylab("Nursery Height (m)")+
   ggtitle("without Gila"), nrow=2)
 
+nursery_lms_quad <- data.frame()
+for(i in 1:length(nursery_climvars)){
+  mod <- lm(nursery_ht_m ~ value + I(value^2), data=nursery_ht_clim %>% filter(name == nursery_climvars[i]))
+  pvalue <- as.data.frame(summary(mod)$coefficients)$`Pr(>|t|)`[2:3]
+  mod_nog <- lm(nursery_ht_m ~ value + I(value^2), data=nursery_ht_clim %>% filter(name == nursery_climvars[i]) %>% filter(!Provenance == "Gila NF"))
+  pvalue_nog <- as.data.frame(summary(mod_nog)$coefficients)$`Pr(>|t|)`[2:3]
+  nursery_lms_quad <- bind_rows(nursery_lms_quad, data.frame(nursery_climvars=nursery_climvars[i],pvalue=pvalue[1], pvalue2 = pvalue[2],pvalue_nog = pvalue_nog[1], pvalue_nog2 = pvalue_nog[2]))
+}
+nursery_lms_quad %>% arrange(pvalue_nog2) #just y has quadratic effect
+
 ```
 
 
@@ -3219,6 +3229,377 @@ ht_climdist_mod <- lmer(log(ht) ~ dist_2d + (1|Provenance)+ (1|BLK) + (1|year), 
 plot(ht_climdist_mod)
 qqmath(ht_climdist_mod)
 summary(ht_climdist_mod) #not significant
+
+```
+
+### height growth
+
+```{r}
+# growth
+
+ht_growth_data<- moniger_data_comb %>% 
+    filter(! (LOC==30 & BLK=="D" & REP==3)) %>%  ##excluding Gila tree that was outlier for height in 1996
+  dplyr::select(c(LOC,BLK,REP,Provenance,HT74:HT14,Seedling.Ht..from.Nursery)) %>% 
+  mutate(growth79=(HT79-HT74)/5, growth85 = (HT85-HT79)/6, growth91 = (HT91-HT85)/6, growth96=(HT96-HT91)/5, growth06=(HT06-HT96)/10, growth14=(HT14-HT06)/8) %>% 
+  pivot_longer(growth79:growth14) %>% 
+  mutate(nursery_ht_m = Seedling.Ht..from.Nursery/39.37) %>% 
+  filter(!is.na(value))
+
+ggplot(ht_growth_data, aes(x=factor(Provenance,levels=provs_bylat$Provenance), y=value, fill=factor(Provenance,levels=provs_bylat$Provenance)))+
+  geom_boxplot()+
+  facet_wrap(~factor(name, levels=c("growth79","growth85","growth91","growth96","growth06","growth14"), labels=c("1974-79","1979-85","1985-91","1991-96","1996-2006","2006-14")), scales="free")+
+  theme(axis.text.x=element_text(angle=45, hjust=1))+
+  ylab(" Height Growth Per Year (m)")+ xlab("")+
+  scale_fill_manual(values=unname(stepped()), name="Provenance")
+
+##who had overall highest  growth rates across years?
+ggplot(ht_growth_data, aes(x=factor(Provenance,levels=provs_bylat$Provenance), y=value, fill=factor(Provenance,levels=provs_bylat$Provenance)))+
+  geom_boxplot()+
+  theme(axis.text.x=element_text(angle=45, hjust=1))+
+  ylab(" Height Growth Per Year (m)")+ xlab("")+
+  scale_fill_manual(values=unname(stepped()), name="Provenance")
+
+##look at trend in  height growth rate over time for trees that survived until 2014
+ggplot(ht_growth_data %>% filter(!is.na(HT14)), aes(x=factor(name, levels=c("growth79","growth85","growth91","growth96","growth06","growth14"), labels=c("1974-79","1979-85","1985-91","1991-96","1996-2006","2006-14")), y=value, fill=factor(Provenance,levels=provs_bylat$Provenance)))+
+  geom_boxplot()+
+  facet_wrap(~factor(Provenance,levels=provs_bylat$Provenance))+
+  theme(axis.text.x=element_text(angle=45, hjust=1))+
+  ylab(" Height Growth Per Year (m)")+ xlab("")+
+  scale_fill_manual(values=unname(stepped()), name="Provenance")
+
+##look at trend over time for each provenance
+htgrowth_time<- ht_growth_data %>% 
+  mutate(period = case_when(name=="growth79" ~ 1,
+                            name=="growth85" ~ 2,
+                            name=="growth91" ~ 3,
+                            name=="growth96" ~ 4,
+                            name=="growth06" ~ 5,
+                            name=="growth14" ~ 6))
+
+htgrowth_overtime <- lmer(value ~ period*Provenance + (1|BLK), data=htgrowth_time)
+summary(htgrowth_overtime)
+anova(htgrowth_overtime)
+
+gila_htgrowth_mod <- lmer(value ~ period + (1|BLK), data=htgrowth_time %>% filter(Provenance=="Gila NF"))
+summary(gila_htgrowth_mod) #positive trend over time in  growth for Gila
+```
+
+####ANOVA
+```{r}
+hg <- lmer(value ~ Provenance*name + (1|BLK), data=ht_growth_data)
+anova(relhg)
+
+###differences between provenances in height increment each year
+##1979
+HGmod79<- lmer(value ~ Provenance + (1|BLK), data = ht_growth_data %>% filter(name=="growth79"))
+plot(HGmod79)
+qqmath(HGmod79)
+anova(HGmod79)
+rand(HGmod79)
+HGmod79_marg = lsmeans(HGmod79, ~Provenance)
+
+CLD_HGmod79 = cld(HGmod79_marg,
+                  alpha=0.05,
+                  Letters=letters)
+CLD_HGmod79
+
+##1985
+HGmod85<- lmer(value ~ Provenance + (1|BLK), data = ht_growth_data %>% filter(name=="growth85"))
+plot(HGmod85)
+qqmath(HGmod85)
+anova(HGmod85)
+rand(HGmod85)
+HGmod85_marg = lsmeans(HGmod85, ~Provenance)
+
+CLD_HGmod85 = cld(HGmod85_marg,
+                  alpha=0.05,
+                  Letters=letters)
+CLD_HGmod85
+
+##1991
+HGmod91<- lmer(value ~ Provenance + (1|BLK), data = ht_growth_data %>% filter(name=="growth91"))
+plot(HGmod91)
+qqmath(HGmod91)
+anova(HGmod91)
+rand(HGmod91)
+HGmod91_marg = lsmeans(HGmod91, ~Provenance)
+
+CLD_HGmod91 = cld(HGmod91_marg,
+                  alpha=0.05,
+                  Letters=letters)
+CLD_HGmod91
+
+##1996
+HGmod96<- lmer(value ~ Provenance + (1|BLK), data = ht_growth_data %>% filter(name=="growth96"))
+plot(HGmod96)
+qqmath(HGmod96)
+anova(HGmod96) 
+rand(HGmod96)
+HGmod96_marg = lsmeans(HGmod96, ~Provenance)
+
+CLD_HGmod96 = cld(HGmod96_marg,
+                  alpha=0.05,
+                  Letters=letters)
+CLD_HGmod96 
+
+##2006
+HGmod06<- lmer(value ~ Provenance + (1|BLK), data = ht_growth_data %>% filter(name=="growth06"))
+plot(HGmod06)
+qqmath(HGmod06)
+anova(HGmod06)
+rand(HGmod06)
+HGmod06_marg = lsmeans(HGmod06, ~Provenance)
+
+CLD_HGmod06 = cld(HGmod06_marg,
+                  alpha=0.05,
+                  Letters=letters)
+CLD_HGmod06 
+
+##2014
+HGmod14<- lmer(value ~ Provenance + (1|BLK), data = ht_growth_data %>% filter(name=="growth14"))
+plot(HGmod14)
+qqmath(HGmod14)
+anova(HGmod14)
+rand(HGmod14)
+HGmod14_marg = lsmeans(HGmod14, ~Provenance)
+
+CLD_HGmod14 = cld(HGmod14_marg,
+                  alpha=0.05,
+                  Letters=letters)
+CLD_HGmod14 ##most are gaining around the same height by 2014 (perhaps because they are slowing down?)
+```
+
+#####survivors only
+
+```{r}
+##########################
+
+###differences between provenances in height increment each year ***SURVIVORS ONLY***
+##1979
+HGmod_SO_79<- lmer(value ~ Provenance + (1|BLK), data = ht_growth_data %>% filter(!is.na(HT14)) %>% filter(name=="growth79"))
+plot(HGmod_SO_79)
+qqmath(HGmod_SO_79)
+anova(HGmod_SO_79)
+rand(HGmod_SO_79)
+HGmod_SO_79_marg = lsmeans(HGmod_SO_79, ~Provenance)
+
+CLD_HGmod_SO_79 = cld(HGmod_SO_79_marg,
+                  alpha=0.05,
+                  Letters=letters)
+CLD_HGmod_SO_79
+
+##1985
+HGmod_SO_85<- lmer(value ~ Provenance + (1|BLK), data = ht_growth_data %>% filter(!is.na(HT14)) %>% filter(name=="growth85"))
+plot(HGmod_SO_85)
+qqmath(HGmod_SO_85)
+anova(HGmod_SO_85)
+rand(HGmod_SO_85)
+HGmod_SO_85_marg = lsmeans(HGmod_SO_85, ~Provenance)
+
+CLD_HGmod_SO_85 = cld(HGmod_SO_85_marg,
+                  alpha=0.05,
+                  Letters=letters)
+CLD_HGmod_SO_85
+
+##1991
+HGmod_SO_91<- lmer(value ~ Provenance + (1|BLK), data = ht_growth_data %>% filter(!is.na(HT14)) %>% filter(name=="growth91"))
+plot(HGmod_SO_91)
+qqmath(HGmod_SO_91)
+anova(HGmod_SO_91)
+rand(HGmod_SO_91)
+HGmod_SO_91_marg = lsmeans(HGmod_SO_91, ~Provenance)
+
+CLD_HGmod_SO_91 = cld(HGmod_SO_91_marg,
+                  alpha=0.05,
+                  Letters=letters)
+CLD_HGmod_SO_91
+
+##1996
+HGmod_SO_96<- lmer(value ~ Provenance + (1|BLK), data = ht_growth_data %>% filter(!is.na(HT14)) %>% filter(name=="growth96"))
+plot(HGmod_SO_96)
+qqmath(HGmod_SO_96)
+anova(HGmod_SO_96)
+rand(HGmod_SO_96)
+HGmod_SO_96_marg = lsmeans(HGmod_SO_96, ~Provenance)
+
+CLD_HGmod_SO_96 = cld(HGmod_SO_96_marg,
+                  alpha=0.05,
+                  Letters=letters)
+CLD_HGmod_SO_96
+
+##2006
+HGmod_SO_06<- lmer(value ~ Provenance + (1|BLK), data = ht_growth_data %>% filter(!is.na(HT14)) %>% filter(name=="growth06"))
+plot(HGmod_SO_06)
+qqmath(HGmod_SO_06)
+anova(HGmod_SO_06)
+rand(HGmod_SO_06)
+HGmod_SO_06_marg = lsmeans(HGmod_SO_06, ~Provenance)
+
+CLD_HGmod_SO_06 = cld(HGmod_SO_06_marg,
+                  alpha=0.05,
+                  Letters=letters)
+CLD_HGmod_SO_06 
+
+##2014
+HGmod_SO_14<- lmer(value ~ Provenance + (1|BLK), data = ht_growth_data %>% filter(!is.na(HT14)) %>% filter(name=="growth14"))
+plot(HGmod_SO_14)
+qqmath(HGmod_SO_14)
+anova(HGmod_SO_14)
+rand(HGmod_SO_14)
+HGmod_SO_14_marg = lsmeans(HGmod_SO_14, ~Provenance)
+
+CLD_HGmod_SO_14 = cld(HGmod_SO_14_marg,
+                  alpha=0.05,
+                  Letters=letters)
+CLD_HGmod_SO_14
+```
+
+####PC only mods
+```{r}
+ht_growth_clim<- ht_growth_data %>% 
+  left_join(prov_pcapts_big)
+
+mod_ht_pca <- lmer(value ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK) + (1|name), data=ht_growth_clim)
+plot(mod_ht_pca)
+qqmath(mod_ht_pca)
+summary(mod_ht_pca)
+ # mod_ht_pca_dredge<- dredge(mod_ht_pca)
+ # mod_ht_pca_dredge  ##null is best
+
+#no gila
+ht_growth_clim_noG<- ht_growth_clim %>% filter(!Provenance=="Gila NF")
+
+mod_ht_pca_noG <- lmer(value ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK) + (1|name), data=ht_growth_clim_noG)
+plot(mod_ht_pca_noG)
+qqmath(mod_ht_pca_noG)
+summary(mod_ht_pca_noG)
+# mod_ht_pca_noG_dredge<- dredge(mod_ht_pca_noG)
+# mod_ht_pca_noG_dredge #null is best
+```
+
+####individual climate variables
+
+```{r}
+
+ht_growth_clim_long <- ht_growth_clim %>% 
+  dplyr::rename(year=name, htgrowth=value) %>% 
+  pivot_longer(c(PC1,PC2,AHM:SHM, x:monsoonality))
+
+ht_growth_clim_long_nog <- ht_growth_clim_long %>% filter(!Provenance=="Gila NF")
+
+htgrowth_mods<- data.frame()
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(htgrowth ~ value + (1|Provenance)+ (1|BLK) + (1|year), data=ht_growth_clim_long %>% filter(name==provenance_climvars[i]))
+pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
+Mr2 <- r2(mod)$R2_marginal
+
+mod_nog <- lmer(htgrowth ~ value + (1|Provenance)+ (1|BLK) + (1|year), data=ht_growth_clim_long_nog %>% filter(name==provenance_climvars[i]) %>% filter(!Provenance=="Gila NF"))
+pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|t|)`
+Mr2_nog <- r2(mod_nog)$R2_marginal
+
+htgrowth_mods <- bind_rows(htgrowth_mods, data.frame(var=provenance_climvars[i], pvalue = pvalue, Mr2=Mr2, pvalue_nog = pvalue_nog, Mr2_nog=Mr2_nog))
+
+}
+
+htgrowth_mods %>% arrange(pvalue_nog) #nothing significant
+```
+
+```{r}
+###quadratic
+
+htgrowth_mods_quad<- data.frame()
+
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(htgrowth ~ value + I(value^2) + (1|Provenance) + (1|BLK) + (1|year), data=ht_growth_clim_long %>% filter(name==provenance_climvars[i]))
+pvalues<- as.data.frame(summary(mod)$coefficients)[2:3,]$`Pr(>|t|)`
+Mr2 <- r2(mod)$R2_marginal
+
+mod_nog <- lmer(htgrowth ~ value + I(value^2) + (1|Provenance) + (1|BLK) + (1|year), data=ht_growth_clim_long_nog %>% filter(name==provenance_climvars[i]) %>% filter(!Provenance=="Gila NF"))
+pvalues_nog<- as.data.frame(summary(mod_nog)$coefficients)[2:3,]$`Pr(>|t|)`
+Mr2_nog <- r2(mod_nog)$R2_marginal
+
+htgrowth_mods_quad <- bind_rows(htgrowth_mods_quad, data.frame(var=provenance_climvars[i], pvalue1 = pvalues[1], pvalue2 = pvalues[2], Mr2 = Mr2, pvalue1_nog = pvalues_nog[1], pvalue2_nog = pvalues_nog[2], Mr2_nog = Mr2_nog))
+}
+
+htgrowth_mods_quad %>% arrange(pvalue2_nog) #just y
+
+##y
+summary(lmer(htgrowth ~ value + I(value^2) + (1|Provenance) + (1|BLK) + (1|year), data=ht_growth_clim_long %>% filter(name=="y")))
+summary(lmer(htgrowth ~ value + I(value^2) + (1|Provenance) + (1|BLK) + (1|year), data=ht_growth_clim_long_nog %>% filter(name=="y") %>% filter(!Provenance=="Gila NF")))
+
+####make plot 
+##with Gila
+y_htgrowth_mod_lm <- lm(htgrowth ~  value + I(value^2), data=ht_growth_clim_long %>% filter(name=="y"))
+
+newdata_y_htgrowth <-  expand.grid(value=seq(min(ht_growth_clim$y), max(ht_growth_clim$y), length.out=50))
+y_htgrowth_predict <- predict(y_htgrowth_mod_lm, newdata = newdata_y_htgrowth, interval="confidence")
+
+predictdata_y_htgrowth <- cbind(newdata_y_htgrowth, y_htgrowth_predict) %>% mutate(var="y", model="with Gila NF")
+
+##without Gila 
+y_htgrowth_mod_lm_nog <- lm(htgrowth ~  value + I(value^2), data=ht_growth_clim_long_nog %>% filter(name=="y"))
+
+newdata_y_htgrowth_nog <-  expand.grid(value=seq(min(ht_growth_clim_noG$y), max(ht_growth_clim_noG$y), length.out=50))
+y_htgrowth_predict_nog <- predict(y_htgrowth_mod_lm_nog, newdata = newdata_y_htgrowth_nog, interval="confidence")
+
+predictdata_y_htgrowth_nog <- cbind(newdata_y_htgrowth_nog, y_htgrowth_predict_nog) %>% mutate(var="y", model="without Gila NF")
+
+ggplot()+
+  geom_ribbon(data=predictdata_y_htgrowth_nog, aes(x=value, ymin=lwr, ymax=upr, fill=model), alpha=0.2)+
+  geom_line(data=predictdata_y_htgrowth_nog, aes(x=value,y=fit, linetype=model))+
+  geom_rug(data=ht_growth_clim_long %>% filter(name=="y") %>% mutate(fit=.2), aes(x=value,y=fit, col=factor(Provenance, levels=provs_bylat$Provenance)), linewidth=1, sides="b")+
+  scale_fill_manual(values=c("black","gray"))+
+  scale_linetype_manual(values=c(1,2))+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  xlab("Provenance Climate Value")+
+  ylab(" Height Growth Rate (m/year)")+
+  theme_bw()+
+  theme(legend.position="right")
+```
+
+#####transfer distance
+```{r}
+
+htgrowth_clim_long_transfer <- ht_growth_clim_long %>%
+  left_join(plantation_climNA, by=c("name"="var")) %>% 
+  mutate(diff_plant = abs(plant_value - value))
+
+htgrowth_clim_long_transfer_nog <- htgrowth_clim_long_transfer %>% filter(!Provenance=="Gila NF")
+
+htgrowth_mods_transfer<- data.frame()
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(htgrowth ~ diff_plant + (1|Provenance)+ (1|BLK) + (1|year), data=htgrowth_clim_long_transfer %>% filter(name==provenance_climvars[i]))
+pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
+Mr2 <- r2(mod)$R2_marginal
+
+mod_nog <- lmer(htgrowth ~ diff_plant + (1|Provenance)+ (1|BLK) + (1|year), data=htgrowth_clim_long_transfer_nog %>% filter(name==provenance_climvars[i]) %>% filter(!Provenance=="Gila NF"))
+pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|t|)`
+Mr2_nog <- r2(mod_nog)$R2_marginal
+
+htgrowth_mods_transfer <- bind_rows(htgrowth_mods_transfer, data.frame(var=provenance_climvars[i], pvalue = pvalue, Mr2=Mr2, pvalue_nog = pvalue_nog, Mr2_nog=Mr2_nog))
+
+}
+
+htgrowth_mods_transfer %>% arrange(pvalue_nog) #y
+
+#y
+htgrowth_y_transfermod_nog <- lmer(htgrowth ~ diff_plant + (1|Provenance)+ (1|BLK) + (1|year), data=htgrowth_clim_long_transfer_nog %>% filter(name=="y"))
+plot(htgrowth_y_transfermod_nog)
+qqmath(htgrowth_y_transfermod_nog)
+summary(htgrowth_y_transfermod_nog) #provenances with similar y to the plantation had lower growth rates
+
+##distance in 2d climate space
+
+htgrowth_climdist_df <- htgrowth_clim_long_transfer %>% 
+  dplyr::select(Provenance, LOC,BLK, REP, year, htgrowth, name, diff_plant) %>% 
+  filter(name %in% c("PC1","PC2")) %>% 
+  pivot_wider(names_from=name,values_from = diff_plant) %>% 
+  mutate(dist_2d = sqrt(PC1^2 + PC2^2))
+  
+htgrowth_climdist_mod <- lmer(htgrowth ~ dist_2d + (1|Provenance)+ (1|BLK) + (1|year), data=htgrowth_climdist_df)
+plot(htgrowth_climdist_mod)
+qqmath(htgrowth_climdist_mod)
+summary(htgrowth_climdist_mod) #not significant
 
 ```
 
@@ -3920,6 +4301,7 @@ cone_sum_forfig<- cone_sum %>%
 
 cone_means_fig <- ggplot(cone_sum_forfig, aes(x=factor(year,levels=c(1974,1979,1985,1991,1996,2006,2014), labels=c(1974,1979,1985,1991,1996,2006,2014)), y=prop.w.cones*100, col=factor(Provenance, levels=provs_bylat$Provenance),group=factor(Provenance, levels=provs_bylat$Provenance)))+
   geom_point(size=3, position = position_dodge(width=0.8))+
+  geom_text(data= data.frame(year=2014, prop.w.cones=.5, Provenance="Lariimer 2", label="not \n sampled"), aes(label=label), color="black")+
   #geom_line(position = position_dodge(width=0.8))+
   scale_color_manual(values=unname(stepped()), "")+
   theme_bw()+
@@ -5595,7 +5977,6 @@ ggplot(ave_rw_all, aes(x=as.numeric(year), y=ave_rw))+
 
 ```
 
-
 ###Detrending
 
 ```{r}
@@ -6249,26 +6630,8 @@ spline_calcs_9904 %>% dplyr::select(c(resistance,resilience)) %>% as.data.frame(
 #####resistance
 
 ```{r}
-##I'm going to look at trends in resistance and resilience (spline detrended) due to provenance climate using the 4 year periods, where the drought period = 2001-2004 as this seems to be the period where there are the most differences between provenances in resistance and resilience.
+##I'm going to look at trends in resistance and resilience (spline detrended) due to provenance climate for all the time periods that had significant differences between provenances. For resistance, this is drought = 2001-2002 (2), 2001-2003 (3), and 2001-2004 (4).
 
-RR4_clim<- spline_calcs_0104 %>% 
-  left_join(prov_pcapts_big) 
-
-##PCA models
-resis_mod_pc <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR4_clim)
-plot(resis_mod_pc)
-qqmath(resis_mod_pc)
-summary(resis_mod_pc) 
-
-resis_mod_pc_noG <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR4_clim %>% filter(!Provenance=="Gila NF"))
-plot(resis_mod_pc_noG)
-qqmath(resis_mod_pc_noG)
-summary(resis_mod_pc_noG) 
-
-#dredge(resis_mod_pc) ##null model is the best
-```
-
-```{r}
 #####01-02
 RR0102_clim<- spline_calcs_0102 %>% 
   left_join(prov_pcapts_big)
@@ -6285,101 +6648,49 @@ qqmath(resis_0102mod_pc_noG)
 summary(resis_0102mod_pc_noG) #nothing significant when Gila removed
 
 #dredge(resis_0102mod_pc) ##null model is the best
-```
 
-```{r}
-#####02-03
-RR0203_clim<- spline_calcs_0203 %>% 
-  left_join(prov_pcapts_big)
+RR0102_clim_long <- RR0102_clim %>% pivot_longer(all_of(provenance_climvars))
+RR0102_clim_long_nog <- RR0102_clim_long %>% filter(!Provenance=="Gila NF")
 
-##PCA models
-resis_0203mod_pc <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR0203_clim)
-plot(resis_0203mod_pc)
-qqmath(resis_0203mod_pc)
-summary(resis_0203mod_pc) 
+RR0102_resist_mods<- data.frame()
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(log(resistance) ~ value + (1|Provenance)+ (1|BLK), data=RR0102_clim_long %>% filter(name==provenance_climvars[i]))
+pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
+Mr2 <- r2(mod)$R2_marginal
 
-resis_0203mod_pc_noG <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR0203_clim %>% filter(!Provenance=="Gila NF"))
-plot(resis_0203mod_pc_noG)
-qqmath(resis_0203mod_pc_noG)
-summary(resis_0203mod_pc_noG) #nothing significant when Gila removed
+mod_nog <- lmer(log(resistance) ~ value + (1|Provenance)+ (1|BLK), data=RR0102_clim_long_nog %>% filter(name==provenance_climvars[i]))
+pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|t|)`
+Mr2_nog <- r2(mod_nog)$R2_marginal
 
-#dredge(resis_0203mod_pc) ##null model is the best
-```
+RR0102_resist_mods <- bind_rows(RR0102_resist_mods, data.frame(var=provenance_climvars[i], pvalue = pvalue, Mr2=Mr2, pvalue_nog = pvalue_nog, Mr2_nog=Mr2_nog))
+}
 
-```{r}
-#####00-03
-RR0003_clim<- spline_calcs_0003 %>% 
-  left_join(prov_pcapts_big)
+RR0102_resist_mods %>% arrange(pvalue_nog) #CMD, y
 
-##PCA models
-resis_0003mod_pc <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR0003_clim)
-plot(resis_0003mod_pc)
-qqmath(resis_0003mod_pc)
-summary(resis_0003mod_pc) 
+#CMD
+RR0102_resist_CMD_mod <- lmer(log(resistance) ~ value + (1|Provenance)+ (1|BLK), data=RR0102_clim_long %>% filter(name=="CMD"))
+summary(RR0102_resist_CMD_mod)
 
-resis_0003mod_pc_noG <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR0003_clim %>% filter(!Provenance=="Gila NF"))
-plot(resis_0003mod_pc_noG)
-qqmath(resis_0003mod_pc_noG)
-summary(resis_0003mod_pc_noG) #nothing significant when Gila removed
+#y
+RR0102_resist_y_mod <- lmer(log(resistance) ~ value + (1|Provenance)+ (1|BLK), data=RR0102_clim_long %>% filter(name=="y"))
+summary(RR0102_resist_y_mod)
 
-#dredge(resis_0003mod_pc) ##null model is the best
-```
+#quadratic
+RR0102_resist_mods_quad<- data.frame()
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(log(resistance) ~ value + I(value^2) + (1|Provenance)+ (1|BLK), data=RR0102_clim_long %>% filter(name==provenance_climvars[i]))
+pvalue<- as.data.frame(summary(mod)$coefficients)[2:3,]$`Pr(>|t|)`
+Mr2 <- r2(mod)$R2_marginal
 
-```{r}
-#####00-05
-RR0005_clim<- spline_calcs_0005 %>% 
-  left_join(prov_pcapts_big)
+mod_nog <- lmer(log(resistance) ~ value + I(value^2) + (1|Provenance)+ (1|BLK), data=RR0102_clim_long_nog %>% filter(name==provenance_climvars[i]))
+pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2:3,]$`Pr(>|t|)`
+Mr2_nog <- r2(mod_nog)$R2_marginal
 
-##PCA models
-resis_0005mod_pc <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR0005_clim)
-plot(resis_0005mod_pc)
-qqmath(resis_0005mod_pc)
-summary(resis_0005mod_pc) 
+RR0102_resist_mods_quad <- bind_rows(RR0102_resist_mods_quad, data.frame(var=provenance_climvars[i], pvalue = pvalue[1], pvalue2 = pvalue[2], Mr2=Mr2, pvalue_nog = pvalue_nog[1], pvalue_nog2 = pvalue_nog[2], Mr2_nog=Mr2_nog))
+}
 
-resis_0005mod_pc_noG <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR0005_clim %>% filter(!Provenance=="Gila NF"))
-plot(resis_0005mod_pc_noG)
-qqmath(resis_0005mod_pc_noG)
-summary(resis_0005mod_pc_noG) #nothing significant when Gila removed
+RR0102_resist_mods_quad %>% arrange(pvalue_nog) #nothing significant
 
-#dredge(resis_0005mod_pc) ##null model is the best
-```
-
-```{r}
-#####99-04
-RR9904_clim<- spline_calcs_9904 %>% 
-  left_join(prov_pcapts_big)
-
-##PCA models
-resis_9904mod_pc <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR9904_clim)
-plot(resis_9904mod_pc)
-qqmath(resis_9904mod_pc)
-summary(resis_9904mod_pc) 
-
-resis_9904mod_pc_noG <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR9904_clim %>% filter(!Provenance=="Gila NF"))
-plot(resis_9904mod_pc_noG)
-qqmath(resis_9904mod_pc_noG)
-summary(resis_9904mod_pc_noG) #nothing significant when Gila removed
-
-#dredge(resis_9904mod_pc) ##null model is the best
-```
-
-```{r}
-#####1 year
-RR1_clim<- spline_calcs_list[[1]] %>% 
-  left_join(prov_pcapts_big)
-
-##PCA models
-resis_1mod_pc <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR1_clim)
-plot(resis_1mod_pc)
-qqmath(resis_1mod_pc)
-summary(resis_1mod_pc) 
-
-resis_1mod_pc_noG <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR1_clim %>% filter(!Provenance=="Gila NF"))
-plot(resis_1mod_pc_noG)
-qqmath(resis_1mod_pc_noG)
-summary(resis_1mod_pc_noG) #nothing significant when Gila removed
-
-#dredge(resis_1mod_pc) ##null model is the best
 ```
 
 ```{r}
@@ -6399,50 +6710,138 @@ qqmath(resis_3mod_pc_noG)
 summary(resis_3mod_pc_noG) #nothing significant when Gila removed
 
 #dredge(resis_3mod_pc) ##null model is the best
+
+RR3_clim_long <- RR3_clim %>% pivot_longer(all_of(provenance_climvars))
+RR3_clim_long_nog <- RR3_clim_long %>% filter(!Provenance=="Gila NF")
+
+RR3_resist_mods<- data.frame()
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(log(resistance) ~ value + (1|Provenance)+ (1|BLK), data=RR3_clim_long %>% filter(name==provenance_climvars[i]))
+pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
+Mr2 <- r2(mod)$R2_marginal
+
+mod_nog <- lmer(log(resistance) ~ value + (1|Provenance)+ (1|BLK), data=RR3_clim_long_nog %>% filter(name==provenance_climvars[i]))
+pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|t|)`
+Mr2_nog <- r2(mod_nog)$R2_marginal
+
+RR3_resist_mods <- bind_rows(RR3_resist_mods, data.frame(var=provenance_climvars[i], pvalue = pvalue, Mr2=Mr2, pvalue_nog = pvalue_nog, Mr2_nog=Mr2_nog))
+}
+
+RR3_resist_mods %>% arrange(pvalue_nog) #Eref, MCMT, y
+
+#Eref
+RR3_resist_Eref_mod <- lmer(log(resistance) ~ value + (1|Provenance)+ (1|BLK), data=RR3_clim_long %>% filter(name=="Eref"))
+summary(RR3_resist_Eref_mod)
+
+ggplot(RR3_clim_long %>% filter(name=="Eref"), aes(x=value, y=resistance))+
+  geom_point()+
+  geom_smooth(method="lm")
+
+#y
+RR3_resist_y_mod <- lmer(log(resistance) ~ value + (1|Provenance)+ (1|BLK), data=RR3_clim_long %>% filter(name=="y"))
+summary(RR3_resist_y_mod)
+
+#MCMT
+RR3_resist_MCMT_mod <- lmer(log(resistance) ~ value + (1|Provenance)+ (1|BLK), data=RR3_clim_long %>% filter(name=="MCMT"))
+summary(RR3_resist_MCMT_mod)
+
+#quadratic
+RR3_resist_mods_quad<- data.frame()
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(log(resistance) ~ value + I(value^2) + (1|Provenance)+ (1|BLK), data=RR3_clim_long %>% filter(name==provenance_climvars[i]))
+pvalue<- as.data.frame(summary(mod)$coefficients)[2:3,]$`Pr(>|t|)`
+Mr2 <- r2(mod)$R2_marginal
+
+mod_nog <- lmer(log(resistance) ~ value + I(value^2) + (1|Provenance)+ (1|BLK), data=RR3_clim_long_nog %>% filter(name==provenance_climvars[i]))
+pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2:3,]$`Pr(>|t|)`
+Mr2_nog <- r2(mod_nog)$R2_marginal
+
+RR3_resist_mods_quad <- bind_rows(RR3_resist_mods_quad, data.frame(var=provenance_climvars[i], pvalue = pvalue[1], pvalue2 = pvalue[2], Mr2=Mr2, pvalue_nog = pvalue_nog[1], pvalue_nog2 = pvalue_nog[2], Mr2_nog=Mr2_nog))
+}
+
+RR3_resist_mods_quad %>% arrange(pvalue_nog2) #nothing significant
 ```
 
 ```{r}
-#####5 year
-RR5_clim<- spline_calcs_list[[3]] %>% 
-  left_join(prov_pcapts_big)
+##4 year 01-04
+
+RR4_clim<- spline_calcs_0104 %>% 
+  left_join(prov_pcapts_big) 
 
 ##PCA models
-resis_5mod_pc <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR5_clim)
-plot(resis_5mod_pc)
-qqmath(resis_5mod_pc)
-summary(resis_5mod_pc) 
+resis_mod_pc <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR4_clim)
+plot(resis_mod_pc)
+qqmath(resis_mod_pc)
+summary(resis_mod_pc) 
 
-resis_5mod_pc_noG <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR5_clim %>% filter(!Provenance=="Gila NF"))
-plot(resis_5mod_pc_noG)
-qqmath(resis_5mod_pc_noG)
-summary(resis_5mod_pc_noG) #nothing significant when Gila removed
+resis_mod_pc_noG <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR4_clim %>% filter(!Provenance=="Gila NF"))
+plot(resis_mod_pc_noG)
+qqmath(resis_mod_pc_noG)
+summary(resis_mod_pc_noG) 
 
-#dredge(resis_5mod_pc) ##null model is the best
-```
+#dredge(resis_mod_pc) ##null model is the best
 
-```{r}
-#####7 year
-RR7_clim<- spline_calcs_list[[4]] %>% 
-  left_join(prov_pcapts_big)
+RR4_clim_long <- RR4_clim %>% pivot_longer(all_of(provenance_climvars))
+RR4_clim_long_nog <- RR4_clim_long %>% filter(!Provenance=="Gila NF")
 
-##PCA models
-resis_7mod_pc <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR7_clim)
-plot(resis_7mod_pc)
-qqmath(resis_7mod_pc)
-summary(resis_7mod_pc) 
+RR4_resist_mods<- data.frame()
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(log(resistance) ~ value + (1|Provenance)+ (1|BLK), data=RR4_clim_long %>% filter(name==provenance_climvars[i]))
+pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
+Mr2 <- r2(mod)$R2_marginal
 
-resis_7mod_pc_noG <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR7_clim %>% filter(!Provenance=="Gila NF"))
-plot(resis_7mod_pc_noG)
-qqmath(resis_7mod_pc_noG)
-summary(resis_7mod_pc_noG) #nothing significant when Gila removed
+mod_nog <- lmer(log(resistance) ~ value + (1|Provenance)+ (1|BLK), data=RR4_clim_long_nog %>% filter(name==provenance_climvars[i]))
+pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|t|)`
+Mr2_nog <- r2(mod_nog)$R2_marginal
 
-#dredge(resis_7mod_pc) ##null model is the best
+RR4_resist_mods <- bind_rows(RR4_resist_mods, data.frame(var=provenance_climvars[i], pvalue = pvalue, Mr2=Mr2, pvalue_nog = pvalue_nog, Mr2_nog=Mr2_nog))
+}
+
+RR4_resist_mods %>% arrange(pvalue_nog) #MCMT, y
+
+#y
+RR4_resist_y_mod <- lmer(log(resistance) ~ value + (1|Provenance)+ (1|BLK), data=RR4_clim_long %>% filter(name=="y"))
+summary(RR4_resist_y_mod)
+
+#MCMT
+RR4_resist_MCMT_mod <- lmer(log(resistance) ~ value + (1|Provenance)+ (1|BLK), data=RR4_clim_long %>% filter(name=="MCMT"))
+summary(RR4_resist_MCMT_mod)
+
+ggplot(RR4_clim_long %>% filter(name=="MCMT"), aes(x=value, y=resistance))+
+  geom_point()+
+  geom_smooth(method="lm")
+
+#quadratic
+RR4_resist_mods_quad<- data.frame()
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(log(resistance) ~ value + I(value^2) + (1|Provenance)+ (1|BLK), data=RR4_clim_long %>% filter(name==provenance_climvars[i]))
+pvalue<- as.data.frame(summary(mod)$coefficients)[2:3,]$`Pr(>|t|)`
+Mr2 <- r2(mod)$R2_marginal
+
+mod_nog <- lmer(log(resistance) ~ value + I(value^2) + (1|Provenance)+ (1|BLK), data=RR4_clim_long_nog %>% filter(name==provenance_climvars[i]))
+pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2:3,]$`Pr(>|t|)`
+Mr2_nog <- r2(mod_nog)$R2_marginal
+
+RR4_resist_mods_quad <- bind_rows(RR4_resist_mods_quad, data.frame(var=provenance_climvars[i], pvalue = pvalue[1], pvalue2 = pvalue[2], Mr2=Mr2, pvalue_nog = pvalue_nog[1], pvalue_nog2 = pvalue_nog[2], Mr2_nog=Mr2_nog))
+}
+
+RR4_resist_mods_quad %>% arrange(pvalue_nog2) #PPTsm
+
+#PPTsm
+RR4_resist_PPTsm_mod <- lmer(log(resistance) ~ value + I(value^2) + (1|Provenance)+ (1|BLK), data=RR4_clim_long_nog %>% filter(name=="PPTsm"))
+summary(RR4_resist_PPTsm_mod)
+
+ggplot(RR4_clim_long %>% filter(name=="PPTsm"), aes(x=value, y=resistance))+
+  geom_point()
+  
 ```
 
 #####resilience
 
 ```{r}
-###resilience
+##I'm going to look at trends in resistance and resilience (spline detrended) due to provenance climate for all the time periods that had significant differences between provenances. For resilience, this is drought = 2001-2003 (3), 2001-2004 (4), 2000-2003 (4), 2000-2004 (5), 2000-2005 (6), 1999-2004 (6).
+
+##
 resil_mod_pc <- lmer(resilience ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR4_clim)
 plot(resil_mod_pc)
 qqmath(resil_mod_pc)
@@ -6457,46 +6856,53 @@ summary(resil_mod_pc_noG)
 
 # dredge(resil_mod_pc) #null model is best when Gila is included
 # dredge(resil_mod_pc_noG) #null is best when Gila is excluded
-```
 
-```{r}
+RR4_resil_mods<- data.frame()
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(log(resilience) ~ value + (1|Provenance)+ (1|BLK), data=RR4_clim_long %>% filter(name==provenance_climvars[i]))
+pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
+Mr2 <- r2(mod)$R2_marginal
 
-#####01-02
-##PCA models
-resil_0102mod_pc <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR0102_clim)
-plot(resil_0102mod_pc)
-qqmath(resil_0102mod_pc)
-summary(resil_0102mod_pc) 
+mod_nog <- lmer(log(resilience) ~ value + (1|Provenance)+ (1|BLK), data=RR4_clim_long_nog %>% filter(name==provenance_climvars[i]))
+pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|t|)`
+Mr2_nog <- r2(mod_nog)$R2_marginal
 
-RR0102_clim_nog <- RR0102_clim %>% filter(!Provenance=="Gila NF")
+RR4_resil_mods <- bind_rows(RR4_resil_mods, data.frame(var=provenance_climvars[i], pvalue = pvalue, Mr2=Mr2, pvalue_nog = pvalue_nog, Mr2_nog=Mr2_nog))
+}
 
-resil_0102mod_pc_noG <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR0102_clim_nog)
-plot(resil_0102mod_pc_noG)
-qqmath(resil_0102mod_pc_noG)
-summary(resil_0102mod_pc_noG) #nothing significant when Gila removed
+RR4_resil_mods %>% arrange(pvalue_nog) #MCMT
 
-# dredge(resil_0102mod_pc) ##null model is the best
-# dredge(resil_0102mod_pc_noG) ##null model is the best
-```
+#MCMT
+RR4_resil_MCMT_mod <- lmer(log(resilience) ~ value + (1|Provenance)+ (1|BLK), data=RR4_clim_long %>% filter(name=="MCMT"))
+summary(RR4_resil_MCMT_mod)
 
-```{r}
-#####02-03
-##PCA models
-resil_0203mod_pc <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR0203_clim)
-plot(resil_0203mod_pc)
-qqmath(resil_0203mod_pc)
-summary(resil_0203mod_pc) 
+ggplot(RR4_clim_long %>% filter(name=="MCMT") %>% filter(!Provenance=="Gila NF"), aes(x=value, y=resilience))+
+  geom_point()+
+  geom_smooth(method="lm")
 
-resil_0203mod_pc_noG <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR0203_clim %>% filter(!Provenance=="Gila NF"))
-plot(resil_0203mod_pc_noG)
-qqmath(resil_0203mod_pc_noG)
-summary(resil_0203mod_pc_noG) #nothing significant when Gila removed
+#quadratic
+RR4_resil_mods_quad<- data.frame()
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(log(resilience) ~ value + I(value^2) + (1|Provenance)+ (1|BLK), data=RR4_clim_long %>% filter(name==provenance_climvars[i]))
+pvalue<- as.data.frame(summary(mod)$coefficients)[2:3,]$`Pr(>|t|)`
+Mr2 <- r2(mod)$R2_marginal
 
-# dredge(resil_0203mod_pc) ##null model is the best
+mod_nog <- lmer(log(resilience) ~ value + I(value^2) + (1|Provenance)+ (1|BLK), data=RR4_clim_long_nog %>% filter(name==provenance_climvars[i]))
+pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2:3,]$`Pr(>|t|)`
+Mr2_nog <- r2(mod_nog)$R2_marginal
+
+RR4_resil_mods_quad <- bind_rows(RR4_resil_mods_quad, data.frame(var=provenance_climvars[i], pvalue = pvalue[1], pvalue2 = pvalue[2], Mr2=Mr2, pvalue_nog = pvalue_nog[1], pvalue_nog2 = pvalue_nog[2], Mr2_nog=Mr2_nog))
+}
+
+RR4_resil_mods_quad %>% arrange(pvalue_nog2) #y
+
 ```
 
 ```{r}
 #####00-03
+RR0003_clim<- spline_calcs_0003 %>% 
+  left_join(prov_pcapts_big) 
+
 ##PCA models
 resil_0003mod_pc <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR0003_clim)
 plot(resil_0003mod_pc)
@@ -6509,10 +6915,103 @@ qqmath(resil_0003mod_pc_noG)
 summary(resil_0003mod_pc_noG) #nothing significant when Gila removed
 
 # dredge(resil_0003mod_pc) ##null model is the best
+
+RR0003_clim_long<- RR0003_clim %>% pivot_longer(all_of(provenance_climvars))
+RR0003_clim_long_nog <- RR0003_clim_long %>% filter(!Provenance=="Gila NF")
+
+RR0003_resil_mods<- data.frame()
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(log(resilience) ~ value + (1|Provenance)+ (1|BLK), data=RR0003_clim_long %>% filter(name==provenance_climvars[i]))
+pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
+Mr2 <- r2(mod)$R2_marginal
+
+mod_nog <- lmer(log(resilience) ~ value + (1|Provenance)+ (1|BLK), data=RR0003_clim_long_nog %>% filter(name==provenance_climvars[i]))
+pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|t|)`
+Mr2_nog <- r2(mod_nog)$R2_marginal
+
+RR0003_resil_mods <- bind_rows(RR0003_resil_mods, data.frame(var=provenance_climvars[i], pvalue = pvalue, Mr2=Mr2, pvalue_nog = pvalue_nog, Mr2_nog=Mr2_nog))
+}
+
+RR0003_resil_mods %>% arrange(pvalue_nog) #nothing
+
+#quadratic
+RR0003_resil_mods_quad<- data.frame()
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(log(resilience) ~ value + I(value^2) + (1|Provenance)+ (1|BLK), data=RR0003_clim_long %>% filter(name==provenance_climvars[i]))
+pvalue<- as.data.frame(summary(mod)$coefficients)[2:3,]$`Pr(>|t|)`
+Mr2 <- r2(mod)$R2_marginal
+
+mod_nog <- lmer(log(resilience) ~ value + I(value^2) + (1|Provenance)+ (1|BLK), data=RR0003_clim_long_nog %>% filter(name==provenance_climvars[i]))
+pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2:3,]$`Pr(>|t|)`
+Mr2_nog <- r2(mod_nog)$R2_marginal
+
+RR0003_resil_mods_quad <- bind_rows(RR0003_resil_mods_quad, data.frame(var=provenance_climvars[i], pvalue = pvalue[1], pvalue2 = pvalue[2], Mr2=Mr2, pvalue_nog = pvalue_nog[1], pvalue_nog2 = pvalue_nog[2], Mr2_nog=Mr2_nog))
+}
+
+RR0003_resil_mods_quad %>% arrange(pvalue_nog2) #PPTsm
+
+```
+
+```{r}
+#####00-04
+RR9904_clim<-  spline_calcs_9904 %>% 
+  left_join(prov_pcapts_big) 
+
+##PCA models
+resil_9904mod_pc <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR9904_clim)
+plot(resil_9904mod_pc)
+qqmath(resil_9904mod_pc)
+summary(resil_9904mod_pc) 
+
+resil_9904mod_pc_noG <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR9904_clim %>% filter(!Provenance=="Gila NF"))
+plot(resil_9904mod_pc_noG)
+qqmath(resil_9904mod_pc_noG)
+summary(resil_9904mod_pc_noG) #nothing significant when Gila removed
+
+# dredge(resil_9904mod_pc) ##null model is the best
+
+
+RR9904_clim_long<- RR9904_clim %>% pivot_longer(all_of(provenance_climvars))
+RR9904_clim_long_nog <- RR9904_clim_long %>% filter(!Provenance=="Gila NF")
+
+RR9904_resil_mods<- data.frame()
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(log(resilience) ~ value + (1|Provenance)+ (1|BLK), data=RR9904_clim_long %>% filter(name==provenance_climvars[i]))
+pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
+Mr2 <- r2(mod)$R2_marginal
+
+mod_nog <- lmer(log(resilience) ~ value + (1|Provenance)+ (1|BLK), data=RR9904_clim_long_nog %>% filter(name==provenance_climvars[i]))
+pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|t|)`
+Mr2_nog <- r2(mod_nog)$R2_marginal
+
+RR9904_resil_mods <- bind_rows(RR9904_resil_mods, data.frame(var=provenance_climvars[i], pvalue = pvalue, Mr2=Mr2, pvalue_nog = pvalue_nog, Mr2_nog=Mr2_nog))
+}
+
+RR9904_resil_mods %>% arrange(pvalue_nog) #MCMT
+
+#quadratic
+RR9904_resil_mods_quad<- data.frame()
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(log(resilience) ~ value + I(value^2) + (1|Provenance)+ (1|BLK), data=RR9904_clim_long %>% filter(name==provenance_climvars[i]))
+pvalue<- as.data.frame(summary(mod)$coefficients)[2:3,]$`Pr(>|t|)`
+Mr2 <- r2(mod)$R2_marginal
+
+mod_nog <- lmer(log(resilience) ~ value + I(value^2) + (1|Provenance)+ (1|BLK), data=RR9904_clim_long_nog %>% filter(name==provenance_climvars[i]))
+pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2:3,]$`Pr(>|t|)`
+Mr2_nog <- r2(mod_nog)$R2_marginal
+
+RR9904_resil_mods_quad <- bind_rows(RR9904_resil_mods_quad, data.frame(var=provenance_climvars[i], pvalue = pvalue[1], pvalue2 = pvalue[2], Mr2=Mr2, pvalue_nog = pvalue_nog[1], pvalue_nog2 = pvalue_nog[2], Mr2_nog=Mr2_nog))
+}
+
+RR9904_resil_mods_quad %>% arrange(pvalue_nog2) #x
+
 ```
 
 ```{r}
 #####00-05
+RR0005_clim<-  spline_calcs_0005 %>% 
+  left_join(prov_pcapts_big) 
+
 RR0005_clim_resil <- RR0005_clim %>% 
   filter(!is.na(resilience))
 ##PCA models
@@ -6527,38 +7026,41 @@ qqmath(resil_0005mod_pc_noG)
 summary(resil_0005mod_pc_noG) #nothing significant when Gila removed
 
 # dredge(resil_0005mod_pc) ##null model is the best
-```
 
-```{r}
-#####00-04
-##PCA models
-resil_9904mod_pc <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR9904_clim)
-plot(resil_9904mod_pc)
-qqmath(resil_9904mod_pc)
-summary(resil_9904mod_pc) 
+RR0005_clim_resil_long<- RR0005_clim_resil %>% pivot_longer(all_of(provenance_climvars))
+RR0005_clim_resil_long_nog <- RR0005_clim_long %>% filter(!Provenance=="Gila NF")
 
-resil_9904mod_pc_noG <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR9904_clim %>% filter(!Provenance=="Gila NF"))
-plot(resil_9904mod_pc_noG)
-qqmath(resil_9904mod_pc_noG)
-summary(resil_9904mod_pc_noG) #nothing significant when Gila removed
+RR0005_resil_mods<- data.frame()
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(log(resilience) ~ value + (1|Provenance)+ (1|BLK), data=RR0005_clim_resil_long %>% filter(name==provenance_climvars[i]))
+pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
+Mr2 <- r2(mod)$R2_marginal
 
-# dredge(resil_9904mod_pc) ##null model is the best
-```
+mod_nog <- lmer(log(resilience) ~ value + (1|Provenance)+ (1|BLK), data=RR0005_clim_resil_long_nog %>% filter(name==provenance_climvars[i]))
+pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|t|)`
+Mr2_nog <- r2(mod_nog)$R2_marginal
 
-```{r}
-#####1 year
-##PCA models
-resil_1mod_pc <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR1_clim)
-plot(resil_1mod_pc)
-qqmath(resil_1mod_pc)
-summary(resil_1mod_pc) 
+RR0005_resil_mods <- bind_rows(RR0005_resil_mods, data.frame(var=provenance_climvars[i], pvalue = pvalue, Mr2=Mr2, pvalue_nog = pvalue_nog, Mr2_nog=Mr2_nog))
+}
 
-resil_1mod_pc_noG <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR1_clim %>% filter(!Provenance=="Gila NF"))
-plot(resil_1mod_pc_noG)
-qqmath(resil_1mod_pc_noG)
-summary(resil_1mod_pc_noG) #nothing significant 
+RR0005_resil_mods %>% arrange(pvalue_nog) #MCMT, Tavewt
 
-# dredge(resil_1mod_pc) ##null model is the best
+#quadratic
+RR0005_resil_mods_quad<- data.frame()
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(log(resilience) ~ value + I(value^2) + (1|Provenance)+ (1|BLK), data=RR0005_clim_resil_long %>% filter(name==provenance_climvars[i]))
+pvalue<- as.data.frame(summary(mod)$coefficients)[2:3,]$`Pr(>|t|)`
+Mr2 <- r2(mod)$R2_marginal
+
+mod_nog <- lmer(log(resilience) ~ value + I(value^2) + (1|Provenance)+ (1|BLK), data=RR0005_clim_resil_long_nog %>% filter(name==provenance_climvars[i]))
+pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2:3,]$`Pr(>|t|)`
+Mr2_nog <- r2(mod_nog)$R2_marginal
+
+RR0005_resil_mods_quad <- bind_rows(RR0005_resil_mods_quad, data.frame(var=provenance_climvars[i], pvalue = pvalue[1], pvalue2 = pvalue[2], Mr2=Mr2, pvalue_nog = pvalue_nog[1], pvalue_nog2 = pvalue_nog[2], Mr2_nog=Mr2_nog))
+}
+
+RR0005_resil_mods_quad %>% arrange(pvalue_nog2) #MCMT
+
 ```
 
 ```{r}
@@ -6593,24 +7095,6 @@ summary(resil_5mod_pc_noG) #nothing significant
 # dredge(resil_5mod_pc) ##null model is the best
 ```
 
-```{r}
-#####7 year
-RR7_clim_resil <- RR7_clim %>% 
-  filter(!is.na(resilience))
-##PCA models
-resil_7mod_pc <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR7_clim_resil)
-plot(resil_7mod_pc)
-qqmath(resil_7mod_pc)
-summary(resil_7mod_pc) 
-
-resil_7mod_pc_noG <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR7_clim_resil %>% filter(!Provenance=="Gila NF"))
-plot(resil_7mod_pc_noG)
-qqmath(resil_7mod_pc_noG)
-summary(resil_7mod_pc_noG) #nothing significant 
-
-# dredge(resil_7mod_pc) ##null model is the best
-```
-
 ###Other Metrics
 
 ####long pre-drought
@@ -6627,12 +7111,18 @@ predrought_new<- growth.detrended.df %>%
   group_by(tree) %>% 
   summarise(predrought_ave= mean(rw_spline, na.rm=T))
 
+postdrought_new<- growth.detrended.df %>% 
+  filter(year > 2002) %>% 
+  group_by(tree) %>% 
+  summarise(postdrought_ave= mean(rw_spline, na.rm=T))
+
 #resistance
-new_calcs <- left_join(drought_new,predrought_new) %>% 
-  mutate(resistance = drought_ave/predrought_ave) %>% 
+new_calcs <- left_join(drought_new,predrought_new) %>% left_join(postdrought_new) %>% 
+  mutate(resistance = drought_ave/predrought_ave, resilience = postdrought_ave/predrought_ave) %>% 
   left_join(dbh_age %>% mutate(tree=paste0("X",tree)) %>% dplyr::select(tree,Provenance,BLK) %>% unique(), by="tree")
 
 mean(new_calcs$resistance)
+mean(new_calcs$resilience)
 
 new_aov_resist <- lmer(resistance ~ Provenance + (1|BLK), data=new_calcs)
 plot(new_aov_resist)
@@ -6645,27 +7135,90 @@ ggplot(new_calcs, aes(x=Provenance, y=resistance))+
   geom_hline(yintercept=1, col="red")+
   theme(axis.text.x = element_text(angle=45, hjust=1))
 
-##drought year = 2003
-drought03_new<- growth.detrended.df %>% 
-  filter(year == 2003) %>% 
-  group_by(tree) %>% 
-  summarise(drought_ave= mean(rw_spline))
+R8502_clim <- new_calcs %>% 
+  left_join(prov_pcapts_big)
 
-predrought03_new<- growth.detrended.df %>% 
-  filter(year > 1984 & year <2003) %>% 
-  group_by(tree) %>% 
-  summarise(predrought_ave= mean(rw_spline, na.rm=T))
+R8502_clim_long<- R8502_clim %>% 
+  pivot_longer(all_of(provenance_climvars))
+R8502_clim_long_nog <- R8502_clim_long %>% filter(!Provenance=="Gila NF")
 
-#resistance
-new_calcs03 <- left_join(drought03_new,predrought03_new) %>% 
-  mutate(resistance = drought_ave/predrought_ave) %>% 
-  left_join(dbh_age %>% mutate(tree=paste0("X",tree)) %>% dplyr::select(BLK,tree,Provenance) %>% unique(), by="tree")
+R8502_resis_mods<- data.frame()
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(log(resistance) ~ value + (1|Provenance)+ (1|BLK), data=R8502_clim_long %>% filter(name==provenance_climvars[i]))
+pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
+Mr2 <- r2(mod)$R2_marginal
 
-new_aov_resist03 <- lmer(resistance ~ Provenance + (1|BLK), data=new_calcs03)
-plot(new_aov_resist03)
-qqmath(new_aov_resist03)
-anova(new_aov_resist03) #no difference in resistance in 2003 when compared to average growth 1985-2002
+mod_nog <- lmer(log(resistance) ~ value + (1|Provenance)+ (1|BLK), data=R8502_clim_long_nog %>% filter(name==provenance_climvars[i]))
+pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|t|)`
+Mr2_nog <- r2(mod_nog)$R2_marginal
+
+R8502_resis_mods <- bind_rows(R8502_resis_mods, data.frame(var=provenance_climvars[i], pvalue = pvalue, Mr2=Mr2, pvalue_nog = pvalue_nog, Mr2_nog=Mr2_nog))
+}
+
+R8502_resis_mods %>% arrange(pvalue_nog) #nothing significant
+
+resis_pc_mod <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance)+ (1|BLK), data=R8502_clim)
+plot(resis_pc_mod)
+qqmath(resis_pc_mod)
+summary(resis_pc_mod)
+
+R8502_clim_nog <- R8502_clim %>% filter(!Provenance=="Gila NF")
+
+resis_pc_mod_nog <- lmer(log(resistance) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance)+ (1|BLK), data=R8502_clim_nog)
+plot(resis_pc_mod_nog)
+qqmath(resis_pc_mod_nog)
+summary(resis_pc_mod_nog)
+
+dredge(resis_pc_mod_nog) #null is best
+
+
+####resilience
+
+new_aov_resil <- lmer(resilience ~ Provenance + (1|BLK), data=new_calcs)
+plot(new_aov_resil)
+qqmath(new_aov_resil)
+anova(new_aov_resil) #significant difference in resilience when compared to average growth 1985-2002
+cld(lsmeans(new_aov_resil, ~Provenance),
+          alpha=0.05,
+          Letters=letters) #just Gila is different
+
+ggplot(new_calcs, aes(x=Provenance, y=resilience))+
+  geom_boxplot()+
+  geom_point()+
+  geom_hline(yintercept=1, col="red")+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
+R8502_resil_mods<- data.frame()
+for(i in 1:length(provenance_climvars)){
+mod <- lmer(log(resilience) ~ value + (1|Provenance)+ (1|BLK), data=R8502_clim_long %>% filter(name==provenance_climvars[i]))
+pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
+Mr2 <- r2(mod)$R2_marginal
+
+mod_nog <- lmer(log(resilience) ~ value + (1|Provenance)+ (1|BLK), data=R8502_clim_long_nog %>% filter(name==provenance_climvars[i]))
+pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|t|)`
+Mr2_nog <- r2(mod_nog)$R2_marginal
+
+R8502_resil_mods <- bind_rows(R8502_resil_mods, data.frame(var=provenance_climvars[i], pvalue = pvalue, Mr2=Mr2, pvalue_nog = pvalue_nog, Mr2_nog=Mr2_nog))
+}
+
+R8502_resil_mods %>% arrange(pvalue_nog) #nothing significant
+
+resil_pc_mod <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance)+ (1|BLK), data=R8502_clim)
+plot(resil_pc_mod)
+qqmath(resil_pc_mod)
+summary(resil_pc_mod)
+
+R8502_clim_nog <- R8502_clim %>% filter(!Provenance=="Gila NF")
+
+resil_pc_mod_nog <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance)+ (1|BLK), data=R8502_clim_nog)
+plot(resil_pc_mod_nog)
+qqmath(resil_pc_mod_nog)
+summary(resil_pc_mod_nog)
+
+dredge(resil_pc_mod_nog) #null is best
+
 ```
+
 
 ####recovery time
 ```{r}
