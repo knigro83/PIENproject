@@ -3287,7 +3287,7 @@ summary(gila_htgrowth_mod) #positive trend over time in  growth for Gila
 ####ANOVA
 ```{r}
 hg <- lmer(value ~ Provenance*name + (1|BLK), data=ht_growth_data)
-anova(relhg)
+anova(hg)
 
 ###differences between provenances in height increment each year
 ##1979
@@ -3921,6 +3921,33 @@ relht_mods %>%
   filter(pvalue_nog<0.05 & pvalue < 0.05) %>% 
   arrange(desc(Mr2_nog))
 
+######
+relht_sigvars <-relht_mods %>% filter(pvalue_nog<0.05) %>% pull(var)
+# relht_mods_coeffs<- data.frame()
+# relht_mods_coeffs_nog <- data.frame()
+# for(i in 1:length(relht_sigvars)){
+# mod <- lmer(relht ~ value + (1|Provenance) +  (1|BLK) + (1|year), data=ht_growth_rel_clim_long %>% filter(name==relht_sigvars[i]))
+# pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
+# estimate <- as.data.frame(summary(mod)$coefficients)[2,]$Estimate
+# lwr <- confint(mod)[6,1]
+# upr <- confint(mod)[6,2]
+# 
+# mod_nog <- lmer(relht ~ value + (1|Provenance) + (1|BLK) + (1|year), data=ht_growth_rel_clim_long_nog %>% filter(name==relht_sigvars[i]))
+# pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|t|)`
+# estimate_nog <- as.data.frame(summary(mod_nog)$coefficients)[2,]$Estimate
+# lwr_nog <- confint(mod_nog)[6,1]
+# upr_nog <- confint(mod_nog)[6,2]
+# 
+# relht_mods_coeffs <- bind_rows(relht_mods_coeffs, data.frame(var=relht_sigvars[i], p.value = p.value, estimate = estimate, lwr = lwr, upr = upr, model = "with Gila NF"))
+# relht_mods_coeffs_nog <- bind_rows(relht_mods_coeffs_nog, data.frame(var=relht_sigvars[i],  p.value = p.value_nog, estimate = estimate_nog, lwr = lwr_nog, upr = upr_nog, model="without Gila NF"))
+# }
+# 
+# relht_mods_coeffs_all<- bind_rows(relht_mods_coeffs, relht_mods_coeffs_nog)
+# saveRDS(relht_mods_coeffs_all, "relht_mods_coeffs_all.RDS")
+relht_mods_coeffs_all <- readRDS("relht_mods_coeffs_all.RDS")
+
+######
+
 #####FFP
 summary(lmer(relht ~ value + (1|Provenance)+ (1|BLK) + (1|year), data=ht_growth_rel_clim_long %>% filter(name=="FFP")))
 summary(lmer(relht ~ value + (1|Provenance)+ (1|BLK) + (1|year), data=ht_growth_rel_clim_long %>% filter(name=="FFP") %>% filter(!Provenance=="Gila NF") %>% filter(!Provenance=="Wenatchee NF")))
@@ -4116,7 +4143,7 @@ mod <- lmer(relht ~ diff_plant + (1|Provenance)+ (1|BLK) + (1|year), data=relht_
 pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
 Mr2 <- r2(mod)$R2_marginal
 
-mod_nog <- lmer(relht ~ diff_plant + (1|Provenance)+ (1|BLK) + (1|year), data=relht_clim_long_transfer_nog %>% filter(name==provenance_climvars[i]) %>% filter(!Provenance=="Gila NF"))
+mod_nog <- lmer(relht ~ diff_plant + (1|Provenance)+ (1|BLK) + (1|year), data=relht_clim_long_transfer_nog %>% filter(name==provenance_climvars[i]))
 pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|t|)`
 Mr2_nog <- r2(mod_nog)$R2_marginal
 
@@ -4124,8 +4151,47 @@ relht_mods_transfer <- bind_rows(relht_mods_transfer, data.frame(var=provenance_
 
 }
 
+summary(lmer(relht ~ diff_plant + (1|Provenance)+ (1|BLK) + (1|year), data=relht_clim_long_transfer %>% filter(name=="TD")))
+
 relht_mods_transfer %>% arrange(pvalue_nog) #lots significant both with and without Gila
 relht_mods_transfer %>% filter(pvalue_nog<0.05) %>% arrange(Mr2_nog) #lots significant both with and without Gila
+
+
+###create data frame with coefficients of the significant models
+relht_transfer_sigvars <-relht_mods_transfer %>% filter(pvalue_nog<0.05) %>% pull(var)
+relht_mods_transfer_coeffs<- data.frame()
+relht_mods_transfer_coeffs_nog <- data.frame()
+for(i in 1:length(relht_transfer_sigvars)){
+mod <- lmer(relht ~ diff_plant + (1|Provenance) +  (1|BLK) + (1|year), data=relht_clim_long_transfer %>% filter(name==relht_transfer_sigvars[i]))
+pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
+estimate <- as.data.frame(summary(mod)$coefficients)[2,]$Estimate
+lwr <- confint(mod)[6,1]
+upr <- confint(mod)[6,2]
+
+mod_nog <- lmer(relht ~ diff_plant + (1|Provenance) + (1|BLK) + (1|year), data=relht_clim_long_transfer_nog %>% filter(name==relht_transfer_sigvars[i]))
+pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|t|)`
+estimate_nog <- as.data.frame(summary(mod_nog)$coefficients)[2,]$Estimate
+lwr_nog <- confint(mod_nog)[6,1]
+upr_nog <- confint(mod_nog)[6,2]
+
+relht_mods_transfer_coeffs <- bind_rows(relht_mods_transfer_coeffs, data.frame(var=relht_transfer_sigvars[i], p.value = p.value, estimate = estimate, lwr = lwr, upr = upr, model = "with Gila NF"))
+relht_mods_transfer_coeffs_nog <- bind_rows(relht_mods_transfer_coeffs_nog, data.frame(var=relht_transfer_sigvars[i],  p.value = p.value_nog, estimate = estimate_nog, lwr = lwr_nog, upr = upr_nog, model="without Gila NF"))
+}
+
+relht_mods_transfer_coeffs_all<- bind_rows(relht_mods_transfer_coeffs, relht_mods_transfer_coeffs_nog)
+saveRDS(relht_mods_transfer_coeffs_all, "relht_mods_transfer_coeffs_all.RDS")
+relht_mods_transfer_coeffs_all <- readRDS("relht_mods_transfer_coeffs_all.RDS")
+
+relht_transfer_coef_plot <- ggplot(relht_mods_transfer_coeffs_all %>% filter(!var=="monsoonality"), aes(y = factor(var), x=estimate, color=model))+
+  ylab("")+
+  geom_errorbar(aes(xmin=lwr, xmax=upr), linewidth=1, width=0.5, alpha=0.5,position = position_dodge(width=1))+
+  geom_point(size=3, alpha=0.5, position = position_dodge(width=1))+
+  geom_vline(xintercept=0, linewidth=1)+
+  theme_bw()+
+  ggtitle("Relative Height Growth - Transfer Distance")
+
+ggarrange(relht_provclim_coef_plot, relht_transfer_coef_plot, ncol=2, common.legend = TRUE)
+######
 
 #MWMT
 ggplot(data = relht_clim_long_transfer_nog %>% filter(name=="MWMT"), aes(x=diff_plant, y=relht))+
@@ -5468,6 +5534,42 @@ surv_mods_2014 %>%
   filter(pvalue_nog<0.05) %>% 
   arrange(desc(Mr2_nog))
 
+###
+
+###create data frame with coefficients of the significant models
+surv2014_sigvars <-surv_mods_2014 %>% filter(pvalue_nog<0.05) %>% pull(var)
+surv_mods_2014_coeffs<- data.frame()
+surv_mods_2014_coeffs_nog <- data.frame()
+for(i in 1:length(surv2014_sigvars)){
+mod <- glmmTMB(cbind(alive,died) ~ climvar.value + (1|Provenance) +  (1|BLK), data=moniger_survival2014_long %>% filter(climvar.name==surv2014_sigvars[i]), family=binomial)
+p.value<- summary(mod)$coefficients$cond[2,]["Pr(>|z|)"]
+estimate <- confint(mod)[2,3]
+lwr <- confint(mod)[2,1]
+upr <- confint(mod)[2,2]
+
+mod_nog <- glmmTMB(cbind(alive,died) ~ climvar.value + (1|Provenance) + (1|BLK), data=moniger_survival2014_long %>% filter(!Provenance=="Gila NF") %>% filter(climvar.name==surv2014_sigvars[i]), family=binomial)
+p.value_nog<- summary(mod_nog)$coefficients$cond[2,]["Pr(>|z|)"]
+estimate_nog <- confint(mod_nog)[2,3]
+lwr_nog <- confint(mod_nog)[2,1]
+upr_nog <- confint(mod_nog)[2,2]
+
+surv_mods_2014_coeffs <- bind_rows(surv_mods_2014_coeffs, data.frame(var=surv2014_sigvars[i], p.value = p.value, estimate = estimate, lwr = lwr, upr = upr, model = "with Gila NF"))
+surv_mods_2014_coeffs_nog <- bind_rows(surv_mods_2014_coeffs_nog, data.frame(var=surv2014_sigvars[i],  p.value = p.value_nog, estimate = estimate_nog, lwr = lwr_nog, upr = upr_nog, model="without Gila NF"))
+}
+
+surv_mods_2014_coeffs_all<- bind_rows(surv_mods_2014_coeffs, surv_mods_2014_coeffs_nog)
+
+ggplot(surv_mods_2014_coeffs_all, aes(y = factor(var), x=estimate, color=model))+
+  ylab("")+
+  geom_errorbar(aes(xmin=lwr, xmax=upr), linewidth=1, width=0.5, alpha=0.5,position = position_dodge(width=1))+
+  geom_point(size=3, alpha=0.5, position = position_dodge(width=1))+
+  geom_vline(xintercept=0, linewidth=1)+
+  theme_bw()+
+  ggtitle("2014 Survival - Provenance Climate")
+
+###
+
+
 #FFP
 surv_FFP_mod2014 <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + (1|Provenance)+ (1|BLK), data=moniger_survival2014_long %>% filter(climvar.name=="FFP"), family="binomial")
 summary(surv_FFP_mod2014)
@@ -5660,6 +5762,40 @@ surv2014_mods_quad <- bind_rows(surv2014_mods_quad, data.frame(var=provenance_cl
 
 surv2014_mods_quad %>% arrange(pvalue2_nog) ##Eref and CMD are significant both with and without Gila, but they are positively correlated so I will just use Eref since it has a larger r2. Also MCMT
 
+###create data frame with coefficients of the significant models
+surv2014_quad_sigvars <-surv2014_mods_quad %>% filter(pvalue2_nog<0.05) %>% pull(var)
+
+surv_quadmods_2014_coeffs<- data.frame()
+surv_quadmods_2014_coeffs_nog <- data.frame()
+for(i in 1:length(surv2014_quad_sigvars)){
+mod <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance) + (1|BLK) , data=moniger_survival2014_long %>% filter(climvar.name==surv2014_quad_sigvars[i]), family="binomial")
+pvalues<- as.data.frame(summary(mod)$coefficients$cond)[2:3,]$`Pr(>|z|)`
+estimate <- confint(mod)[3,3]
+lwr <- confint(mod)[3,1]
+upr <- confint(mod)[3,2]
+
+mod_nog <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance) + (1|BLK), data=moniger_survival2014_long %>% filter(climvar.name==surv2014_quad_sigvars[i]) %>% filter(!Provenance=="Gila NF"), family="binomial")
+pvalues_nog<- as.data.frame(summary(mod_nog)$coefficients$cond)[2:3,]$`Pr(>|z|)`
+estimate_nog <- confint(mod_nog)[3,3]
+lwr_nog <- confint(mod_nog)[3,1]
+upr_nog <- confint(mod_nog)[3,2]
+
+surv_quadmods_2014_coeffs <- bind_rows(surv_quadmods_2014_coeffs, data.frame(var=paste0(surv2014_quad_sigvars[i],"^2"), p.value1 = pvalues[1], p.value2 = pvalues[2], estimate = estimate, lwr = lwr, upr = upr, model = "with Gila NF"))
+surv_quadmods_2014_coeffs_nog <- bind_rows(surv_quadmods_2014_coeffs_nog, data.frame(var=paste0(surv2014_quad_sigvars[i],"^2"), p.value1 = pvalues_nog[1], p.value2 = pvalues_nog[2], estimate = estimate_nog, lwr = lwr_nog, upr = upr_nog, model="without Gila NF"))
+}
+
+surv_mods_2014_coeffs_all<- bind_rows(surv_mods_2014_coeffs, surv_mods_2014_coeffs_nog,surv_quadmods_2014_coeffs,surv_quadmods_2014_coeffs_nog)
+
+surv2014_provclim_coef_plot <- ggplot(surv_mods_2014_coeffs_all, aes(y = factor(var), x=estimate, color=model))+
+  ylab("")+
+  geom_errorbar(aes(xmin=lwr, xmax=upr), linewidth=1, width=0.5, alpha=0.5,position = position_dodge(width=1))+
+  geom_point(size=3, alpha=0.5, position = position_dodge(width=1))+
+  geom_vline(xintercept=0, linewidth=1)+
+  theme_bw()+
+  ggtitle("2014 Survival - Provenance Climate")
+
+
+
 ##Eref
 surv2014_eref_mod <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance) + (1|BLK), data=moniger_survival2014_long %>% filter(climvar.name=="Eref"), family="binomial")
 summary(surv2014_eref_mod)
@@ -5782,6 +5918,39 @@ surv2014_mods_transfer <- bind_rows(surv2014_mods_transfer, data.frame(var=prove
 surv2014_mods_transfer %>% arrange(p.value_nog) #Eref, RH, y, bFFP, CMD (all same as other survival metric) + FFP, eFFP
 surv2014_mods_transfer %>% filter(p.value_nog<0.05) %>% arrange(Mr2_nog) 
 
+###create data frame with coefficients of the significant models
+surv2014_transfer_sigvars <-surv2014_mods_transfer %>% filter(p.value_nog<0.05) %>% pull(var)
+surv2014_mods_transfer_coeffs<- data.frame()
+surv2014_mods_transfer_coeffs_nog <- data.frame()
+for(i in 1:length(surv2014_transfer_sigvars)){
+mod <- glmmTMB(cbind(alive,died) ~ diff_plant + (1|Provenance) +  (1|BLK), data=surv2014_clim_long_transfer %>% filter(climvar.name==surv2014_transfer_sigvars[i]), family=binomial)
+p.value<- summary(mod)$coefficients$cond[2,]["Pr(>|z|)"]
+estimate <- confint(mod)[2,3]
+lwr <- confint(mod)[2,1]
+upr <- confint(mod)[2,2]
+
+mod_nog <- glmmTMB(cbind(alive,died) ~ diff_plant + (1|Provenance) + (1|BLK), data=surv2014_clim_long_transfer_nog %>% filter(climvar.name==surv2014_transfer_sigvars[i]), family=binomial)
+p.value_nog<- summary(mod_nog)$coefficients$cond[2,]["Pr(>|z|)"]
+estimate_nog <- confint(mod_nog)[2,3]
+lwr_nog <- confint(mod_nog)[2,1]
+upr_nog <- confint(mod_nog)[2,2]
+
+surv2014_mods_transfer_coeffs <- bind_rows(surv2014_mods_transfer_coeffs, data.frame(var=surv2014_transfer_sigvars[i], p.value = p.value, estimate = estimate, lwr = lwr, upr = upr, model = "with Gila NF"))
+surv2014_mods_transfer_coeffs_nog <- bind_rows(surv2014_mods_transfer_coeffs_nog, data.frame(var=surv2014_transfer_sigvars[i],  p.value = p.value_nog, estimate = estimate_nog, lwr = lwr_nog, upr = upr_nog, model="without Gila NF"))
+}
+
+surv2014_mods_transfer_coeffs_all<- bind_rows(surv2014_mods_transfer_coeffs, surv2014_mods_transfer_coeffs_nog)
+
+surv2014_transfer_coef_plot <- ggplot(surv2014_mods_transfer_coeffs_all, aes(y = factor(var), x=estimate, color=model))+
+  ylab("")+
+  geom_errorbar(aes(xmin=lwr, xmax=upr), linewidth=1, width=0.5, alpha=0.5,position = position_dodge(width=1))+
+  geom_point(size=3, alpha=0.5, position = position_dodge(width=1))+
+  geom_vline(xintercept=0, linewidth=1)+
+  theme_bw()+
+  ggtitle("2014 Survival - Transfer Distance")
+
+ggarrange(surv2014_provclim_coef_plot, surv2014_transfer_coef_plot, ncol=2, common.legend = TRUE)
+
 #Eref
 surv2014_Eref_mod_nog <- glmmTMB(cbind(alive,died) ~ diff_plant + (1|Provenance)+(1|BLK), data=surv2014_clim_long_transfer_nog %>% filter(climvar.name=="Eref"), family=binomial)
 summary(surv2014_Eref_mod_nog) #provenances with Eref more similar to plantation had higher survival
@@ -5838,6 +6007,15 @@ plot(ggpredict(surv2014_y_mod_nog, terms = "diff_plant"))+
   xlab("Latitude difference from plantation")+
   ylab("Survival Probability")+ggtitle("Latitude")
 
+#DD5
+surv2014_DD5_mod_nog <- glmmTMB(cbind(alive,died) ~ diff_plant + (1|Provenance)+(1|BLK), data=surv2014_clim_long_transfer_nog %>% filter(climvar.name=="DD5"), family=binomial)
+#MWMT
+surv2014_MWMT_mod_nog <- glmmTMB(cbind(alive,died) ~ diff_plant + (1|Provenance)+(1|BLK), data=surv2014_clim_long_transfer_nog %>% filter(climvar.name=="MWMT"), family=binomial)
+#Tavesm
+surv2014_Tavesm_mod_nog <- glmmTMB(cbind(alive,died) ~ diff_plant + (1|Provenance)+(1|BLK), data=surv2014_clim_long_transfer_nog %>% filter(climvar.name=="Tavesm"), family=binomial)
+#NFFD
+surv2014_NFFD_mod_nog <- glmmTMB(cbind(alive,died) ~ diff_plant + (1|Provenance)+(1|BLK), data=surv2014_clim_long_transfer_nog %>% filter(climvar.name=="NFFD"), family=binomial)
+
 ##distance in 2d climate space
 
 surv2014_climdist_df <- surv2014_clim_long_transfer %>% 
@@ -5848,6 +6026,29 @@ surv2014_climdist_df <- surv2014_clim_long_transfer %>%
   
 surv2014_climdist_mod <- glmmTMB(cbind(alive,died) ~ dist_2d + (1|Provenance) + (1|BLK), data=surv2014_climdist_df, family=binomial)
 summary(surv2014_climdist_mod) # not significant 
+confint(surv2014_climdist_mod)
+surv2014_climdist_mod_nog <- glmmTMB(cbind(alive,died) ~ dist_2d + (1|Provenance) + (1|BLK), data=surv2014_climdist_df %>% filter(!Provenance=="Gila NF"), family=binomial)
+summary(surv2014_climdist_mod_nog) #not significant
+
+
+###final figure
+
+surv2014_allmods<- bind_rows(surv2014_mods_transfer_coeffs_all %>% 
+  mutate(type = "transfer distance"),
+surv_mods_2014_coeffs_all %>% 
+  mutate(type = "provenance climate")) %>% 
+  bind_rows(data.frame(var = "2D PCA", estimate = confint(surv2014_climdist_mod)[2,3], lwr = confint(surv2014_climdist_mod)[2,1], upr = confint(surv2014_climdist_mod)[2,2], model="with Gila NF", type="transfer distance")) %>% 
+  bind_rows(data.frame(var = "2D PCA", estimate = confint(surv2014_climdist_mod_nog)[2,3], lwr = confint(surv2014_climdist_mod_nog)[2,1], upr = confint(surv2014_climdist_mod_nog)[2,2], model="without Gila NF", type="transfer distance"))
+
+ggplot(surv2014_allmods, aes(y = factor(var), x=estimate, color=model))+
+  ylab("")+
+  geom_errorbar(aes(xmin=lwr, xmax=upr), linewidth=1, width=0.5, alpha=0.8,position = position_dodge(width=1))+
+  geom_point(size=3, alpha=0.8, position = position_dodge(width=1))+
+  scale_color_manual(values=c("darkgrey","black"))+
+  geom_vline(xintercept=0, linewidth=1)+
+  theme_bw()+
+  facet_wrap(~type, scales="free_x")+
+  ggtitle("2014 Survival")
 
 ```
 
@@ -7028,7 +7229,7 @@ summary(resil_0005mod_pc_noG) #nothing significant when Gila removed
 # dredge(resil_0005mod_pc) ##null model is the best
 
 RR0005_clim_resil_long<- RR0005_clim_resil %>% pivot_longer(all_of(provenance_climvars))
-RR0005_clim_resil_long_nog <- RR0005_clim_long %>% filter(!Provenance=="Gila NF")
+RR0005_clim_resil_long_nog <- RR0005_clim_resil_long %>% filter(!Provenance=="Gila NF")
 
 RR0005_resil_mods<- data.frame()
 for(i in 1:length(provenance_climvars)){
@@ -7081,6 +7282,9 @@ summary(resil_3mod_pc_noG) #nothing significant
 
 ```{r}
 #####5 year
+RR5_clim <- spline_calcs_list[[3]] %>% 
+  left_join(prov_pcapts_big)
+
 ##PCA models
 resil_5mod_pc <- lmer(log(resilience) ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK), data=RR5_clim)
 plot(resil_5mod_pc)
