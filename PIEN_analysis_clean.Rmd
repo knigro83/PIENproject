@@ -898,9 +898,10 @@ dplyr::select(c(CN:vpdmax_sp, FDSI, aet_sum, cwd_sum, cwd_wy, spei_sum)) %>%
 
 ggplot(plantation_clim_long %>% filter(name %in% c("PPTsp","PPTsm","PPT_at","ppt_wt","value_sp_tmean","value_sm_tmean","value_fa_tmean","value_wt_tmean","value_sp_tmin","value_sm_tmin","value_fa_tmin","value_wt_tmin","value_sp_tmax","value_sm_tmax","value_fa_tmax","value_wt_tmax")), aes(x=year, y=value, col=type))+
   scale_color_manual(values=c("skyblue4","firebrick"))+
-  geom_line(aes(lty=factor(statistic, levels=c("mean","max","min","sum"))))+
-  scale_linetype(name="Statistic")+
-  geom_smooth(method="lm", aes(lty=factor(statistic, levels=c("mean","max","min","sum"))))+
+  ggnewscale::new_scale_color()+
+    geom_line(aes(color=factor(statistic, levels=c("sum","max","mean","min"))))+
+  geom_smooth(method="lm", aes(color=factor(statistic, levels=c("sum","max","mean","min"))))+
+  scale_color_manual(values = c("skyblue4","#6B1717","firebrick","#E79191"), name="Statistic")+
   facet_wrap(type~factor(season,levels=c("Spring","Summer","Fall","Winter")), scales="free", nrow=2)+
   theme_bw()+
   theme(axis.text=element_text(angle=45, hjust=1))
@@ -1338,7 +1339,7 @@ fviz_pca_var(clim_pca_big, col.var = "contrib",
              )
 head(var$contrib, 3)
 corrplot(var$contrib, is.corr=FALSE) 
-contrib.plot<- ggarrange(fviz_contrib(clim_pca_big, choice="var", axes=1, fill="wheat3", color="wheat3", title="PC1"),fviz_contrib(clim_pca_big, choice="var", axes=2,fill="wheat3", color="wheat3", title="PC2"), nrow=1)
+contrib.plot<- ggarrange(fviz_contrib(clim_pca_big, choice="var", axes=1, fill="wheat3", color="wheat3", title="PC1",xtickslab.rt = 90),fviz_contrib(clim_pca_big, choice="var", axes=2,fill="wheat3", color="wheat3", title="PC2", xtickslab.rt = 90), nrow=1)
 
 contrib.plot
 
@@ -1481,7 +1482,7 @@ map <- ggplot()+
  map
 # dev.off()
 
-png("figures/map_and_bigpca_bluewhite.png", width=8.2, height=6.5, res=300, units = "in")
+png("figures/map_and_bigpca_bluewhite.png", width=8.3, height=6.5, res=300, units = "in")
 ggarrange(map,ggarrange(pc1_pc2_niche_plot, contrib.plot, nrow=2, ncol=1, labels=c("B)","C)")), labels=c("A)",""), ncol=2, nrow=1)
 dev.off()
 ```
@@ -1879,20 +1880,36 @@ r2(lat_dbh_mod_nog)
 
 lat_dbh_mod_nog_lm <- lm(DBH ~ value + I(value^2), data=dbh_numeric_time_long %>% filter(!Provenance == "Gila NF") %>% filter(name=="y"))
 
-newdata_lat_dbh <-  expand.grid(value=seq(dbh_numeric_time_long %>% filter(!Provenance == "Gila NF") %>% filter(name=="y") %>% pull(value) %>% min(), dbh_numeric_time_long %>% filter(!Provenance == "Gila NF") %>% filter(name=="y") %>% pull(value) %>% max(),1))
-lat_dbh_predict <- predict(lat_dbh_mod_nog_lm, newdata = newdata_lat_dbh, interval="confidence")
+newdata_lat_dbh_nog <-  expand.grid(value=seq(dbh_numeric_time_long %>% filter(!Provenance == "Gila NF") %>% filter(name=="y") %>% pull(value) %>% min(), dbh_numeric_time_long %>% filter(!Provenance == "Gila NF") %>% filter(name=="y") %>% pull(value) %>% max(),1))
+lat_dbh_predict_nog <- predict(lat_dbh_mod_nog_lm, newdata = newdata_lat_dbh_nog, interval="confidence")
+
+predictdata_lat_dbh_nog <- cbind(newdata_lat_dbh_nog, lat_dbh_predict_nog) %>% mutate(var="Latitude")
+
+##latitude model - with Gila
+lat_dbh_mod <- lmer(DBH ~ value + I(value^2) + (1|Provenance) + (1|BLK) + (1|year), data=dbh_numeric_time_long %>% filter(name=="y"))
+plot(lat_dbh_mod)
+qqmath(lat_dbh_mod)
+summary(lat_dbh_mod)
+
+lat_dbh_mod_lm <- lm(DBH ~ value + I(value^2), data=dbh_numeric_time_long %>% filter(name=="y"))
+
+newdata_lat_dbh <-  expand.grid(value=seq(dbh_numeric_time_long %>% filter(name=="y") %>% pull(value) %>% min(), dbh_numeric_time_long %>% filter(name=="y") %>% pull(value) %>% max(),1))
+lat_dbh_predict <- predict(lat_dbh_mod_lm, newdata = newdata_lat_dbh, interval="confidence")
 
 predictdata_lat_dbh <- cbind(newdata_lat_dbh, lat_dbh_predict) %>% mutate(var="Latitude")
 
+lat_dbh_predictdata_all <- bind_rows(predictdata_lat_dbh %>% mutate(model="with Gila NF", pvalue=summary(lat_dbh_mod)$coefficient[3,5]), predictdata_lat_dbh_nog %>% mutate(model="without Gila NF", pvalue=summary(lat_dbh_mod_nog)$coefficient[3,5]))
+
 ggplot()+
-  geom_ribbon(data=predictdata_lat_dbh, aes(x=value, ymin=lwr, ymax=upr), alpha=0.2)+
-  geom_line(data=predictdata_lat_dbh, aes(x=value,y=fit), color="black")+
-  geom_rug(data=dbh_numeric_time_long %>% filter(!Provenance == "Gila NF") %>% filter(name=="y") %>% mutate(fit=9), aes(x=value,y=fit), linewidth=1, col="black", sides="b")+
+  geom_ribbon(data=lat_dbh_predictdata_all, aes(x=value, ymin=lwr, ymax=upr, fill=model), alpha=0.2)+
+  geom_line(data=lat_dbh_predictdata_all, aes(x=value,y=fit, col=model))+
+  geom_rug(data=dbh_numeric_time_long %>% filter(name=="y") %>% mutate(fit=9), aes(x=value,y=fit), linewidth=1, col="black", sides="b")+
+  scale_color_manual(values=c("darkgrey","black"))+
+  scale_fill_manual(values=c("darkgrey","black"))+
   xlab("Provenance Latitude")+
   ylab("Absolute DBH")+
   facet_grid(~var)+
-  theme_bw()+
-  theme(legend.position="none")
+  theme_bw()
 
 ```
 
@@ -2173,21 +2190,37 @@ r2(lat_dbh_gr_mod_nog)
 
 lat_dbh_gr_mod_nog_lm <- lm(growth ~ value + I(value^2), data=dbh_growth_clim_long %>% filter(!Provenance == "Gila NF") %>% filter(name=="y"))
 
-newdata_lat_dbh_gr <-  expand.grid(value=seq(dbh_growth_clim_long %>% filter(!Provenance == "Gila NF") %>% filter(name=="y") %>% pull(value) %>% min(), dbh_growth_clim_long %>% filter(!Provenance == "Gila NF") %>% filter(name=="y") %>% pull(value) %>% max(),1))
-lat_dbh_gr_predict <- predict(lat_dbh_gr_mod_nog_lm, newdata = newdata_lat_dbh_gr, interval="confidence")
+newdata_lat_dbh_gr_nog <-  expand.grid(value=seq(dbh_growth_clim_long %>% filter(!Provenance == "Gila NF") %>% filter(name=="y") %>% pull(value) %>% min(), dbh_growth_clim_long %>% filter(!Provenance == "Gila NF") %>% filter(name=="y") %>% pull(value) %>% max(),1))
+lat_dbh_gr_predict_nog <- predict(lat_dbh_gr_mod_nog_lm, newdata = newdata_lat_dbh_gr_nog, interval="confidence")
+
+predictdata_lat_dbh_gr_nog <- cbind(newdata_lat_dbh_gr_nog, lat_dbh_gr_predict_nog) %>% mutate(var="Latitude")
+
+##latitude model - with Gila
+lat_dbh_gr_mod <- lmer(growth ~ value + I(value^2) + (1|Provenance) + (1|BLK) + (1|year), data=dbh_growth_clim_long  %>% filter(name=="y"))
+plot(lat_dbh_gr_mod)
+qqmath(lat_dbh_gr_mod)
+summary(lat_dbh_gr_mod)
+r2(lat_dbh_gr_mod)
+
+lat_dbh_gr_mod_lm <- lm(growth ~ value + I(value^2), data=dbh_growth_clim_long %>% filter(name=="y"))
+
+newdata_lat_dbh_gr <-  expand.grid(value=seq(dbh_growth_clim_long  %>% filter(name=="y") %>% pull(value) %>% min(), dbh_growth_clim_long %>% filter(name=="y") %>% pull(value) %>% max(),1))
+lat_dbh_gr_predict <- predict(lat_dbh_gr_mod_lm, newdata = newdata_lat_dbh_gr, interval="confidence")
 
 predictdata_lat_dbh_gr <- cbind(newdata_lat_dbh_gr, lat_dbh_gr_predict) %>% mutate(var="Latitude")
 
+predictdata_lat_dbh_gr_all <- bind_rows(predictdata_lat_dbh_gr %>% mutate(model="with Gila NF", pvalue=summary(lat_dbh_gr_mod)$coefficient[3,5]), predictdata_lat_dbh_gr_nog %>% mutate(model="without Gila NF",pvalue=summary(lat_dbh_gr_mod_nog)$coefficient[3,5]))
+
 ggplot()+
-  geom_ribbon(data=predictdata_lat_dbh_gr, aes(x=value, ymin=lwr, ymax=upr), alpha=0.2)+
-  geom_line(data=predictdata_lat_dbh_gr, aes(x=value,y=fit), color="black")+
-  geom_rug(data=dbh_growth_clim_long %>% filter(!Provenance == "Gila NF") %>% filter(name=="y") %>% mutate(fit=6), aes(x=value,y=fit), linewidth=1, col="black", sides="b")+
+  geom_ribbon(data=predictdata_lat_dbh_gr_all, aes(x=value, ymin=lwr, ymax=upr, fill=model), alpha=0.2)+
+  geom_line(data=predictdata_lat_dbh_gr_all, aes(x=value,y=fit, color=model))+
+  geom_rug(data=dbh_growth_clim_long %>% filter(name=="y") %>% mutate(fit=6), aes(x=value,y=fit), linewidth=1, col="black", sides="b")+
+  scale_color_manual(values=c("darkgrey","black"))+
+  scale_fill_manual(values=c("darkgrey","black"))+
   xlab("Provenance Latitude")+
   ylab("DBH growth rate")+
   facet_grid(~var)+
-  theme_bw()+
-  theme(legend.position="none")
-
+  theme_bw()
 ```
 
 #####transfer distance
@@ -2473,20 +2506,37 @@ r2(lat_dbh_relgrowth_mod_nog)
 
 lat_dbh_relgrowth_mod_nog_lm <- lm(relgrowth ~ value + I(value^2), data=dbh_relgrowth_clim_long %>% filter(!Provenance == "Gila NF") %>% filter(name=="y"))
 
+newdata_lat_dbh_relgrowth_nog <-  expand.grid(value=seq(dbh_relgrowth_clim_long %>% filter(!Provenance == "Gila NF") %>% filter(name=="y") %>% pull(value) %>% min(), dbh_relgrowth_clim_long %>% filter(!Provenance == "Gila NF") %>% filter(name=="y") %>% pull(value) %>% max(),1))
+lat_dbh_relgrowth_predict_nog <- predict(lat_dbh_relgrowth_mod_nog_lm, newdata = newdata_lat_dbh_relgrowth_nog, interval="confidence")
+
+predictdata_lat_dbh_relgrowth_nog <- cbind(newdata_lat_dbh_relgrowth_nog, lat_dbh_relgrowth_predict_nog) %>% mutate(var="Latitude")
+
+##latitude model - with Gila NF
+lat_dbh_relgrowth_mod <- lmer(relgrowth ~ value + I(value^2) + (1|Provenance) + (1|BLK) + (1|year), data=dbh_relgrowth_clim_long %>% filter(name=="y"))
+plot(lat_dbh_relgrowth_mod)
+qqmath(lat_dbh_relgrowth_mod)
+summary(lat_dbh_relgrowth_mod)
+r2(lat_dbh_relgrowth_mod)
+
+lat_dbh_relgrowth_mod_lm <- lm(relgrowth ~ value + I(value^2), data=dbh_relgrowth_clim_long %>% filter(name=="y"))
+
 newdata_lat_dbh_relgrowth <-  expand.grid(value=seq(dbh_relgrowth_clim_long %>% filter(!Provenance == "Gila NF") %>% filter(name=="y") %>% pull(value) %>% min(), dbh_relgrowth_clim_long %>% filter(!Provenance == "Gila NF") %>% filter(name=="y") %>% pull(value) %>% max(),1))
-lat_dbh_relgrowth_predict <- predict(lat_dbh_relgrowth_mod_nog_lm, newdata = newdata_lat_dbh_relgrowth, interval="confidence")
+lat_dbh_relgrowth_predict <- predict(lat_dbh_relgrowth_mod_lm, newdata = newdata_lat_dbh_relgrowth, interval="confidence")
 
 predictdata_lat_dbh_relgrowth <- cbind(newdata_lat_dbh_relgrowth, lat_dbh_relgrowth_predict) %>% mutate(var="Latitude")
 
+predictdata_lat_dbh_relgrowth_all <- bind_rows(predictdata_lat_dbh_relgrowth %>% mutate(model="with Gila NF", pvalue=summary(lat_dbh_relgrowth_mod)$coefficient[3,5]), predictdata_lat_dbh_relgrowth_nog %>% mutate(model="without Gila NF", pvalue=summary(lat_dbh_relgrowth_mod_nog)$coefficient[3,5]))
+
 ggplot()+
-  geom_ribbon(data=predictdata_lat_dbh_relgrowth, aes(x=value, ymin=lwr, ymax=upr), alpha=0.2)+
-  geom_line(data=predictdata_lat_dbh_relgrowth, aes(x=value,y=fit), color="black")+
-  geom_rug(data=dbh_relgrowth_clim_long %>% filter(!Provenance == "Gila NF") %>% filter(name=="y") %>% mutate(fit=6), aes(x=value,y=fit), linewidth=1, col="black", sides="b")+
+  geom_ribbon(data=predictdata_lat_dbh_relgrowth_all, aes(x=value, ymin=lwr, ymax=upr, fill=model), alpha=0.2)+
+  geom_line(data=predictdata_lat_dbh_relgrowth_all, aes(x=value,y=fit, color=model))+
+  geom_rug(data=dbh_relgrowth_clim_long %>% filter(name=="y") %>% mutate(fit=6), aes(x=value,y=fit), linewidth=1, col="black", sides="b")+
+  scale_color_manual(values=c("darkgrey","black"))+
+  scale_fill_manual(values = c("darkgrey","black"))+
   xlab("Provenance Latitude")+
   ylab("Relative DBH growth rate (%/yr)")+
   facet_grid(~var)+
-  theme_bw()+
-  theme(legend.position="none")
+  theme_bw()
 
 ```
 
@@ -2953,20 +3003,37 @@ r2(lat_ht_mod_nog)
 
 lat_ht_mod_nog_lm <- lm(log(value) ~ climvar.value + I(climvar.value^2), data=ht_data_year_clim_long_noG %>% filter(climvar.name=="y"))
 
-newdata_lat_ht <-  expand.grid(climvar.value=seq(ht_data_year_clim_long_noG %>% filter(climvar.name=="y") %>% pull(climvar.value) %>% min(), ht_data_year_clim_long_noG %>% filter(climvar.name=="y") %>% pull(climvar.value) %>% max(),1))
-lat_ht_predict <- predict(lat_ht_mod_nog_lm, newdata = newdata_lat_ht, interval="confidence")
+newdata_lat_ht_nog <-  expand.grid(climvar.value=seq(ht_data_year_clim_long_noG %>% filter(climvar.name=="y") %>% pull(climvar.value) %>% min(), ht_data_year_clim_long_noG %>% filter(climvar.name=="y") %>% pull(climvar.value) %>% max(),1))
+lat_ht_predict_nog <- predict(lat_ht_mod_nog_lm, newdata = newdata_lat_ht_nog, interval="confidence")
+
+predictdata_lat_ht_nog <- cbind(newdata_lat_ht_nog, lat_ht_predict_nog) %>% mutate(var="Latitude")
+
+##latitude model - with Gila NF
+lat_ht_mod <- lmer(log(value) ~ climvar.value + I(climvar.value^2) + (1|Provenance) + (1|BLK) + (1|year), data=ht_data_year_clim_long %>% filter(climvar.name=="y"))
+plot(lat_ht_mod)
+qqmath(lat_ht_mod)
+summary(lat_ht_mod)
+r2(lat_ht_mod)
+
+lat_ht_mod_lm <- lm(log(value) ~ climvar.value + I(climvar.value^2), data=ht_data_year_clim_long %>% filter(climvar.name=="y"))
+
+newdata_lat_ht <-  expand.grid(climvar.value=seq(ht_data_year_clim_long %>% filter(climvar.name=="y") %>% pull(climvar.value) %>% min(), ht_data_year_clim_long %>% filter(climvar.name=="y") %>% pull(climvar.value) %>% max(),1))
+lat_ht_predict <- predict(lat_ht_mod_lm, newdata = newdata_lat_ht, interval="confidence")
 
 predictdata_lat_ht <- cbind(newdata_lat_ht, lat_ht_predict) %>% mutate(var="Latitude")
 
+predictdata_lat_ht_all <- bind_rows(predictdata_lat_ht_nog %>% mutate(model="without Gila NF", pvalue = summary(lat_ht_mod_nog)$coefficient[3,5]), predictdata_lat_ht %>% mutate(model="with Gila NF", pvalue = summary(lat_ht_mod)$coefficient[3,5]))
+
 ggplot()+
-  geom_ribbon(data=predictdata_lat_ht, aes(x=climvar.value, ymin=exp(lwr), ymax=exp(upr)), alpha=0.2)+
-  geom_line(data=predictdata_lat_ht, aes(x=climvar.value,y=exp(fit)), color="black")+
+  geom_ribbon(data=predictdata_lat_ht_all, aes(x=climvar.value, ymin=exp(lwr), ymax=exp(upr), fill=model), alpha=0.2)+
+  geom_line(data=predictdata_lat_ht_all, aes(x=climvar.value,y=exp(fit), color=model))+
   geom_rug(data=ht_data_year_clim_long_noG %>% filter(climvar.name=="y") %>% mutate(fit=2), aes(x=climvar.value,y=fit), linewidth=1, col="black", sides="b")+
+  scale_color_manual(values=c("darkgrey","black"))+
+  scale_fill_manual(values=c("darkgrey","black"))+
   xlab("Provenance Latitude")+
   ylab("Absolute Height")+
   facet_grid(~var)+
-  theme_bw()+
-  theme(legend.position="none")
+  theme_bw()
 
 ```
 
@@ -3170,7 +3237,7 @@ ht_mods_quad06 <- bind_rows(ht_mods_quad06, data.frame(var=provenance_climvars[i
 
 }
 
-ht_mods_quad06 %>% arrange(pvalue2_nog) 
+ht_mods_quad06 %>% arrange(pvalue2_nog) #just y
 
 ```
 
@@ -3524,8 +3591,8 @@ htgrowth_mods_quad <- bind_rows(htgrowth_mods_quad, data.frame(var=provenance_cl
 htgrowth_mods_quad %>% arrange(pvalue2_nog) #just y
 
 ##y
-summary(lmer(htgrowth ~ value + I(value^2) + (1|Provenance) + (1|BLK) + (1|year), data=ht_growth_clim_long %>% filter(name=="y")))
-summary(lmer(htgrowth ~ value + I(value^2) + (1|Provenance) + (1|BLK) + (1|year), data=ht_growth_clim_long_nog %>% filter(name=="y") %>% filter(!Provenance=="Gila NF")))
+y_htgrowth_mod <- lmer(htgrowth ~ value + I(value^2) + (1|Provenance) + (1|BLK) + (1|year), data=ht_growth_clim_long %>% filter(name=="y"))
+y_htgrowth_mod_nog <- lmer(htgrowth ~ value + I(value^2) + (1|Provenance) + (1|BLK) + (1|year), data=ht_growth_clim_long_nog %>% filter(name=="y") %>% filter(!Provenance=="Gila NF"))
 
 ####make plot 
 ##with Gila
@@ -3534,7 +3601,7 @@ y_htgrowth_mod_lm <- lm(htgrowth ~  value + I(value^2), data=ht_growth_clim_long
 newdata_y_htgrowth <-  expand.grid(value=seq(min(ht_growth_clim$y), max(ht_growth_clim$y), length.out=50))
 y_htgrowth_predict <- predict(y_htgrowth_mod_lm, newdata = newdata_y_htgrowth, interval="confidence")
 
-predictdata_y_htgrowth <- cbind(newdata_y_htgrowth, y_htgrowth_predict) %>% mutate(var="y", model="with Gila NF")
+predictdata_y_htgrowth <- cbind(newdata_y_htgrowth, y_htgrowth_predict) %>% mutate(var="y", model="with Gila NF", pvalue=summary(y_htgrowth_mod)$coefficient[3,5])
 
 ##without Gila 
 y_htgrowth_mod_lm_nog <- lm(htgrowth ~  value + I(value^2), data=ht_growth_clim_long_nog %>% filter(name=="y"))
@@ -3542,11 +3609,13 @@ y_htgrowth_mod_lm_nog <- lm(htgrowth ~  value + I(value^2), data=ht_growth_clim_
 newdata_y_htgrowth_nog <-  expand.grid(value=seq(min(ht_growth_clim_noG$y), max(ht_growth_clim_noG$y), length.out=50))
 y_htgrowth_predict_nog <- predict(y_htgrowth_mod_lm_nog, newdata = newdata_y_htgrowth_nog, interval="confidence")
 
-predictdata_y_htgrowth_nog <- cbind(newdata_y_htgrowth_nog, y_htgrowth_predict_nog) %>% mutate(var="y", model="without Gila NF")
+predictdata_y_htgrowth_nog <- cbind(newdata_y_htgrowth_nog, y_htgrowth_predict_nog) %>% mutate(var="y", model="without Gila NF", pvalue=summary(y_htgrowth_mod_nog)$coefficient[3,5])
+
+predictdata_y_htgrowth_all <- bind_rows(predictdata_y_htgrowth,predictdata_y_htgrowth_nog)
 
 ggplot()+
-  geom_ribbon(data=predictdata_y_htgrowth_nog, aes(x=value, ymin=lwr, ymax=upr, fill=model), alpha=0.2)+
-  geom_line(data=predictdata_y_htgrowth_nog, aes(x=value,y=fit, linetype=model))+
+  geom_ribbon(data=predictdata_y_htgrowth_all, aes(x=value, ymin=lwr, ymax=upr, fill=model), alpha=0.2)+
+  geom_line(data=predictdata_y_htgrowth_all, aes(x=value,y=fit, color=model))+
   geom_rug(data=ht_growth_clim_long %>% filter(name=="y") %>% mutate(fit=.2), aes(x=value,y=fit, col=factor(Provenance, levels=provs_bylat$Provenance)), linewidth=1, sides="b")+
   scale_fill_manual(values=c("black","gray"))+
   scale_linetype_manual(values=c(1,2))+
@@ -3997,8 +4066,8 @@ FFP_relht_plot <- ggplot()+
 FFP_relht_plot
 
 #####y
-summary(lmer(relht ~ value + (1|Provenance)+ (1|BLK) + (1|year), data=ht_growth_rel_clim_long %>% filter(name=="y")))
-summary(lmer(relht ~ value + (1|Provenance)+ (1|BLK) + (1|year), data=ht_growth_rel_clim_long %>% filter(name=="y") %>% filter(!Provenance=="Gila NF")))
+y_relht_mod <- lmer(relht ~ value + (1|Provenance)+ (1|BLK) + (1|year), data=ht_growth_rel_clim_long %>% filter(name=="y"))
+y_relht_mod_nog <- lmer(relht ~ value + (1|Provenance)+ (1|BLK) + (1|year), data=ht_growth_rel_clim_long %>% filter(name=="y") %>% filter(!Provenance=="Gila NF"))
 
 ####make plot 
 y_relht_mod_lm <- lm(relht ~  value, data=ht_growth_rel_clim_long %>% filter(name=="y"))
@@ -4018,8 +4087,8 @@ predictdata_y_relht_nog <- cbind(newdata_y_relht_nog, y_relht_predict_nog) %>% m
 ###
 
 predictdata_y_relht_all <- predictdata_y_relht %>% 
-  mutate(model="with Gila NF") %>% 
-  bind_rows(predictdata_y_relht_nog %>% mutate(model="without Gila NF"))
+  mutate(model="with Gila NF", pvalue = summary(y_relht_mod)$coefficient[2,5]) %>% 
+  bind_rows(predictdata_y_relht_nog %>% mutate(model="without Gila NF", pvalue = summary(y_relht_mod_nog)$coefficient[2,5]))
 
 ggplot()+
   geom_vline(xintercept = prov_clim_adjusted_bi_long %>% filter(Provenance=="Plantation") %>% filter(name=="y") %>% pull(value), col="steelblue")+
@@ -4263,7 +4332,6 @@ relht_transfer_coef_plot <- ggplot(relht_mods_transfer_coeffs_all %>% filter(!va
   theme_bw()+
   ggtitle("Relative Height Growth - Transfer Distance")
 
-ggarrange(relht_provclim_coef_plot, relht_transfer_coef_plot, ncol=2, common.legend = TRUE)
 ######
 
 #MWMT
@@ -5285,8 +5353,8 @@ survy_nog_newdata3 <- within(survy_nog_newdata2, {
     UL <- plogis(fit + (1.96 * se.fit))
 })
 
-survy_bothmod_data<- bind_rows(survy_newdata3 %>% mutate(model="with Gila NF"),
-survy_nog_newdata3 %>% mutate(model="without Gila NF"))
+survy_bothmod_data<- bind_rows(survy_newdata3 %>% mutate(model="with Gila NF", pvalue = summary(surv_y_mod)$coefficient$cond[2,4]),
+survy_nog_newdata3 %>% mutate(model="without Gila NF", pvalue = summary(surv_y_mod_nog)$coefficient$cond[2,4]))
 
 ggplot(survy_bothmod_data, aes(x = climvar.value, y = PredictedProb, linetype=model)) + geom_ribbon(aes(ymin = LL,
     ymax = UL), alpha = 0.2) + 
@@ -5832,8 +5900,8 @@ surv2014_y_nog_newdata3 <- within(surv2014_y_nog_newdata2, {
     UL <- plogis(fit + (1.96 * se.fit))
 })
 
-surv2014_y_bothmod_data<- bind_rows(surv2014_y_newdata3 %>% mutate(model="with Gila NF"),
-surv2014_y_nog_newdata3 %>% mutate(model="without Gila NF"))
+surv2014_y_bothmod_data<- bind_rows(surv2014_y_newdata3 %>% mutate(model="with Gila NF", pvalue = summary(surv2014_y_mod)$coefficient$cond[2,4]),
+surv2014_y_nog_newdata3 %>% mutate(model="without Gila NF", pvalue = summary(surv2014_y_mod_nog)$coefficient$cond[2,4]))
 
 ggplot(surv2014_y_bothmod_data, aes(x = climvar.value, y = PredictedProb, linetype=model)) + geom_ribbon(aes(ymin = LL,
     ymax = UL), alpha = 0.2) + 
@@ -6153,33 +6221,51 @@ ggplot(surv2014_allmods, aes(y = factor(var), x=estimate, color=model))+
 ##Latitude plots
 
 ```{r}
-predictdata_lat_dbh %>% colnames()
-predictdata_lat_dbh_transfer%>% colnames()
+lat_dbh_predictdata_all %>% colnames()
+predictdata_lat_dbh_gr_all %>% colnames()
+predictdata_lat_dbh_relgrowth_all %>% colnames()
 
-predictdata_lat_dbh_gr%>% colnames()
-predictdata_lat_dbhg_transfer%>% colnames()
-
-predictdata_lat_dbh_relgrowth%>% colnames()
-predictdata_lat_dbh_relgrowth_transfer%>% colnames()
-
-predictdata_lat_ht %>% colnames()
-predictdata_y_htgrowth_nog%>% colnames()
+predictdata_lat_ht_all %>% colnames()
+predictdata_y_htgrowth_all%>% colnames()
 predictdata_y_relht_all%>% colnames()
 
 survy_bothmod_data %>% colnames()
 surv2014_y_bothmod_data %>% colnames()
 
-dbh_lat_data<- bind_rows(predictdata_lat_dbh %>% mutate(metric="absolute", trait="DBH"),predictdata_lat_dbh_gr %>% mutate(metric="increment", trait="DBH"),predictdata_lat_dbh_relgrowth %>% mutate(metric="relative increment", trait="DBH") )
+dbh_lat_data<- bind_rows(lat_dbh_predictdata_all %>% mutate(metric="absolute", trait="DBH"),predictdata_lat_dbh_gr_all %>% mutate(metric="increment", trait="DBH"),predictdata_lat_dbh_relgrowth_all %>% mutate(metric="relative increment", trait="DBH") )
 
-ht_lat_data <- bind_rows(predictdata_lat_ht %>% rename(value=climvar.value) %>% mutate(metric="absolute", trait="Height"),predictdata_y_htgrowth_nog %>% mutate(metric="increment", trait="Height"),predictdata_y_relht_all %>% mutate(metric="relative increment", trait="Height")) %>% 
-  filter(! model %in% c("with Gila NF"))
+ht_lat_data <- bind_rows(predictdata_lat_ht_all %>% rename(value=climvar.value) %>% mutate(metric="absolute", trait="Height"),predictdata_y_htgrowth_all %>% mutate(metric="increment", trait="Height"),predictdata_y_relht_all %>% mutate(metric="relative increment", trait="Height")) 
 
 surv_lat_data <- bind_rows(survy_bothmod_data %>% mutate(metric="increment", trait="Survival"), surv2014_y_bothmod_data %>% mutate(metric="absolute", trait="Survival")) %>% 
   dplyr::select(-fit) %>% 
-  rename(value=climvar.value, lwr = LL, upr = UL, fit=PredictedProb) %>% 
-  filter(!model=="with Gila NF")
+  rename(value=climvar.value, lwr = LL, upr = UL, fit=PredictedProb) 
 
-all_lat_data<- bind_rows(dbh_lat_data, ht_lat_data, surv_lat_data)
+all_lat_data<- bind_rows(dbh_lat_data, ht_lat_data, surv_lat_data) %>% 
+  mutate(units = case_when(trait == "DBH" & metric == "absolute" ~ "DBH (cm)",
+                         trait == "DBH" & metric == "increment" ~ "Basal area growth (cm^2/yr)",
+                         trait == "DBH" & metric == "relative increment" ~ "Basal area relative growth (%/yr)",
+                         trait == "Height" & metric == "absolute" ~ "Height (m)",
+                         trait == "Height" & metric == "increment" ~ "Height growth (m/yr)",
+                         trait == "Height" & metric == "relative increment" ~ "Height relative growth (%/yr)",
+                         trait == "Survival" & metric == "absolute" ~ "% Survival to 2014",
+                         trait == "Survival" & metric == "increment" ~ "% Survival each year")) %>% 
+  mutate(ypos = case_when(units == "DBH (cm)" & model=="with Gila NF" ~ 8.25,
+                          units == "DBH (cm)" & model=="without Gila NF" ~ 8.5,
+                          units=="Height (m)"& model=="with Gila NF" ~ 0.5,
+                          units=="Height (m)"& model=="without Gila NF" ~ 0.55,
+                          units == "% Survival to 2014" & model=="with Gila NF" ~ 0.635,
+                          units == "% Survival to 2014" & model=="without Gila NF" ~ 0.65,
+                          units=="Basal area growth (cm^2/yr)" & model=="with Gila NF" ~ 5.25,
+                          units=="Basal area growth (cm^2/yr)" & model=="without Gila NF" ~ 5.5,
+                          units=="Height growth (m/yr)" & model=="with Gila NF" ~ .15,
+                          units=="Height growth (m/yr)" & model=="without Gila NF" ~ .158,
+                          units=="% Survival each year" & model=="with Gila NF" ~ 0.9275,
+                          units=="% Survival each year" & model=="without Gila NF" ~ 0.9325,
+                          units=="Basal area relative growth (%/yr)" & model=="with Gila NF" ~ 14.8,
+                          units=="Basal area relative growth (%/yr)" & model=="without Gila NF" ~ 16.5,
+                          units=="Height relative growth (%/yr)" & model=="with Gila NF"~10.35,
+                          units=="Height relative growth (%/yr)" & model=="without Gila NF"~10.5
+                          ))
 
 lat_rug_data <- expand.grid(value=provs_bylat$y, Provenance=provs_bylat$Provenance, metric=c("absolute","increment","relative increment"), trait=c("DBH","Height","Survival")) %>% 
   mutate(fit = case_when(trait == "DBH" & metric == "absolute" ~ 9,
@@ -6190,14 +6276,29 @@ lat_rug_data <- expand.grid(value=provs_bylat$y, Provenance=provs_bylat$Provenan
                          trait == "Height" & metric == "relative increment" ~ 11.5,
                          trait == "Survival" & metric == "absolute" ~ .75,
                          trait == "Survival" & metric == "increment" ~ .96)) %>% 
-  filter(!(metric=="relative increment" & trait=="Survival"))
+  filter(!(metric=="relative increment" & trait=="Survival")) %>% 
+  mutate(units = case_when(trait == "DBH" & metric == "absolute" ~ "DBH (cm)",
+                         trait == "DBH" & metric == "increment" ~ "Basal area growth (cm^2/yr)",
+                         trait == "DBH" & metric == "relative increment" ~ "Basal area relative growth (%/yr)",
+                         trait == "Height" & metric == "absolute" ~ "Height (m)",
+                         trait == "Height" & metric == "increment" ~ "Height growth (m/yr)",
+                         trait == "Height" & metric == "relative increment" ~ "Height relative growth (%/yr)",
+                         trait == "Survival" & metric == "absolute" ~ "% Survival to 2014",
+                         trait == "Survival" & metric == "increment" ~ "% Survival each year"))
   
 
+
 ggplot(all_lat_data, aes(x=value, y=fit))+
-  geom_line()+
-  geom_ribbon(aes(ymin=lwr, ymax=upr), alpha=0.3)+
+  geom_line(aes(color=model))+
+  geom_ribbon(aes(ymin=lwr, ymax=upr, fill=model), alpha=0.3)+
   geom_rug(data=lat_rug_data, aes(x=value,y=fit), linewidth=1, col="black", sides="b")+
   facet_wrap(metric~trait, scales="free")+
+  facet_wrap(~factor(units, levels=c("% Survival to 2014","DBH (cm)","Height (m)","% Survival each year","Basal area growth (cm^2/yr)","Height growth (m/yr)","Basal area relative growth (%/yr)","Height relative growth (%/yr)")), scales="free_y")+
+  geom_text(aes(x=35,y=ypos,label=paste0("p = ",round(pvalue,2)), col=model), size=3.5)+
+  scale_color_manual(values=c("darkgrey","black"))+
+  scale_fill_manual(values=c("darkgrey","black"))+
+  xlab("Provenance latitude (degrees)")+
+  ylab("Model fit")+
   theme_bw()
 
 ```
@@ -6623,6 +6724,9 @@ plot(gini_dbh14_mod)
 qqmath(gini_dbh14_mod)
 summary(gini_dbh14_mod)
 
+gini_dbh14_mod_nog <- lmer(DBH14 ~ gini + (1|code) + (1|BLK), data=gini_all_data %>% filter(!Provenance=="Gila NF") %>% filter(!is.na(DBH14)))
+summary(gini_dbh14_mod_nog)
+
 ##predict
 newdata_gini_dbh = data.frame(gini=seq(min(gini_all_data$gini), max(gini_all_data$gini),.01))
 
@@ -6640,6 +6744,9 @@ gini_ht14_mod <- lmer(HT14 ~ gini + (1|code) + (1|BLK), data=gini_all_data %>% f
 plot(gini_ht14_mod)
 qqmath(gini_ht14_mod)
 summary(gini_ht14_mod)
+
+gini_ht14_mod_nog <- lmer(HT14 ~ gini + (1|code) + (1|BLK), data=gini_all_data %>% filter(!Provenance=="Gila NF") %>%  filter(!is.na(HT14)))
+summary(gini_ht14_mod_nog)
 
 ##predict
 newdata_gini_ht = data.frame(gini=seq(min(gini_all_data$gini), max(gini_all_data$gini),.01))
@@ -6663,6 +6770,9 @@ gini_surv_df<- moniger_survival_byyr_zeros %>%
 gini_surv14_mod <- glmmTMB(value ~ gini + (1|BLK), data=gini_surv_df, family=binomial(link="logit"))
 summary(gini_surv14_mod) #not significant
 r2(gini_surv14_mod)
+
+gini_surv14_mod_nog <- glmmTMB(value ~ gini + (1|BLK), data=gini_surv_df %>% filter(!Provenance=="Gila NF"), family=binomial(link="logit"))
+summary(gini_surv14_mod_nog)
 
 ```
 
@@ -8158,19 +8268,46 @@ prioryr_plot_nog <- ggplot(data=left_join(lmerdata %>% filter(pvalue.lmer_nog < 
 prioryr_plot
 prioryr_plot_nog
 
-##########individual model results
+##########final plot
+##just going to plot the significant relationship with winter tmean because that was correlated with growth for a lot of provenances
 
-### TD -- fa tmax
-td_famax_mod<- lmer(cor ~ value + (1|Provenance) + (1|BLK), data=cor_provclim_long %>% filter(climvar=="value_fa_tmax" & name=="TD") %>% filter(!Provenance=="Gila NF"))
-plot(td_famax_mod)
-qqmath(td_famax_mod)
-summary(td_famax_mod)
+wt_tmean_CMD_data<- left_join(lmerdata %>% filter(climvar=="value_wt_tmean" & pvalue.lmer_nog<0.05), cor_provclim_long)
+wt_tmean_CMD_mod <- lmer(cor ~ value + (1|Provenance) + (1|BLK), data=wt_tmean_CMD_data)
+summary(wt_tmean_CMD_mod)
+wt_tmean_CMD_mod_nog <- lmer(cor ~ value + (1|Provenance) + (1|BLK), data=wt_tmean_CMD_data %>% filter(!Provenance=="Gila NF"))
+summary(wt_tmean_CMD_mod_nog)
 
-### growing season ppt -- latitude
-gsppt_lat_mod<- lmer(cor ~ value + (1|Provenance), data=cor_provclim_long %>% filter(climvar=="ppt_gs" & name=="y") %>% filter(!Provenance=="Gila NF"))
-plot(gsppt_lat_mod)
-qqmath(gsppt_lat_mod)
-summary(gsppt_lat_mod)
+##predictions - with Gila
+wt_tmean_CMD_mod_lm <- lm(cor ~ value, data=wt_tmean_CMD_data)
+newdata_wt_tmean_CMD <- data.frame(value= seq(min(wt_tmean_CMD_data$value),max(wt_tmean_CMD_data$value), length.out=50))
+
+predict_wt_tmean_CMD <- predict(wt_tmean_CMD_mod_lm, newdata_wt_tmean_CMD, interval="confidence")
+
+predict_data_wt_tmean_CMD <- as.data.frame(bind_cols(newdata_wt_tmean_CMD,predict_wt_tmean_CMD))
+
+##predictions - without Gila
+wt_tmean_CMD_mod_lm_nog <- lm(cor ~ value, data=wt_tmean_CMD_data %>% filter(!Provenance=="Gila NF"))
+newdata_wt_tmean_CMD_nog <- data.frame(value= seq(min(wt_tmean_CMD_data %>% filter(!Provenance=="Gila NF") %>% pull(value)),max(wt_tmean_CMD_data %>% filter(!Provenance=="Gila NF") %>% pull(value)), length.out=50))
+
+predict_wt_tmean_CMD_nog <- predict(wt_tmean_CMD_mod_lm_nog, newdata_wt_tmean_CMD_nog, interval="confidence")
+
+predict_data_wt_tmean_CMD_nog <- as.data.frame(bind_cols(newdata_wt_tmean_CMD_nog,predict_wt_tmean_CMD_nog))
+
+predict_data_wt_tmean_CMD_all <- bind_rows(predict_data_wt_tmean_CMD_nog %>% mutate(model="without Gila NF"), predict_data_wt_tmean_CMD %>% mutate(model="with Gila NF"))
+
+wt_tmean_CMD_plot <- ggplot()+
+  geom_point(data=wt_tmean_CMD_data, aes(x=value, y=cor), color="black")+
+  geom_line(data=predict_data_wt_tmean_CMD_all, aes(x=value, y=fit, col=model))+
+  geom_ribbon(data=predict_data_wt_tmean_CMD_all, aes(x=value, y=fit, ymin=lwr, ymax=upr, fill=model), alpha=0.3)+
+  scale_color_manual(values=c("darkgrey","black"))+
+  scale_fill_manual(values=c("darkgrey","black"))+
+  geom_hline(yintercept=0)+
+  xlab("Provenance CMD")+
+  ylab("Correlation between TMEAN WT & RWI")+
+  theme_bw()+
+  theme(legend.position="top")
+
+ggarrange(correlation_plot, wt_tmean_CMD_plot, nrow=1, ncol=2, labels=c("A)","B)"))
 
 ```
 
@@ -8221,7 +8358,6 @@ ggplot(data=left_join(lmerdata_transfer %>% filter(pvalue.lmer_nog < 0.05), cor_
   geom_hline(yintercept=0, col="red")+
   theme(strip.text=element_text(size=8), axis.text.x=element_text(size=5), axis.text.y=element_text(size=5), axis.title=element_text(size=5))
 
-##none of the significant relationships are with the climvars that were significant for more than half of the provenances. 
 ```
 
 
