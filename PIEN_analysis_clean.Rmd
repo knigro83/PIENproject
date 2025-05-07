@@ -2667,7 +2667,7 @@ ht_data_year <-  ht_data %>% mutate(year=case_when(
 nursery_ht_clim <- ht_data_clim %>% 
   dplyr::select(c(Provenance, nursery_ht_m, PC1,PC2, AHM:SHM, x:monsoonality)) %>% 
   unique() %>% 
-  pivot_longer(PC1:smrpb)
+  pivot_longer(PC1:monsoonality)
 
 nursery_climvars <- unique(nursery_ht_clim$name)
 nursery_lms <- data.frame()
@@ -2683,6 +2683,13 @@ nursery_lms %>% arrange(pvalue)  #smrpb significant with and without Gila NF
 ##smrpb
 smrpb_nht_mod <- lm(nursery_ht_m ~ value, data=nursery_ht_clim %>% filter(name == "smrpb"))
 summary(smrpb_nht_mod)
+par(mfrow=c(2,2))
+plot(smrpb_nht_mod)
+
+smrpb_nht_mod_nog <- lm(nursery_ht_m ~ value, data=nursery_ht_clim %>% filter(name == "smrpb") %>% filter(!Provenance=="Gila NF"))
+summary(smrpb_nht_mod_nog)
+par(mfrow=c(2,2))
+plot(smrpb_nht_mod_nog)
 
 ggarrange(ggplot(data=nursery_ht_clim %>% filter(name=="smrpb"), aes(x=value, y=nursery_ht_m))+
   geom_point()+
@@ -5082,6 +5089,26 @@ moniger_survival_byyr_binom<- prop.died.df %>%
 
 survmod_byyear<- glmmTMB(cbind(alive, died) ~ factor(year)*Provenance, data=moniger_survival_byyr_binom, family=binomial) ###model convergence issue - maybe because of all the 0's??
 
+moniger_survival_byyr_binom %>% 
+  group_by(Provenance,year) %>% 
+  summarise(prev.yr.alive.sum=sum(prev.yr.alive), died.sum=sum(died)) %>% 
+  mutate(prop.surv = (prev.yr.alive.sum-died.sum)/prev.yr.alive.sum) %>% 
+  right_join(moniger_survival_byyr_binom %>% 
+  group_by(Provenance,year) %>% 
+  summarise(prev.yr.alive.sum=sum(prev.yr.alive), died.sum=sum(died)) %>% 
+  mutate(prop.surv = (prev.yr.alive.sum-died.sum)/prev.yr.alive.sum) %>% 
+  group_by(Provenance) %>% 
+  summarise(min_surv=min(prop.surv)), by=c("prop.surv"="min_surv","Provenance")) %>% View()
+
+summary_moniger_survival_byyr_binom <- moniger_survival_byyr_binom %>% 
+  group_by(Provenance,year) %>% 
+  summarise(prev.yr.alive.sum=sum(prev.yr.alive), died.sum=sum(died)) %>% 
+  mutate(prop.surv = (prev.yr.alive.sum-died.sum)/prev.yr.alive.sum) 
+
+ggplot(summary_moniger_survival_byyr_binom, aes(x=Provenance, y=prop.surv, color=factor(year)))+
+  geom_point(position = position_dodge(width=1))+
+  theme(axis.text.x = element_text(angle=45, hjust=1))
+
 ####ANOVAs for each year separately
 
 survmod74 <- glmmTMB(cbind(alive, died) ~ Provenance + (1|BLK), data=moniger_survival_byyr_binom %>% filter(year==1974), family=binomial)
@@ -5649,12 +5676,19 @@ CLD_alltree_survmod14 = cld(alltree_survmod14_marg,
           alpha=0.05,
           Letters=letters)
 CLD_alltree_survmod14 
+
+#####calculate summary stats
+moniger_survival_byyr_binom_zeros_2014<- moniger_survival_byyr_binom_zeros %>% filter(year=="2014")
+moniger_survival_byyr_binom_zeros_2014 %>% 
+  group_by(Provenance) %>% 
+  summarise(alive=sum(alive), died=sum(died)) %>% 
+  mutate(surv.prop=alive/(died+alive)) %>% 
+  arrange(surv.prop)
 ```
 
 
 ###PC only mods
 ```{r}
-moniger_survival_byyr_binom_zeros_2014<- moniger_survival_byyr_binom_zeros %>% filter(year=="2014")
 
 ##with gila
 survmod2014_pc<- glmmTMB(cbind(alive,died) ~  PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK) , data=moniger_survival_byyr_binom_zeros_2014, family=binomial) 
