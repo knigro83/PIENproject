@@ -4026,7 +4026,7 @@ relht_mods_coeffs_all <- readRDS("relht_mods_coeffs_all.RDS")
 
 #####FFP
 summary(lmer(relht ~ value + (1|Provenance)+ (1|BLK) + (1|year), data=ht_growth_rel_clim_long %>% filter(name=="FFP")))
-summary(lmer(relht ~ value + (1|Provenance)+ (1|BLK) + (1|year), data=ht_growth_rel_clim_long %>% filter(name=="FFP") %>% filter(!Provenance=="Gila NF") %>% filter(!Provenance=="Wenatchee NF")))
+summary(lmer(relht ~ value + (1|Provenance)+ (1|BLK) + (1|year), data=ht_growth_rel_clim_long %>% filter(name=="FFP") %>% filter(!Provenance=="Gila NF")))
 r2(lmer(relht ~ value + (1|Provenance)+ (1|BLK) + (1|year), data=ht_growth_rel_clim_long %>% filter(name=="FFP")))
 r2(lmer(relht ~ value + (1|Provenance)+ (1|BLK) + (1|year), data=ht_growth_rel_clim_long %>% filter(name=="FFP") %>% filter(!Provenance=="Gila NF") %>% filter(!Provenance=="Wenatchee NF")))
 
@@ -4351,6 +4351,16 @@ plot(relht_mwmt_transfermod_nog)
 qqmath(relht_mwmt_transfermod_nog)
 summary(relht_mwmt_transfermod_nog) #provenances with similar MWMT to the plantation had higher relative growth rates
 
+#y
+ggplot(data = relht_clim_long_transfer_nog %>% filter(name=="y"), aes(x=diff_plant, y=relht))+
+  geom_point()+
+  facet_wrap(~year)
+
+relht_y_transfermod_nog <- lmer(relht ~ diff_plant + (1|Provenance)+ (1|BLK) + (1|year), data=relht_clim_long_transfer_nog %>% filter(name=="y") %>% filter(!Provenance=="Gila NF"))
+plot(relht_y_transfermod_nog)
+qqmath(relht_y_transfermod_nog)
+summary(relht_y_transfermod_nog) #provenances with similar y to the plantation had higher relative growth rates
+
 ##distance in 2d climate space
 
 relht_climdist_df <- relht_clim_long_transfer %>% 
@@ -4666,7 +4676,7 @@ plot(simulateResiduals(best.mod.cone.clim_nog))
 
 ##predictions - no gila - height
 
-newmod <- glmmTMB(cbind(n_cones, total-n_cones) ~  height, data= moniger_subset_nog, family = binomial)
+newmod <- glmmTMB(cbind(n_cones, total-n_cones) ~  height + (1|BLK) + (1|year) + (1|Prov), data= moniger_subset_nog, family = binomial)
 summary(newmod)
 plot(simulateResiduals(newmod))
 
@@ -4694,8 +4704,8 @@ cone_plot_height<- ggplot(CCnewdata3_cone_nog_height %>% mutate(var="Height"), a
 cone_plot_height
 
 ###height needed for 50% chance of having cones
-summary(newmod)
-predict(newmod, newdata=data.frame(height=3.85),type="response")
+summary(best.mod.cone.clim_nog)
+predict(best.mod.cone.clim_nog, newdata=data.frame(height=3.85),type="response")
 
 #log(p/(1-p)) = b0 + b1*height
 
