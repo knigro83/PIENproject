@@ -508,28 +508,52 @@ ggplot(ppt_summed %>% filter(CN=="Plantation"), aes(x=year, y=ppt)) +
   geom_hline(yintercept=mean(ppt_summed %>% filter(CN=="Plantation") %>% pull(ppt)), col="red")
 
 ##seasonal ppt
-ppt_seasonal_plantation <- ppt_comb_plantation %>% 
+prior_ppt_sp <- ppt_comb_plantation %>% 
+  filter(month %in% c(3,4,5)) %>% 
+  mutate(year = year+1) %>% 
+  group_by(CN, year) %>% 
+  summarise(prior_ppt_sp = sum(ppt)) %>% 
+  filter(year>1969)
+  
+prior_ppt_sm <- ppt_comb_plantation %>% 
   filter(month %in% c(6,7,8)) %>% 
+  mutate(year = year+1) %>% 
   group_by(CN, year) %>% 
-  summarise(PPTsm = sum(ppt)) %>% 
-  left_join(ppt_comb_plantation %>% 
-  filter(month %in% c(5,6,7,8,9)) %>% 
-  group_by(CN, year) %>% 
-  summarise(ppt_gs = sum(ppt))) %>% 
-  left_join(ppt_comb_plantation %>% 
-  filter(month %in% c(12,1,2)) %>% 
-  group_by(CN, year) %>% 
-  summarise(ppt_wt = sum(ppt))) %>% 
-  left_join(ppt_comb_plantation %>% 
+  summarise(prior_ppt_sm = sum(ppt)) %>% 
+  filter(year>1969)
+  
+prior_ppt_fa <- ppt_comb_plantation %>% 
   filter(month %in% c(9,10,11)) %>% 
+  mutate(year = year+1) %>% 
   group_by(CN, year) %>% 
-  summarise(PPT_at = sum(ppt))) %>% 
-  left_join(ppt_comb_plantation %>% 
+  summarise(prior_ppt_fa = sum(ppt)) %>% 
+  filter(year>1969)
+  
+prior_ppt_wt <- ppt_comb_plantation %>% 
+  filter(month %in% c(12,1,2)) %>% 
+  mutate(year = ifelse(month==12, year+1, year)) %>% 
+  group_by(CN, year) %>% 
+  summarise(prior_ppt_wt = sum(ppt)) %>% 
+  filter(year>1969)
+
+ppt_sp <- ppt_comb_plantation %>% 
   filter(month %in% c(3,4,5)) %>% 
   group_by(CN, year) %>% 
-  summarise(PPTsp = sum(ppt))) %>% 
-  left_join(ppt_summed) 
+  summarise(ppt_sp = sum(ppt)) %>% 
+  filter(year>1969)
+  
+ppt_sm <- ppt_comb_plantation %>% 
+  filter(month %in% c(6,7,8)) %>% 
+  group_by(CN, year) %>% 
+  summarise(ppt_sm = sum(ppt)) %>% 
+  filter(year>1969)
 
+ppt_seasonal_plantation <- left_join(prior_ppt_sp, prior_ppt_sm) %>% 
+  left_join(prior_ppt_fa) %>% 
+  left_join(prior_ppt_wt) %>% 
+  left_join(ppt_sp) %>% 
+  left_join(ppt_sm)
+  
 ##tmin
 tmin_summed <- as.data.frame(tmin_comb_plantation) %>% 
   mutate(tmin = as.numeric(tmin), year=as.integer(year)) %>%
@@ -539,7 +563,7 @@ tmin_summed <- as.data.frame(tmin_comb_plantation) %>%
 
 ggplot(tmin_summed %>% filter(CN=="Plantation"), aes(x=year, y=tmin)) +
   geom_point()+
-  geom_line()+
+  geom_licne()+
   geom_hline(yintercept=mean(tmin_summed %>% filter(CN=="Plantation") %>% pull(tmin)), col="red")
 
 ##tmax
@@ -569,26 +593,79 @@ ggplot(tmean_summed %>% filter(CN=="Plantation"), aes(x=year, y=tmean)) +
 ##seasonal temps
 all_temps <- bind_rows(tmean_comb_plantation %>% pivot_longer(tmean), tmin_comb_plantation %>% pivot_longer(tmin), tmax_comb_plantation %>% pivot_longer(tmax))
 
-summertemps <- all_temps %>% filter(month %in% c(6,7,8)) %>% 
-  group_by(CN, year, name) %>% 
-  summarise(value_sm =mean(value))
-falltemps <- all_temps %>% filter(month %in% c(9,10,11)) %>% 
-  group_by(CN, year, name) %>% 
-  summarise(value_fa =mean(value))
-wintertemps <- all_temps %>% filter(month %in% c(12,1,2)) %>% 
-  mutate(year = ifelse(month=="12",year+1,year)) %>% 
-  group_by(CN, year, name) %>% 
-  summarise(value_wt =mean(value))
-springtemps <- all_temps %>% filter(month %in% c(3,4,5)) %>% 
-  group_by(CN, year, name) %>% 
-  summarise(value_sp =mean(value))
+prior_tmean_sp <- all_temps %>% filter(month %in% c(3,4,5) & name=="tmean") %>% 
+  mutate(year = year+1) %>% 
+  group_by(CN, year) %>% 
+  summarise(prior_tmean_sp = mean(value))
+prior_tmin_sp <- all_temps %>% filter(month %in% c(3,4,5) & name=="tmin") %>% 
+  mutate(year = year+1) %>% 
+  group_by(CN, year) %>% 
+  summarise(prior_tmin_sp = mean(value))
+prior_tmax_sp <- all_temps %>% filter(month %in% c(3,4,5) & name=="tmax") %>% 
+  mutate(year = year+1) %>% 
+  group_by(CN, year) %>% 
+  summarise(prior_tmax_sp = mean(value))
 
-plantation_seasonal_temps <- left_join(summertemps,falltemps) %>% 
-  left_join(wintertemps) %>% 
-  left_join(springtemps)
+prior_tmean_sm <- all_temps %>% filter(month %in% c(6,7,8) & name=="tmean") %>% 
+  mutate(year = year+1) %>% 
+  group_by(CN, year) %>% 
+  summarise(prior_tmean_sm = mean(value))
+prior_tmin_sm <- all_temps %>% filter(month %in% c(6,7,8) & name=="tmin") %>% 
+  mutate(year = year+1) %>% 
+  group_by(CN, year) %>% 
+  summarise(prior_tmin_sm = mean(value))
+prior_tmax_sm <- all_temps %>% filter(month %in% c(6,7,8) & name=="tmax") %>% 
+  mutate(year = year+1) %>% 
+  group_by(CN, year) %>% 
+  summarise(prior_tmax_sm = mean(value))
 
-plantation_seasonal_temps_wide<- plantation_seasonal_temps %>% 
-  pivot_wider(values_from = c(value_sm,value_fa,value_wt,value_sp), names_from = name)
+prior_tmean_fa <- all_temps %>% filter(month %in% c(9,10,11) & name=="tmean") %>% 
+  mutate(year = year+1) %>% 
+  group_by(CN, year) %>% 
+  summarise(prior_tmean_fa = mean(value))
+prior_tmin_fa <- all_temps %>% filter(month %in% c(9,10,11) & name=="tmin") %>% 
+  mutate(year = year+1) %>% 
+  group_by(CN, year) %>% 
+  summarise(prior_tmin_fa = mean(value))
+prior_tmax_fa <- all_temps %>% filter(month %in% c(9,10,11) & name=="tmax") %>% 
+  mutate(year = year+1) %>% 
+  group_by(CN, year) %>% 
+  summarise(prior_tmax_fa = mean(value))
+
+prior_tmean_wt <- all_temps %>% filter(month %in% c(12,1,2) & name=="tmean") %>% 
+  mutate(year = ifelse(year==12,year+1, year)) %>% 
+  group_by(CN, year) %>% 
+  summarise(prior_tmean_wt = mean(value))
+prior_tmin_wt <- all_temps %>% filter(month %in% c(12,1,2) & name=="tmin") %>% 
+  mutate(year = ifelse(year==12,year+1, year)) %>% 
+  group_by(CN, year) %>% 
+  summarise(prior_tmin_wt = mean(value))
+prior_tmax_wt <- all_temps %>% filter(month %in% c(12,1,2) & name=="tmax") %>% 
+  mutate(year = ifelse(year==12,year+1, year)) %>% 
+  group_by(CN, year) %>% 
+  summarise(prior_tmax_wt = mean(value))
+
+tmean_sp <- all_temps %>% filter(month %in% c(3,4,5) & name=="tmean") %>% 
+  group_by(CN, year) %>% 
+  summarise(tmean_sp = mean(value))
+tmin_sp <- all_temps %>% filter(month %in% c(3,4,5) & name=="tmin") %>% 
+  group_by(CN, year) %>% 
+  summarise(tmin_sp = mean(value))
+tmax_sp <- all_temps %>% filter(month %in% c(3,4,5) & name=="tmax") %>% 
+  group_by(CN, year) %>% 
+  summarise(tmax_sp = mean(value))
+
+tmean_sm <- all_temps %>% filter(month %in% c(6,7,8) & name=="tmean") %>% 
+  group_by(CN, year) %>% 
+  summarise(tmean_sm = mean(value))
+tmin_sm <- all_temps %>% filter(month %in% c(6,7,8) & name=="tmin") %>% 
+  group_by(CN, year) %>% 
+  summarise(tmin_sm = mean(value))
+tmax_sm <- all_temps %>% filter(month %in% c(6,7,8) & name=="tmax") %>% 
+  group_by(CN, year) %>% 
+  summarise(tmax_sm = mean(value))
+
+plantation_seasonal_temps<- plyr::join_all(list(prior_tmean_sp,prior_tmin_sp,prior_tmax_sp,prior_tmean_sm,prior_tmin_sm,prior_tmax_sm,prior_tmean_fa,prior_tmin_fa,prior_tmax_fa,prior_tmean_wt,prior_tmin_wt,prior_tmax_wt,tmean_sp,tmin_sp,tmax_sp,tmean_sm,tmin_sm,tmax_sm), type="left")
 
 ##vpdmax
 
@@ -609,22 +686,32 @@ vpdmax_seasonal <- as.data.frame(vpdmax_comb_plantation) %>%
   group_by(CN, year) %>% 
  dplyr::summarise(vpdmax_sm = mean(vpdmax)) %>% 
   left_join(as.data.frame(vpdmax_comb_plantation) %>% 
-  mutate(vpdmax = as.numeric(vpdmax), year=as.integer(year)) %>%
+  mutate(vpdmax = as.numeric(vpdmax), year=as.integer(year+1)) %>%
   filter(month %in% c(9,10,11)) %>% 
   group_by(CN, year) %>% 
- dplyr::summarise(vpdmax_fa = mean(vpdmax))) %>% 
+ dplyr::summarise(prior_vpdmax_fa = mean(vpdmax))) %>% 
   left_join(as.data.frame(vpdmax_comb_plantation) %>% 
   mutate(vpdmax = as.numeric(vpdmax), year=as.integer(year)) %>%
   filter(month %in% c(12,1,2)) %>% 
   mutate(year = ifelse(month == "12", year+1, year)) %>% 
   filter(!year %in% c(1969,2024)) %>% 
   group_by(CN, year) %>% 
- dplyr::summarise(vpdmax_wt = mean(vpdmax))) %>% 
+ dplyr::summarise(prior_vpdmax_wt = mean(vpdmax))) %>% 
   left_join(as.data.frame(vpdmax_comb_plantation) %>% 
   mutate(vpdmax = as.numeric(vpdmax), year=as.integer(year)) %>%
   filter(month %in% c(3,4,5)) %>% 
   group_by(CN, year) %>% 
- dplyr::summarise(vpdmax_sp = mean(vpdmax)))
+ dplyr::summarise(vpdmax_sp = mean(vpdmax))) %>% 
+  left_join(as.data.frame(vpdmax_comb_plantation) %>% 
+  mutate(vpdmax = as.numeric(vpdmax), year=as.integer(year+1)) %>%
+  filter(month %in% c(3,4,5)) %>% 
+  group_by(CN, year) %>% 
+ dplyr::summarise(prior_vpdmax_sp = mean(vpdmax))) %>% 
+  left_join(as.data.frame(vpdmax_comb_plantation) %>% 
+  mutate(vpdmax = as.numeric(vpdmax), year=as.integer(year+1)) %>%
+  filter(month %in% c(6,7,8)) %>% 
+  group_by(CN, year) %>% 
+ dplyr::summarise(prior_vpdmax_sm = mean(vpdmax)))
 
 
 ##look at correlation in annual variables
@@ -720,36 +807,67 @@ plantation_cwd <- cwd_function(site="plantation",slope=plantation_cwd_data$slope
 
 head(plantation_cwd)
 
-cwd_year0 <- plantation_cwd %>% 
+priorsp_cwd<- plantation_cwd %>% 
   mutate(date= as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")) %>% 
-  filter(month<9) %>% 
+  filter(month%in%c(3,4,5)) %>%
   group_by(site, year) %>% 
-  summarise(cwd_1_9 = sum(cwd))
+  summarise(prior_cwd_sp = sum(cwd)) %>% 
+  mutate(year=year+1) %>% 
+  filter(year>1970)
 
-cwd_yearminus1 <-  plantation_cwd %>% 
+priorsm_cwd<- plantation_cwd %>% 
   mutate(date= as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")) %>% 
-  filter(month>8) %>%
-  mutate(wateryear=year+1) %>% 
-  group_by(site, wateryear) %>% 
-  summarise(cwd_prev = sum(cwd))
+  filter(month%in%c(6,7,8)) %>%
+  group_by(site, year) %>% 
+  mutate(wateryear = year+1) %>% 
+  summarise(prior_cwd_sm = sum(cwd)) %>% 
+  mutate(year=year+1)%>% 
+  filter(year>1970)
 
-wateryear_cwd<- cwd_year0 %>% 
-  left_join(cwd_yearminus1, by=c("year" = "wateryear","site")) %>% 
-  rowwise() %>% 
-  mutate(cwd_wy = sum(cwd_1_9, cwd_prev))
+priorfa_cwd<- plantation_cwd %>% 
+  mutate(date= as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")) %>% 
+  filter(month%in%c(9,10,11)) %>%
+  group_by(site, year) %>% 
+  summarise(cwd_fa = sum(cwd)) %>% 
+  mutate(year=year+1, prior_cwd_fa=cwd_fa) %>% 
+  dplyr::select(-cwd_fa)%>% 
+  filter(year>1970)
+
+wt_cwd<- plantation_cwd %>% 
+  mutate(date= as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")) %>% 
+  filter(month%in%c(1,2)) %>%
+  group_by(site, year) %>% 
+  summarise(cwd_wt12 = sum(cwd)) %>% 
+  left_join(plantation_cwd %>% 
+  mutate(date= as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")) %>% 
+  filter(month%in%c(12)) %>% 
+  group_by(site, year) %>% 
+  summarise(cwd_wtdec = sum(cwd)) %>% 
+  mutate(year=year+1)) %>% 
+  mutate(prior_cwd_wt = cwd_wt12+cwd_wtdec)%>% 
+  dplyr::select(-c(cwd_wt12, cwd_wtdec)) %>% 
+  filter(year>1970)
 
 sp_cwd<- plantation_cwd %>% 
   mutate(date= as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")) %>% 
   filter(month%in%c(3,4,5)) %>%
   group_by(site, year) %>% 
-  summarise(cwd_sp = sum(cwd))
+  summarise(cwd_sp = sum(cwd))%>% 
+  filter(year>1970)
 
-fa_cwd<- plantation_cwd %>% 
+sm_cwd<- plantation_cwd %>% 
   mutate(date= as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")) %>% 
-  filter(month%in%c(9,10,11)) %>%
+  filter(month%in%c(6,7,8)) %>%
   group_by(site, year) %>% 
   mutate(wateryear = year+1) %>% 
-  summarise(cwd_fa = sum(cwd))
+  summarise(cwd_sm = sum(cwd))%>% 
+  filter(year>1970)
+
+cwd_seasonal <- left_join(priorsp_cwd, priorsm_cwd) %>% 
+  left_join(priorfa_cwd) %>% 
+  left_join(wt_cwd) %>% 
+  left_join(sp_cwd) %>% 
+  left_join(sm_cwd)
 
 ##water year drought
 ggplot(wateryear_cwd, aes(x=year, y=cwd_wy))+
@@ -759,7 +877,6 @@ ggplot(wateryear_cwd, aes(x=year, y=cwd_wy))+
   geom_line(data= sp_cwd, aes(x=year, y=cwd_sp),col="green4")+
   geom_point(data= fa_cwd, aes(x=year, y=cwd_fa),col="orange")+
   geom_line(data= fa_cwd, aes(x=year, y=cwd_fa),col="orange")  ##1970s and 80s droughts were influenced more by fall lack of moisture than 2002 drought. 
-
 
 ##spring drought
 ggplot( plantation_cwd %>% 
@@ -808,6 +925,73 @@ ggplot(plantation_cwd_annual_long %>% filter(name%in%c("cwd_sum","FDSI")), aes(x
   
 ```
 
+##AET
+
+```{r}
+priorsp_aet<- plantation_cwd %>% 
+  mutate(date= as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")) %>% 
+  filter(month%in%c(3,4,5)) %>%
+  group_by(site, year) %>% 
+  summarise(prior_aet_sp = sum(aet)) %>% 
+  mutate(year=year+1) %>% 
+  filter(year>1970)
+
+priorsm_aet<- plantation_cwd %>% 
+  mutate(date= as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")) %>% 
+  filter(month%in%c(6,7,8)) %>%
+  group_by(site, year) %>% 
+  mutate(wateryear = year+1) %>% 
+  summarise(prior_aet_sm = sum(aet)) %>% 
+  mutate(year=year+1)%>% 
+  filter(year>1970)
+
+priorfa_aet<- plantation_cwd %>% 
+  mutate(date= as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")) %>% 
+  filter(month%in%c(9,10,11)) %>%
+  group_by(site, year) %>% 
+  summarise(aet_fa = sum(aet)) %>% 
+  mutate(year=year+1, prior_aet_fa=aet_fa) %>% 
+  dplyr::select(-aet_fa)%>% 
+  filter(year>1970)
+
+wt_aet<- plantation_cwd %>% 
+  mutate(date= as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")) %>% 
+  filter(month%in%c(1,2)) %>%
+  group_by(site, year) %>% 
+  summarise(aet_wt12 = sum(aet)) %>% 
+  left_join(plantation_cwd %>% 
+  mutate(date= as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")) %>% 
+  filter(month%in%c(12)) %>% 
+  group_by(site, year) %>% 
+  summarise(aet_wtdec = sum(aet)) %>% 
+  mutate(year=year+1)) %>% 
+  mutate(prior_aet_wt = aet_wt12+aet_wtdec)%>% 
+  dplyr::select(-c(aet_wt12, aet_wtdec)) %>% 
+  filter(year>1970)
+
+sp_aet<- plantation_cwd %>% 
+  mutate(date= as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")) %>% 
+  filter(month%in%c(3,4,5)) %>%
+  group_by(site, year) %>% 
+  summarise(aet_sp = sum(aet))%>% 
+  filter(year>1970)
+
+sm_aet<- plantation_cwd %>% 
+  mutate(date= as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")) %>% 
+  filter(month%in%c(6,7,8)) %>%
+  group_by(site, year) %>% 
+  mutate(wateryear = year+1) %>% 
+  summarise(aet_sm = sum(aet))%>% 
+  filter(year>1970)
+
+aet_seasonal <- left_join(priorsp_aet, priorsm_aet) %>% 
+  left_join(priorfa_aet) %>% 
+  left_join(wt_aet) %>% 
+  left_join(sp_aet) %>% 
+  left_join(sm_aet)
+
+```
+
 ##SPEI
 
 ```{r}
@@ -815,22 +999,38 @@ ggplot(plantation_cwd_annual_long %>% filter(name%in%c("cwd_sum","FDSI")), aes(x
 plantation_climatebalance <- plantation_cwd %>% 
   mutate(ppt_pet = ppt - petm)
 
+plantation_climatebalance_seasonal <- plantation_climatebalance %>% 
+  filter(! (year==1970 & month %in% c(1,2))) %>% 
+  filter(! (year==2023 & month == 12))
+
+
 plantation_spei <- spei(plantation_climatebalance %>% pull(ppt_pet), scale=1)
 summary(plantation_spei)
 
-plantation_spei_sum <- data.frame(year=plantation_climatebalance$year, month=plantation_climatebalance$month, spei = plantation_spei$fitted, date = as.Date(paste(plantation_climatebalance$month,"01",plantation_climatebalance$year, sep="/"), "%m/%d/%Y"))
+plantation_spei_seasonal <- spei(plantation_climatebalance_seasonal %>% pull(ppt_pet), scale=3)
+plot(plantation_spei_seasonal)
+length(plantation_spei_seasonal$fitted)
 
-ggplot(plantation_spei_sum %>% filter(year > 1987 & year <2024), aes(x=date, y=spei, fill=spei>0))+
-  geom_bar(stat = "identity")+
-  theme(axis.text.x = element_text(angle=45, hjust=1))
+seasonal_spei<- data.frame(year = plantation_climatebalance_seasonal$year, month=plantation_climatebalance_seasonal$month, spei3 = plantation_spei_seasonal$fitted) %>% 
+  filter(month%in%c(5,8,11,2)) %>% 
+  mutate(season = case_when(month==5 ~ "sp",
+                            month==8 ~ "sm",
+                            month==11 ~ "fa",
+                            month==2 ~ "wt")) %>% 
+  mutate(date= as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")) %>% 
+  mutate(year=ifelse(season=="fa", year+1, year))
 
-plantation_spei_annual<- plantation_spei_sum %>% 
-  group_by(year) %>% 
-  summarise(spei_mean = mean(spei), spei_sum=sum(spei))
+seasonal_spei_prior_spsm<- seasonal_spei %>% 
+  filter(season%in%c("sp","sm")) %>% 
+  mutate(year=year+1, season=paste0("prior_spei_",season))
 
-ggplot(plantation_spei_annual %>% filter(year > 1987 & year <2024), aes(x=year, y=spei_sum, fill=spei_sum>0))+
-  geom_bar(stat = "identity")+
-  theme(axis.text.x = element_text(angle=45, hjust=1))
+seasonal_spei_wide <- seasonal_spei %>% 
+  bind_rows(seasonal_spei_prior_spsm) %>% 
+  dplyr::select(-c(month, date)) %>% 
+  pivot_wider(names_from=season, values_from=spei3) %>% 
+  rename(spei_sp = sp, spei_sm = sm, prior_spei_fa = fa, prior_spei_wt = wt) %>% 
+  mutate(CN="Plantation")
+
 ```
 
 ##RAWS
@@ -871,38 +1071,42 @@ ggplot()+
 #combine all climate vars
 
 plantation_clim <- ppt_seasonal_plantation %>% 
-  left_join(plantation_seasonal_temps_wide) %>% 
+  left_join(plantation_seasonal_temps) %>% 
   left_join(vpdmax_seasonal) %>% 
-  left_join(FDSI_raw) %>% 
-  left_join(plantation_cwd_annual) %>% 
-  left_join(wateryear_cwd) %>% 
-  left_join(plantation_spei_annual)
+  left_join(cwd_seasonal) %>% 
+  left_join(aet_seasonal) %>% 
+  left_join(seasonal_spei_wide)
 
 colnames(plantation_clim)
 
 plantation_clim_long <- plantation_clim %>% 
-dplyr::select(c(CN:vpdmax_sp, FDSI, aet_sum, cwd_sum, cwd_wy, spei_sum)) %>% 
-  pivot_longer(PPTsm:spei_sum) %>% 
-  mutate(type = ifelse(name %in% c("PPTsp","PPTsm","PPT_at","ppt_wt"), "PPT",
-                       ifelse(name %in% c("value_sp_tmean","value_sm_tmean","value_fa_tmean","value_wt_tmean","value_sp_tmin","value_sm_tmin","value_fa_tmin","value_wt_tmin","value_sp_tmax","value_sm_tmax","value_fa_tmax","value_wt_tmax"),"TEMP",NA)),
-         season = ifelse(name %in% c("PPTsp","value_sp_tmean","value_sp_tmin","value_sp_tmax"), "Spring", 
-                         ifelse(name %in% c("PPTsm","value_sm_tmean","value_sm_tmin","value_sm_tmax"), "Summer",
-                                ifelse(name %in% c("ppt_wt","value_wt_tmean","value_wt_tmin","value_wt_tmax"),"Winter",
-                                                   ifelse(name %in% c("PPT_at","value_fa_tmean","value_fa_tmin","value_fa_tmax"),"Fall",NA))))) %>% 
-  separate(name, into=c("name1","name2","name3"), sep="_",remove=FALSE) %>% 
-  mutate(statistic = case_when(name3=="tmax" ~ "max",
-                               name3=="tmin"~ "min",
-                               name3=="tmean" ~ "mean",
-                               type=="PPT" ~ "sum",
+  dplyr::select(-site) %>% 
+  pivot_longer(prior_ppt_sp:prior_spei_sm) %>% 
+  separate(name, into=c("name1","name2","name3"), sep="_",remove=FALSE, fill="left") %>% 
+  mutate(statistic = case_when(name2=="tmax" ~ "max",
+                               name2=="tmin"~ "min",
+                               name2=="tmean" ~ "mean",
+                               name2=="ppt" ~ "sum",
+                               TRUE ~ NA),
+         type = case_when(name2=="tmax" ~ "TEMP",
+                               name2=="tmin"~ "TEMP",
+                               name2=="tmean" ~ "TEMP",
+                               name2=="ppt" ~ "PPT",
                                TRUE ~ NA))
 
-ggplot(plantation_clim_long %>% filter(name %in% c("PPTsp","PPTsm","PPT_at","ppt_wt","value_sp_tmean","value_sm_tmean","value_fa_tmean","value_wt_tmean","value_sp_tmin","value_sm_tmin","value_fa_tmin","value_wt_tmin","value_sp_tmax","value_sm_tmax","value_fa_tmax","value_wt_tmax")), aes(x=year, y=value, col=type))+
+plantation_clim_long_currentyr <- plantation_clim_long %>% 
+  filter(name1=="prior") %>% 
+  mutate(year = year-1) %>% 
+  dplyr::select(c(CN, year, name, name2, name3, value, statistic, type))
+  
+
+ggplot(plantation_clim_long_currentyr %>% filter(name2 %in% c("ppt","tmin","tmean","tmax")), aes(x=year, y=value, col=type))+
   scale_color_manual(values=c("skyblue4","firebrick"))+
   ggnewscale::new_scale_color()+
     geom_line(aes(color=factor(statistic, levels=c("sum","max","mean","min"))))+
   geom_smooth(method="lm", aes(color=factor(statistic, levels=c("sum","max","mean","min"))))+
   scale_color_manual(values = c("skyblue4","#6B1717","firebrick","#E79191"), name="Statistic")+
-  facet_wrap(type~factor(season,levels=c("Spring","Summer","Fall","Winter")), scales="free", nrow=2)+
+  facet_wrap(type~factor(name3, levels=c("sp","sm","fa","wt"), labels=c("Spring","Summer","Fall","Winter")), scales="free", nrow=2)+
   theme_bw()+
   theme(axis.text=element_text(angle=45, hjust=1))
 
@@ -992,9 +1196,7 @@ summary(wttmax_mod) #NS
 ```{r}
 ##look at trends in climate over time at the plantation just for 1970-2014
 
-plantation_clim_all_studyperiod<- plantation_clim %>% 
-  dplyr::select(c(CN:vpdmax_sp, FDSI, ppt_sum, tmean_ave, aet_sum, cwd_sum, spei_sum)) %>% 
-  pivot_longer(PPTsm:spei_sum) %>% 
+plantation_clim_all_studyperiod<- plantation_clim_long_currentyr %>% 
   filter(!year > 2014) %>% 
   filter(!year < 1970) %>% 
   filter(!is.na(value))
@@ -1015,27 +1217,27 @@ pvalue = as.data.frame(summary(mod)$coefficients)[2,] %>% pull(`Pr(>|t|)`)
 plant_clim_mods <- bind_rows(plant_clim_mods, data.frame(climvar=climvar, pvalue=pvalue))
 }
 
-plant_clim_mods %>% filter(pvalue<0.05)  ###fall and summer tmin and aet significantly increased during the study period
+plant_clim_mods %>% filter(pvalue<0.05)  ###fall and summer tmin and fall aet significantly increased during the study period
 
 ##sm tmin
-mod_smtmin <- lm(value ~ year, data=plantation_clim_all_studyperiod %>% filter(name=="value_sm_tmin"))
+mod_smtmin <- lm(value ~ year, data=plantation_clim_all_studyperiod %>% filter(name=="prior_tmin_sm"))
 par(mfrow=c(2,2))
 plot(mod_smtmin)
 summary(mod_smtmin)
 
 ##fa tmin
-mod_fatmin <- lm(value ~ year, data=plantation_clim_all_studyperiod %>% filter(name=="value_fa_tmin"))
+mod_fatmin <- lm(value ~ year, data=plantation_clim_all_studyperiod %>% filter(name=="prior_tmin_fa"))
 par(mfrow=c(2,2))
 plot(mod_fatmin)
 summary(mod_fatmin)
 
 ##aet
-mod_aet <- lm(value ~ year, data=plantation_clim_all_studyperiod %>% filter(name=="aet_sum"))
+mod_aet <- lm(value ~ year, data=plantation_clim_all_studyperiod %>% filter(name=="prior_aet_fa"))
 par(mfrow=c(2,2))
 plot(mod_aet)
 summary(mod_aet)
 
-ggplot(plantation_clim_all_studyperiod %>% filter(name %in% c("aet_sum","value_sm_tmin","value_fa_tmin")), aes(x=year, y=value, col=name, group=name))+
+ggplot(plantation_clim_all_studyperiod %>% filter(name %in% c("prior_aet_fa","prior_tmin_sm","prior_tmin_fa")), aes(x=year, y=value, col=name, group=name))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_wrap(~name, scales="free")
@@ -1044,8 +1246,8 @@ ggplot(plantation_clim_all_studyperiod %>% filter(name %in% c("aet_sum","value_s
 ##Climate extremes
 
 ```{r}
-plantation_clim_long_qs<- plantation_clim_long %>% 
-  left_join(plantation_clim_long %>% 
+plantation_clim_long_qs<- plantation_clim_long_currentyr %>% 
+  left_join(plantation_clim_long_currentyr %>% 
   filter(!is.na(value)) %>% 
   group_by(name) %>% 
   summarise(q2.5 = quantile(value, 0.025), q97.5 = quantile(value, 0.975), out.hi = quantile(value, c(0.75))  + IQR(value)*1.5, out.low = quantile(value, c(0.75)) - IQR(value)*1.5))
@@ -1054,7 +1256,7 @@ plantation_clim_long_qs<- plantation_clim_long %>%
 ggplot(plantation_clim_long_qs, aes(x=year, y=value, col=name))+
   geom_point()+
   geom_line()+
-  facet_wrap(~name, scales="free")+
+  facet_grid(name2~name3, scales="free")+
   geom_line(data=plantation_clim_long_qs, aes(x=year, y=out.low), col="black")+
   geom_line(data=plantation_clim_long_qs, aes(x=year, y=out.hi), col="black")
 
@@ -1064,9 +1266,9 @@ ggplot(plantation_clim_long_qs, aes(x=year, y=value, col=name))+
 unique(plantation_clim_long_qs$name)
 
 plantation_clim_xtremes<- plantation_clim_long_qs %>% 
-  mutate(extreme = ifelse(name %in% c("PPTsm","ppt_gs","ppt_wt","PPT_at","PPTsp","ppt","FDSI","aet") & value < out.low, "yes",
-                          ifelse(name %in% c("value_sm_tmax","value_sm_tmean","value_sm_tmin","value_fa_tmax","value_fa_tmean","value_fa_tmin","value_wt_tmax","value_wt_tmean","value_wt_tmin","value_sp_tmax","value_sp_tmean","value_sp_tmin","vpdmax_sm","vpdmax_fa","vpdmax_wt","vpdmax_sp","cwd_sum","cwd_wy","spei_sum") & value > out.hi, "yes", "no" 
-  ))) %>% 
+  mutate(extreme = case_when(name2 %in% c("ppt","aet") & value < out.low ~ "yes",
+                             name2 %in% c("cwd","spei","tmax","tmean","tmin","vpdmax") & value > out.hi ~"yes",
+                             TRUE ~ "no")) %>% 
   filter(extreme=="yes")
 
 xtreme_d_byyr<- plantation_clim_xtremes %>% 
@@ -1082,7 +1284,7 @@ ggplot(xtreme_d_byyr, aes(x=year, y=n, fill=n))+
 ## identify cold years
 #############
 plantation_clim_coldxtremes<- plantation_clim_long_qs %>% 
-  mutate(extreme = ifelse(name %in% c("value_sm_tmax","value_sm_tmean","value_sm_tmin","value_fa_tmax","value_fa_tmean","value_fa_tmin","value_wt_tmax","value_wt_tmean","value_wt_tmin","value_sp_tmax","value_sp_tmean","value_sp_tmin","vpdmax_sm","vpdmax_fa","vpdmax_wt","vpdmax_sp","cwd_sum","cwd_wy") & value < out.low, "yes", "no" 
+  mutate(extreme = ifelse(name2 %in% c("tmax","tmean","tmin","vpdmax","cwd") & value < out.low, "yes", "no" 
   )) %>% 
   filter(extreme=="yes")
 
@@ -1092,22 +1294,22 @@ xtreme_c_byyr<- plantation_clim_coldxtremes %>%
 
 ggplot(xtreme_c_byyr, aes(x=year, y=n, fill=n))+
   geom_bar(stat='identity')+
-  scale_fill_gradientn(colors=c("lightblue","navy"))
+  scale_fill_gradientn(colors=c("lightblue","navy")) #1984 was really cold
 
 plantation_clim_wetextremes<- plantation_clim_long_qs %>% 
-  mutate(extreme = ifelse(name %in% c("PPTsm","ppt_gs","ppt_wt","PPT_at","PPTsp","ppt","FDSI","aet_sum","spei_sum") & value > out.hi, "yes", "no" 
+  mutate(extreme = ifelse(name2 %in% c("ppt","aet","spei") & value > out.hi, "yes", "no" 
   )) %>% 
   filter(extreme=="yes")
 
 ggplot(plantation_clim_long_qs %>% 
-  filter(name %in% c("PPTsm","ppt_gs","ppt_wt","PPT_at","PPTsp","ppt","FDSI","aet_sum","spei_sum")), aes(x=year, y=value, color=name))+
+  filter(name2 %in% c("ppt","aet","spei")), aes(x=year, y=value, color=name))+
   geom_point()+
   geom_line()+
   facet_wrap(~name, scales="free")+
   geom_line(data=plantation_clim_long_qs %>% 
-  filter(name %in% c("PPTsm","ppt_gs","ppt_wt","PPT_at","PPTsp","ppt","FDSI","aet_sum","spei_sum")), aes(x=year, y=out.low), col="black")+
+  filter(name2 %in% c("ppt","aet","spei")), aes(x=year, y=out.low), col="black")+
   geom_line(data=plantation_clim_long_qs %>% 
-  filter(name %in% c("PPTsm","ppt_gs","ppt_wt","PPT_at","PPTsp","ppt","FDSI","aet_sum","spei_sum")), aes(x=year, y=out.hi), col="black")+
+  filter(name2 %in% c("ppt","aet","spei")), aes(x=year, y=out.hi), col="black")+
   geom_hline(yintercept=0)
 
 ```
@@ -4308,27 +4510,27 @@ relht_mods_transfer %>% filter(pvalue_nog<0.05) %>% arrange(Mr2_nog) #lots signi
 
 ###create data frame with coefficients of the significant models
 relht_transfer_sigvars <-relht_mods_transfer %>% filter(pvalue_nog<0.05) %>% pull(var)
-relht_mods_transfer_coeffs<- data.frame()
-relht_mods_transfer_coeffs_nog <- data.frame()
-for(i in 1:length(relht_transfer_sigvars)){
-mod <- lmer(relht ~ diff_plant + (1|Provenance) +  (1|BLK) + (1|year), data=relht_clim_long_transfer %>% filter(name==relht_transfer_sigvars[i]))
-pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
-estimate <- as.data.frame(summary(mod)$coefficients)[2,]$Estimate
-lwr <- confint(mod)[6,1]
-upr <- confint(mod)[6,2]
-
-mod_nog <- lmer(relht ~ diff_plant + (1|Provenance) + (1|BLK) + (1|year), data=relht_clim_long_transfer_nog %>% filter(name==relht_transfer_sigvars[i]))
-pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|t|)`
-estimate_nog <- as.data.frame(summary(mod_nog)$coefficients)[2,]$Estimate
-lwr_nog <- confint(mod_nog)[6,1]
-upr_nog <- confint(mod_nog)[6,2]
-
-relht_mods_transfer_coeffs <- bind_rows(relht_mods_transfer_coeffs, data.frame(var=relht_transfer_sigvars[i], pvalue = pvalue, estimate = estimate, lwr = lwr, upr = upr, model = "with Gila NF"))
-relht_mods_transfer_coeffs_nog <- bind_rows(relht_mods_transfer_coeffs_nog, data.frame(var=relht_transfer_sigvars[i],  pvalue = pvalue_nog, estimate = estimate_nog, lwr = lwr_nog, upr = upr_nog, model="without Gila NF"))
-}
-
-relht_mods_transfer_coeffs_all<- bind_rows(relht_mods_transfer_coeffs, relht_mods_transfer_coeffs_nog)
-saveRDS(relht_mods_transfer_coeffs_all, "relht_mods_transfer_coeffs_all.RDS")
+# relht_mods_transfer_coeffs<- data.frame()
+# relht_mods_transfer_coeffs_nog <- data.frame()
+# for(i in 1:length(relht_transfer_sigvars)){
+# mod <- lmer(relht ~ diff_plant + (1|Provenance) +  (1|BLK) + (1|year), data=relht_clim_long_transfer %>% filter(name==relht_transfer_sigvars[i]))
+# pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
+# estimate <- as.data.frame(summary(mod)$coefficients)[2,]$Estimate
+# lwr <- confint(mod)[6,1]
+# upr <- confint(mod)[6,2]
+# 
+# mod_nog <- lmer(relht ~ diff_plant + (1|Provenance) + (1|BLK) + (1|year), data=relht_clim_long_transfer_nog %>% filter(name==relht_transfer_sigvars[i]))
+# pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|t|)`
+# estimate_nog <- as.data.frame(summary(mod_nog)$coefficients)[2,]$Estimate
+# lwr_nog <- confint(mod_nog)[6,1]
+# upr_nog <- confint(mod_nog)[6,2]
+# 
+# relht_mods_transfer_coeffs <- bind_rows(relht_mods_transfer_coeffs, data.frame(var=relht_transfer_sigvars[i], pvalue = pvalue, estimate = estimate, lwr = lwr, upr = upr, model = "with Gila NF"))
+# relht_mods_transfer_coeffs_nog <- bind_rows(relht_mods_transfer_coeffs_nog, data.frame(var=relht_transfer_sigvars[i],  pvalue = pvalue_nog, estimate = estimate_nog, lwr = lwr_nog, upr = upr_nog, model="without Gila NF"))
+# }
+# 
+# relht_mods_transfer_coeffs_all<- bind_rows(relht_mods_transfer_coeffs, relht_mods_transfer_coeffs_nog)
+# saveRDS(relht_mods_transfer_coeffs_all, "relht_mods_transfer_coeffs_all.RDS")
 relht_mods_transfer_coeffs_all <- readRDS("relht_mods_transfer_coeffs_all.RDS")
 
 relht_transfer_coef_plot <- ggplot(relht_mods_transfer_coeffs_all %>% filter(!var=="monsoonality"), aes(y = factor(var), x=estimate, color=model))+
@@ -4676,7 +4878,7 @@ plot(simulateResiduals(best.mod.cone.clim_nog))
 
 ##predictions - no gila - height
 
-newmod <- glmmTMB(cbind(n_cones, total-n_cones) ~  height + (1|BLK) + (1|year) + (1|Prov), data= moniger_subset_nog, family = binomial)
+newmod <- glmmTMB(cbind(n_cones, total-n_cones) ~  height, data= moniger_subset_nog, family = binomial)
 summary(newmod)
 plot(simulateResiduals(newmod))
 
@@ -4704,8 +4906,8 @@ cone_plot_height<- ggplot(CCnewdata3_cone_nog_height %>% mutate(var="Height"), a
 cone_plot_height
 
 ###height needed for 50% chance of having cones
-summary(best.mod.cone.clim_nog)
-predict(best.mod.cone.clim_nog, newdata=data.frame(height=3.85),type="response")
+summary(newmod)
+predict(newmod, newdata=data.frame(height=3.85),type="response")
 
 #log(p/(1-p)) = b0 + b1*height
 
@@ -7847,27 +8049,14 @@ plantation_clim_minus1<- plantation_clim %>% mutate(year = year+1) %>%
 colnames(plantation_clim_minus1)<- paste("prior_",colnames(plantation_clim_minus1),sep="")
 
 plantation_clim_cor<- plantation_clim %>% 
- dplyr::select(c(CN:year,PPTsm:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum)) %>% 
-  left_join(plantation_clim_minus1, by=c("year" = "prior_year", "CN" = "prior_CN")) %>% 
-  filter(! year %in% c(1971)) %>% 
   ungroup() %>% 
-  filter(year>1970) %>% 
- dplyr::select(-c(CN,year)) %>% 
+  filter(year > 1970 & year < 2023) %>% 
+ dplyr::select(c(prior_ppt_sp, prior_ppt_sm, ppt_sp, ppt_sm,prior_tmean_sp:prior_tmax_sm, tmean_sp:vpdmax_sm, vpdmax_sp:prior_vpdmax_sm, prior_cwd_sp:prior_cwd_sm, cwd_sp:prior_aet_sm, aet_sp:spei_sm, prior_spei_sp, prior_spei_sm)) %>% 
   cor()
 
 plantation_clim_cor
 
 ggcorrplot(plantation_clim_cor, type="lower", insig = "blank", lab=FALSE)
-
-plantation_clim_cor_yrof<- plantation_clim %>% 
- dplyr::select(c(CN:year,PPTsm:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum)) %>% 
-  filter(! year %in% c(1970)) %>% 
-  ungroup() %>% 
-  filter(year>1970) %>% 
- dplyr::select(-c(CN,year)) %>% 
-  cor()
-
-ggcorrplot(plantation_clim_cor_yrof, type="lower", insig = "blank", lab=TRUE)
 
 ```
 
@@ -7883,14 +8072,14 @@ colnames(plantation_frost_minus1)<- paste("prior_",colnames(plantation_frost_min
 growth_climate_df <- growth.detrended.df %>% 
   left_join(plantation_clim) %>% 
   left_join(plantation_frost) %>% 
- dplyr::select(c(CN:year,PPTsm:vpdmax_sp, FDSI, aet_sum, cwd_wy, spei_sum, day_of_last_spring_frost, day_of_first_fall_frost)) %>% 
-  left_join(plantation_clim_minus1, by=c("year" = "prior_year", "CN" = "prior_CN")) %>% 
   left_join(plantation_frost_minus1, by=c("year" = "prior_year", "CN" = "prior_CN")) %>% 
   ungroup() %>% 
   filter(year>1970) %>% 
-  filter(!is.na(rw_spline))
+  filter(!is.na(rw_spline)) %>% 
+  dplyr::select(-site) %>% 
+  rename(dofff_sm = day_of_first_fall_frost, dolsf_sp= day_of_last_spring_frost, prior_dofff_sm = prior_day_of_first_fall_frost, prior_dolsf_sp= prior_day_of_last_spring_frost)
 
-climvars <- colnames(growth_climate_df %>% dplyr::select(-c(CN:year)))
+climvars <- colnames(growth_climate_df %>% dplyr::select(c(prior_ppt_sp:prior_dolsf_sp)))
 tree_ids <- unique(growth_climate_df$tree)
 
 gc_cor_df<-data.frame()
@@ -7912,8 +8101,6 @@ gc_cor_df %>%
   arrange(n) %>% 
   print(n=55) #number of trees with significant correlations between growth and each climate var
 
-25/length(unique(gc_cor_df$V2))
-
 gc_cor_df %>% filter(p.value<0.05) %>% pull(V2) %>% unique() %>% length()
 
 gc_cor_df %>% 
@@ -7929,7 +8116,9 @@ cor_clean <- gc_cor_df %>%
   rename(climvar=V1, tree=V2, cor=rw_spline) %>%
   mutate(cor = as.numeric(cor)) %>% 
   left_join(growth_climate_df %>%dplyr::select(tree,Provenance, BLK) %>% unique(), by="tree") %>%
-  filter(!is.na(cor))
+  filter(!is.na(cor)) %>% 
+  separate(climvar, into=c("time","var","season"), sep="_", remove=FALSE, fill="left") %>% 
+  mutate(time_season = paste(time, season, sep=""))
 
 overall_clim_cor_sig<- data.frame()
 for(i in 1:length(unique(cor_clean$climvar))){
@@ -7944,23 +8133,9 @@ for(i in 1:length(unique(cor_clean$climvar))){
 
 overall_clim_cor_sig %>% filter(pvalue<0.05)
 
-ggplot(cor_clean %>% filter(climvar %in% c("aet_sum" , "cwd_wy" , "PPTsm", "vpdmax_wt", "prior_aet_sum", "prior_cwd_wy", "prior_PPTsm" , "prior_vpdmax_wt")), aes(x=Provenance, y=cor, color=p.value<0.05))+
+ggplot(cor_clean, aes(x=factor(Provenance, levels=provs_bylat$Provenance), y=cor, color=p.value<0.05))+
   geom_jitter(height=0, width=0.1, size=3,alpha=0.7)+
-  facet_wrap(~factor(climvar, levels=c("aet_sum","cwd_wy","PPTsm","vpdmax_wt", "prior_aet_sum","prior_cwd_wy","prior_PPTsm","prior_vpdmax_wt")),nrow=2)+
-  scale_color_manual(values=c("gray20", "red"))+
-  geom_hline(yintercept=0)+
-  theme_bw()+
-  theme(axis.text.x = element_text(angle=45, hjust=1, color="black", size=10),
-        axis.text = element_text(color="black", size=12),
-        axis.title = element_text(color="black", size=14),
-        legend.text = element_text(color="black", size=12),
-        legend.title = element_text(color="black", size=14),
-        strip.text = element_text(color="black", size=12))
-  
-##all the rest of the climate variables
-ggplot(cor_clean %>% left_join(prov_names, by=c("Provenance")), aes(x=code, y=cor, color=p.value<0.05))+
-  geom_jitter(height=0, width=0.1, size=3,alpha=0.7)+
-  facet_wrap(~climvar)+
+  facet_grid(var~factor(time_season, levels=c("priorsp","priorsm","priorfa","priorwt","NAsp","NAsm"), labels=c("prior sp","prior sm","prior fa","prior wt","sp","sm")))+
   scale_color_manual(values=c("gray20", "red"))+
   geom_hline(yintercept=0)+
   theme_bw()+
@@ -7972,20 +8147,20 @@ ggplot(cor_clean %>% left_join(prov_names, by=c("Provenance")), aes(x=code, y=co
         strip.text = element_text(color="black", size=12))
 
 allanovas<- data.frame()
-for(i in 1:length(climvars)){
-mod <- lm(cor ~ Provenance, data=cor_clean %>% filter(climvar == climvars[i]))
+for(i in 1:length(unique(cor_clean$climvar))){
+mod <- lm(cor ~ Provenance, data=cor_clean %>% filter(climvar == unique(cor_clean$climvar)[i]))
 modanova <- as.data.frame(Anova(mod, type="2"))
 pvalue<- modanova %>% mutate(var = rownames(modanova)) %>% filter(var=="Provenance") %>%  pull(`Pr(>F)`)
 provSS <- modanova %>% mutate(var = rownames(modanova)) %>% filter(var=="Provenance") %>%  pull(`Sum Sq`)
 provdf <- modanova %>% mutate(var = rownames(modanova)) %>% filter(var=="Provenance") %>%  pull(`Df`)
 residSS <- modanova %>% mutate(var = rownames(modanova)) %>% filter(var=="Residuals") %>%  pull(`Sum Sq`)
 residdf <- modanova %>% mutate(var = rownames(modanova)) %>% filter(var=="Residuals") %>%  pull(`Df`)
-allanovas <- bind_rows(allanovas, data.frame(climvar=climvars[i],pvalue=pvalue, provMS = provSS/provdf, residMS = residSS/residdf, provdf=provdf, residdf = residdf))
+allanovas <- bind_rows(allanovas, data.frame(climvar=unique(cor_clean$climvar)[i],pvalue=pvalue, provMS = provSS/provdf, residMS = residSS/residdf, provdf=provdf, residdf = residdf))
 }
 
 allanovas %>% mutate(diff_prov = residMS - provMS) ##when residMS is greater than provMS (diff > 0)--> variation within provenances is greater than variation between them 
-allanovas %>% mutate(diff_prov = residMS - provMS) %>% filter(diff_prov>0) %>% nrow()
-allanovas %>% mutate(diff_prov = residMS - provMS) %>% filter(diff_prov<0) %>% nrow()
+allanovas %>% mutate(diff_prov = residMS - provMS) %>% filter(diff_prov>0) %>% nrow()#within greater than between
+allanovas %>% mutate(diff_prov = residMS - provMS) %>% filter(diff_prov<0) %>% nrow()#between greater than within
 
 allanovas %>% mutate(diff_prov = residMS - provMS) %>% filter(diff_prov>0)
 allanovas %>% mutate(diff_prov = residMS - provMS) %>% filter(diff_prov<0) 
@@ -8000,10 +8175,10 @@ max(allanovas$pvalue)
 provs <- unique(cor_clean$Provenance)
 ttestdata<- data.frame()
 
-for(i in 1:length(climvars)){
+for(i in 1:length(unique(cor_clean$climvar))){
   for(j in 1:length(provs)){
 data <- cor_clean %>% 
-  filter(climvar==climvars[i]) %>% 
+  filter(climvar==unique(cor_clean$climvar)[i]) %>% 
   filter(Provenance == provs[j])
 
 test<- t.test(data$cor, y = NULL,
@@ -8011,7 +8186,7 @@ test<- t.test(data$cor, y = NULL,
        mu = 0, paired = FALSE, var.equal = FALSE,
        conf.level = 0.95)
 
-row <- data.frame(climvar = climvars[i], Provenance = provs[j], lwr = test$conf.int[1], upr = test$conf.int[2], estimate = test$estimate, pvalue = test$p.value)
+row <- data.frame(climvar = unique(cor_clean$climvar)[i], Provenance = provs[j], lwr = test$conf.int[1], upr = test$conf.int[2], estimate = test$estimate, pvalue = test$p.value)
 
 ttestdata <- bind_rows(ttestdata, row)}}
 
@@ -8021,82 +8196,23 @@ ttestdata %>% filter(pvalue < 0.05) %>%
 arrange(n) %>% 
   print(n=56)  ##look at vars that have more than half of the provenances with significant values
 
-current_climvar_order<- ttestdata %>% filter(pvalue < 0.05) %>% 
-  filter(! str_detect(climvar, "prior")) %>% 
-  group_by(climvar) %>% 
-  summarise(n=n()) %>% 
-arrange(n) %>% 
-  mutate(color = case_when(str_detect(climvar, c("_sp")) == TRUE ~ "pink",
-                           str_detect(climvar, c("_at")) == TRUE ~ "orange",
-                           str_detect(climvar, c("_fa")) == TRUE ~ "orange",
-
-                           str_detect(climvar, c("_gs")) == TRUE ~ "green",
-                           str_detect(climvar, c("_sm")) == TRUE ~ "green",
-                           str_detect(climvar, c("PPTsp")) == TRUE ~ "pink",
-                           str_detect(climvar, c("PPTsm")) == TRUE ~ "green",                           
-                           str_detect(climvar, c("_wt")) == TRUE ~ "blue",
-
-                           .default = "brown4"))
-
-ggplot(data=ttestdata %>% filter(pvalue < 0.05) %>% mutate(count = 1) %>% filter(! str_detect(climvar,"prior")) %>% left_join(current_climvar_order), aes(x=factor(Provenance, levels=provs_bylat$Provenance), y=count, fill=color))+
-  scale_fill_manual(values=c("blue","brown4","green","orange","pink"))+
-  geom_bar(stat="identity")+
-  theme(axis.text.x=element_text(angle=45, hjust=1))
-
-prior_climvar_order<- ttestdata %>% filter(pvalue < 0.05) %>% 
-  filter(str_detect(climvar, "prior")) %>% 
-  group_by(climvar) %>% 
-  summarise(n=n()) %>% 
-arrange(n) %>% 
-  mutate(color = case_when(str_detect(climvar, c("_sp")) == TRUE ~ "pink",
-                           str_detect(climvar, c("_at")) == TRUE ~ "orange",
-                           str_detect(climvar, c("_fa")) == TRUE ~ "orange",
-
-                           str_detect(climvar, c("_gs")) == TRUE ~ "green",
-                           str_detect(climvar, c("_sm")) == TRUE ~ "green",
-                           str_detect(climvar, c("PPTsp")) == TRUE ~ "pink",
-                           str_detect(climvar, c("PPTsm")) == TRUE ~ "green",                           
-                           str_detect(climvar, c("_wt")) == TRUE ~ "blue",
-
-                           .default = "brown4")) %>% 
-  mutate(color = ifelse(climvar == "prior_spei_sum", "brown4",color))
-
-
-ggplot(data=ttestdata %>% filter(pvalue < 0.05) %>% mutate(count = 1) %>% filter(str_detect(climvar,"prior")) %>% left_join(prior_climvar_order), aes(x=factor(Provenance, levels=provs_bylat$Provenance), y=count, fill=color))+
-  scale_fill_manual(values=c("blue","brown4","green","orange","pink"))+
-  geom_bar(stat="identity")+
-  theme(axis.text.x=element_text(angle=45, hjust=1))
-
-
 
 sig.cors.byprov <- cor_clean %>% left_join(ttestdata %>% filter(pvalue < 0.05)) %>% 
   mutate(sig = case_when(!is.na(pvalue) ~ "*",
                          .default = "")) %>% 
-  filter(climvar %in% c("aet_sum" , "vpdmax_wt", "value_wt_tmean", "prior_aet_sum","prior_PPTsm", "prior_value_wt_tmean")) %>% 
-  filter(!is.na(pvalue)) %>% 
   left_join(prov_names)
 
-nonsig.provs <- cor_clean %>% left_join(ttestdata %>% filter(pvalue < 0.05)) %>% 
-  mutate(sig = case_when(!is.na(pvalue) ~ "*",
-                         .default = "")) %>% 
-  filter(climvar %in% c("aet_sum" , "vpdmax_wt", "value_wt_tmean", "prior_aet_sum","prior_PPTsm", "prior_value_wt_tmean")) %>% 
-  dplyr::select(climvar, Provenance, pvalue) %>% 
-  unique() %>%
-  group_by(Provenance) %>% 
-  summarise(sum = sum(pvalue, na.rm=T)) %>% 
-  filter(sum==0)
-
-selected_climvars <-  c("vpdmax_wt","value_wt_tmean", "aet_sum")
-
-correlation_plot<- ggplot(data=sig.cors.byprov %>% filter(climvar %in% selected_climvars), aes(x=factor(code, levels=provs_bylat$code), y=estimate))+
-    geom_jitter(data= cor_clean %>% filter(climvar %in% selected_climvars) %>% left_join(prov_names), aes(x=factor(code, levels=provs_bylat$code), y=cor), fill="gray", color="black", size=2, height=0, width=0.1, alpha=0.2)+
+ggplot(data=sig.cors.byprov, aes(x=factor(code, levels=provs_bylat$code), y=estimate))+
+    geom_jitter(data= cor_clean %>% left_join(prov_names), aes(x=factor(code, levels=provs_bylat$code), y=cor, color=p.value<0.05),size=2, height=0, width=0.1, alpha=0.2)+
+  scale_color_manual(values=c("gray20","red"))+
+  ggnewscale::new_scale_color()+
   geom_errorbar(aes(x=factor(code, levels=provs_bylat$code), ymin=lwr, ymax=upr, color = factor(code, levels=provs_bylat$code)),width=0.8, linewidth=1)+
     geom_errorbar(aes(x=factor(code, levels=provs_bylat$code), ymin=lwr, ymax=upr),width=0.8, color="black", linewidth=0.5)+
   geom_point(size=2, shape=21, aes(fill=factor(code, levels=provs_bylat$code)))+
   scale_color_manual(values=unname(stepped()), name="Provenance")+
   scale_fill_manual(values=unname(stepped()), name="Provenance")+
   geom_hline(yintercept=0, col="black")+
-  facet_wrap(~factor(climvar, levels=selected_climvars, labels=c("VPDmax WT", "TMEAN WT", "AET annual")),ncol=1)+
+  facet_grid(var~factor(time_season, levels=c("priorsp","priorsm","priorfa","priorwt","NAsp","NAsm"), labels=c("prior sp","prior sm","prior fa","prior wt","sp","sm")))+
   xlab("")+
   theme_bw()+
   theme(axis.text.x = element_text(angle=45, hjust=1, size=12, color="black"),
@@ -8104,104 +8220,6 @@ correlation_plot<- ggplot(data=sig.cors.byprov %>% filter(climvar %in% selected_
         axis.title = element_text(size=12, color="black"),
         legend.position = "none",
         strip.text = element_text(color="black", size=12),
-        panel.grid = element_blank())
-
- # png("figures/correlation_plot.png", width=6.5, height=5, res = 300, units = "in")
- # correlation_plot
- # dev.off()
- # 
-##correlation plot for all current year variables
- 
-sig.cors.byprov.all <- cor_clean %>% left_join(ttestdata %>% filter(pvalue < 0.05)) %>% 
-  mutate(sig = case_when(!is.na(pvalue) ~ "*",
-                         .default = "")) %>% 
-  filter(!is.na(pvalue)) %>% 
-  left_join(prov_names)
-
-nonsig.provs.all <- cor_clean %>% left_join(ttestdata %>% filter(pvalue < 0.05)) %>% 
-  mutate(sig = case_when(!is.na(pvalue) ~ "*",
-                         .default = "")) %>% 
-  dplyr::select(climvar, Provenance, pvalue) %>% 
-  unique() %>%
-  group_by(Provenance) %>% 
-  summarise(sum = sum(pvalue, na.rm=T)) %>% 
-  filter(sum==0)%>% 
-  left_join(prov_names)
-
-current_climvars <- unique(cor_clean$climvar)[1:28]
-current_climvars_order1 <- ttestdata %>% filter(pvalue < 0.05) %>% 
-  group_by(climvar) %>% 
-  summarise(n=n()) %>% 
-  filter(climvar %in% current_climvars)
-current_climvars_order<- current_climvars_order1 %>% 
-  bind_rows(data.frame(climvar=current_climvars, n=0) %>% 
-   filter(! climvar %in% current_climvars_order1$climvar)) %>% 
-  arrange(n)
-
-ggplot(data=sig.cors.byprov.all%>% filter(climvar %in% current_climvars) , aes(x=factor(code, levels=provs_bylat$code), y=estimate))+
-    geom_jitter(data= cor_clean %>% filter(climvar %in% current_climvars) %>% left_join(prov_names), aes(x=factor(code, levels=provs_bylat$code), y=cor), fill="gray", color="black", size=2, height=0, width=0.1, alpha=0.2)+
-  geom_errorbar(aes(x=factor(code, levels=provs_bylat$code), ymin=lwr, ymax=upr, color = factor(code, levels=provs_bylat$code)),width=0.8, linewidth=1)+
-    geom_errorbar(aes(x=factor(code, levels=provs_bylat$code), ymin=lwr, ymax=upr),width=0.8, color="black", linewidth=0.5)+
-  geom_point(size=2, shape=21, aes(fill=factor(code, levels=provs_bylat$code)))+
-  scale_color_manual(values=unname(stepped()), name="Provenance")+
-  scale_fill_manual(values=unname(stepped()), name="Provenance")+
-  geom_hline(yintercept=0, col="black")+
-  facet_wrap(~factor(climvar, levels=current_climvars_order$climvar))+
-  xlab("")+
-  theme_bw()+
-  theme(axis.text.x = element_text(angle=45, hjust=1, size=8, color="black"),
-        axis.text.y = element_text(size=10, color="black"),
-        axis.title = element_text(size=10, color="black"),
-        legend.position = "none",
-        strip.text = element_text(color="black", size=10),
-        panel.grid = element_blank())
-
-ggplot(data=sig.cors.byprov.all%>% filter(climvar %in% current_climvars) , aes(x=factor(climvar), y=estimate))+
-    geom_jitter(data= cor_clean %>% filter(climvar %in% current_climvars) %>% left_join(prov_names), aes(x=factor(climvar), y=cor), fill="gray", color="black", size=2, height=0, width=0.1, alpha=0.2)+
-  geom_errorbar(aes(x=factor(climvar), ymin=lwr, ymax=upr, color = factor(code, levels=provs_bylat$code)),width=0.8, linewidth=1)+
-    geom_errorbar(aes(x=factor(climvar), ymin=lwr, ymax=upr),width=0.8, color="black", linewidth=0.5)+
-  geom_point(size=2, shape=21, aes(fill=factor(code, levels=provs_bylat$code)))+
-  scale_color_manual(values=unname(stepped()), name="Provenance")+
-  scale_fill_manual(values=unname(stepped()), name="Provenance")+
-  geom_hline(yintercept=0, col="black")+
-  facet_wrap(~factor(code, levels=provs_bylat$code))+
-  xlab("")+
-  theme_bw()+
-  theme(axis.text.x = element_text(angle=45, hjust=1, size=8, color="black"),
-        axis.text.y = element_text(size=10, color="black"),
-        axis.title = element_text(size=10, color="black"),
-        legend.position = "none",
-        strip.text = element_text(color="black", size=10),
-        panel.grid = element_blank())
-
-##all prior climvar correlations
-
-prior_climvars <- unique(cor_clean$climvar)[29:56]
-prior_climvars_order1 <- ttestdata %>% filter(pvalue < 0.05) %>% 
-  group_by(climvar) %>% 
-  summarise(n=n()) %>% 
-  filter(climvar %in% prior_climvars)
-prior_climvars_order<- prior_climvars_order1 %>% 
-  bind_rows(data.frame(climvar=prior_climvars, n=0) %>% 
-   filter(! climvar %in% prior_climvars_order1$climvar)) %>% 
-  arrange(n)
-
-ggplot(data=sig.cors.byprov.all%>% filter(climvar %in% prior_climvars), aes(x=factor(code, levels=provs_bylat$code), y=estimate))+
-    geom_jitter(data= cor_clean %>% filter(climvar %in% prior_climvars) %>% left_join(prov_names), aes(x=factor(code, levels=provs_bylat$code), y=cor), fill="gray", color="black", size=2, height=0, width=0.1, alpha=0.2)+
-  geom_errorbar(aes(x=factor(code, levels=provs_bylat$code), ymin=lwr, ymax=upr, color = factor(code, levels=provs_bylat$code)),width=0.8, linewidth=1)+
-    geom_errorbar(aes(x=factor(code, levels=provs_bylat$code), ymin=lwr, ymax=upr),width=0.8, color="black", linewidth=0.5)+
-  geom_point(size=2, shape=21, aes(fill=factor(code, levels=provs_bylat$code)))+
-  scale_color_manual(values=unname(stepped()), name="Provenance")+
-  scale_fill_manual(values=unname(stepped()), name="Provenance")+
-  geom_hline(yintercept=0, col="black")+
-  facet_wrap(~factor(climvar, levels=prior_climvars_order$climvar))+
-  xlab("")+
-  theme_bw()+
-  theme(axis.text.x = element_text(angle=45, hjust=1, size=8, color="black"),
-        axis.text.y = element_text(size=10, color="black"),
-        axis.title = element_text(size=10, color="black"),
-        legend.position = "none",
-        strip.text = element_text(color="black", size=10),
         panel.grid = element_blank())
 ```
 
