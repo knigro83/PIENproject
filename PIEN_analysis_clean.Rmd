@@ -594,19 +594,6 @@ ggplot(tmean_summed %>% filter(CN=="Plantation"), aes(x=year, y=tmean)) +
 ##seasonal temps
 all_temps <- bind_rows(tmean_comb_plantation %>% pivot_longer(tmean), tmin_comb_plantation %>% pivot_longer(tmin), tmax_comb_plantation %>% pivot_longer(tmax))
 
-prior_tmean_sp <- all_temps %>% filter(month %in% c(3,4,5) & name=="tmean") %>% 
-  mutate(year = year+1) %>% 
-  group_by(CN, year) %>% 
-  summarise(prior_tmean_sp = mean(value))
-prior_tmin_sp <- all_temps %>% filter(month %in% c(3,4,5) & name=="tmin") %>% 
-  mutate(year = year+1) %>% 
-  group_by(CN, year) %>% 
-  summarise(prior_tmin_sp = mean(value))
-prior_tmax_sp <- all_temps %>% filter(month %in% c(3,4,5) & name=="tmax") %>% 
-  mutate(year = year+1) %>% 
-  group_by(CN, year) %>% 
-  summarise(prior_tmax_sp = mean(value))
-
 prior_tmean_sm <- all_temps %>% filter(month %in% c(6,7,8) & name=="tmean") %>% 
   mutate(year = year+1) %>% 
   group_by(CN, year) %>% 
@@ -666,7 +653,7 @@ tmax_sm <- all_temps %>% filter(month %in% c(6,7,8) & name=="tmax") %>%
   group_by(CN, year) %>% 
   summarise(tmax_sm = mean(value))
 
-plantation_seasonal_temps<- plyr::join_all(list(prior_tmean_sp,prior_tmin_sp,prior_tmax_sp,prior_tmean_sm,prior_tmin_sm,prior_tmax_sm,prior_tmean_fa,prior_tmin_fa,prior_tmax_fa,prior_tmean_wt,prior_tmin_wt,prior_tmax_wt,tmean_sp,tmin_sp,tmax_sp,tmean_sm,tmin_sm,tmax_sm), type="left")
+plantation_seasonal_temps<- plyr::join_all(list(prior_tmean_sm,prior_tmin_sm,prior_tmax_sm,prior_tmean_fa,prior_tmin_fa,prior_tmax_fa,prior_tmean_wt,prior_tmin_wt,prior_tmax_wt,tmean_sp,tmin_sp,tmax_sp,tmean_sm,tmin_sm,tmax_sm), type="left")
 
 ##vpdmax
 
@@ -703,11 +690,6 @@ vpdmax_seasonal <- as.data.frame(vpdmax_comb_plantation) %>%
   filter(month %in% c(3,4,5)) %>% 
   group_by(CN, year) %>% 
  dplyr::summarise(vpdmax_sp = mean(vpdmax))) %>% 
-  left_join(as.data.frame(vpdmax_comb_plantation) %>% 
-  mutate(vpdmax = as.numeric(vpdmax), year=as.integer(year+1)) %>%
-  filter(month %in% c(3,4,5)) %>% 
-  group_by(CN, year) %>% 
- dplyr::summarise(prior_vpdmax_sp = mean(vpdmax))) %>% 
   left_join(as.data.frame(vpdmax_comb_plantation) %>% 
   mutate(vpdmax = as.numeric(vpdmax), year=as.integer(year+1)) %>%
   filter(month %in% c(6,7,8)) %>% 
@@ -808,13 +790,6 @@ plantation_cwd <- cwd_function(site="plantation",slope=plantation_cwd_data$slope
 
 head(plantation_cwd)
 
-priorsp_cwd<- plantation_cwd %>% 
-  mutate(date= as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")) %>% 
-  filter(month%in%c(3,4,5)) %>%
-  group_by(site, year) %>% 
-  summarise(prior_cwd_sp = sum(cwd)) %>% 
-  mutate(year=year+1) %>% 
-  filter(year>1970)
 
 priorsm_cwd<- plantation_cwd %>% 
   mutate(date= as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")) %>% 
@@ -920,14 +895,6 @@ ggplot(plantation_cwd_annual_long %>% filter(name%in%c("cwd_sum","FDSI")), aes(x
 ##AET
 
 ```{r}
-priorsp_aet<- plantation_cwd %>% 
-  mutate(date= as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")) %>% 
-  filter(month%in%c(3,4,5)) %>%
-  group_by(site, year) %>% 
-  summarise(prior_aet_sp = sum(aet)) %>% 
-  mutate(year=year+1) %>% 
-  filter(year>1970)
-
 priorsm_aet<- plantation_cwd %>% 
   mutate(date= as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")) %>% 
   filter(month%in%c(6,7,8)) %>%
@@ -984,47 +951,6 @@ aet_seasonal <- left_join(priorsp_aet, priorsm_aet) %>%
 
 ```
 
-##SPEI
-
-```{r}
-##calculate SPEI - Standardized Precipitation Evapotranspiration Index (higher is wetter, lower is drier)
-plantation_climatebalance <- plantation_cwd %>% 
-  mutate(ppt_pet = ppt - petm)
-
-plantation_climatebalance_seasonal <- plantation_climatebalance %>% 
-  filter(! (year==1970 & month %in% c(1,2))) %>% 
-  filter(! (year==2023 & month == 12))
-
-
-plantation_spei <- spei(plantation_climatebalance %>% pull(ppt_pet), scale=1)
-summary(plantation_spei)
-
-plantation_spei_seasonal <- spei(plantation_climatebalance_seasonal %>% pull(ppt_pet), scale=3)
-plot(plantation_spei_seasonal)
-length(plantation_spei_seasonal$fitted)
-
-seasonal_spei<- data.frame(year = plantation_climatebalance_seasonal$year, month=plantation_climatebalance_seasonal$month, spei3 = plantation_spei_seasonal$fitted) %>% 
-  filter(month%in%c(5,8,11,2)) %>% 
-  mutate(season = case_when(month==5 ~ "sp",
-                            month==8 ~ "sm",
-                            month==11 ~ "fa",
-                            month==2 ~ "wt")) %>% 
-  mutate(date= as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")) %>% 
-  mutate(year=ifelse(season=="fa", year+1, year))
-
-seasonal_spei_prior_spsm<- seasonal_spei %>% 
-  filter(season%in%c("sp","sm")) %>% 
-  mutate(year=year+1, season=paste0("prior_spei_",season))
-
-seasonal_spei_wide <- seasonal_spei %>% 
-  bind_rows(seasonal_spei_prior_spsm) %>% 
-  dplyr::select(-c(month, date)) %>% 
-  pivot_wider(names_from=season, values_from=spei3) %>% 
-  rename(spei_sp = sp, spei_sm = sm, prior_spei_fa = fa, prior_spei_wt = wt) %>% 
-  mutate(CN="Plantation")
-
-```
-
 ##RAWS
 This data is from Dowd Junction weather station, located at 39.626944, -106.451667 - just down the mountain from the White River Plantation site. 
 
@@ -1066,8 +992,7 @@ plantation_clim <- ppt_seasonal_plantation %>%
   left_join(plantation_seasonal_temps) %>% 
   left_join(vpdmax_seasonal) %>% 
   left_join(cwd_seasonal) %>% 
-  left_join(aet_seasonal) %>% 
-  left_join(seasonal_spei_wide)
+  left_join(aet_seasonal) 
 
 colnames(plantation_clim)
 
@@ -8087,7 +8012,12 @@ gc_cor_df %>%
   arrange(n) %>% 
   print(n=55) #number of trees with significant correlations between growth and each climate var
 
-gc_cor_df %>% filter(p.value<0.05) %>% pull(V2) %>% unique() %>% length()
+gc_cor_df %>% 
+  filter(p.value<0.05) %>% 
+  pull(V2) %>% 
+  unique() %>% 
+  length() #number of trees with at least one significant growth-climate correlation
+length(unique(gc_cor_df$V2))
 
 gc_cor_df %>% 
   group_by(V2) %>% 
@@ -8113,28 +8043,36 @@ for(i in 1:length(unique(cor_clean$climvar))){
        mu = 0, paired = FALSE, var.equal = FALSE,
        conf.level = 0.95)
   pvalue=mod$p.value
+  lwr=mod$conf.int[1]
+  upr=mod$conf.int[2]
+  estimate=mod$estimate[1]
   
-  overall_clim_cor_sig = bind_rows(overall_clim_cor_sig, data.frame(climvar=unique(cor_clean$climvar)[i], pvalue=pvalue))
+  overall_clim_cor_sig = bind_rows(overall_clim_cor_sig, data.frame(climvar=unique(cor_clean$climvar)[i], pvalue=pvalue, lwr=lwr, upr=upr, estimate=estimate))
 }
 
 overall_clim_cor_sig %>% filter(pvalue<0.05)
 
 cor_means <- cor_clean %>% 
   group_by(climvar, time, var, season) %>% 
-  summarise(mean.cor=mean(cor), sd.cor = sd(cor)) %>% 
+  summarise(mean.cor=mean(cor), sd.cor = sd(cor), se.cor=mean(cor)/sqrt(sd(cor))) %>% 
   mutate(time_season = paste(time, season, sep="")) %>% 
   left_join(overall_clim_cor_sig %>% 
                 separate(climvar, into=c("time","var","season"), sep="_", remove=FALSE, fill="left") %>% mutate(time_season = paste(time, season, sep=""))
-)
+) %>% 
+  mutate(sig=ifelse(pvalue<0.05, "*", ""))
 
-ggplot(cor_means %>% filter(!time_season=="priorsp"), aes(x=factor(time_season, levels=c("priorsp","priorsm","priorfa","priorwt","NAsp","NAsm"), labels= c("priorsp","priorsm","priorfa","priorwt","sp","sm")), y=mean.cor, shape=pvalue<0.05, col=mean.cor>0))+
-  geom_point(position=position_dodge(1), size=5)+
-  scale_color_manual(values=c("black","red"))+
+ggplot(cor_means %>% filter(!time_season=="priorsp") %>% filter(!var=="spei"), aes(x=factor(time_season, levels=c("priorsp","priorsm","priorfa","priorwt","NAsp","NAsm"), labels= c("priorsp","priorsm","priorfa","priorwt","sp","sm")), y=estimate,col=mean.cor>0))+
+  geom_point(position=position_dodge(1), size=3)+
+  geom_errorbar(aes(ymin=lwr, ymax=upr),width=0.5)+
+  geom_text(aes(y=0.25, label=sig), size=5)+
+  scale_color_manual(values=c("red","black"))+
   scale_shape_manual(values=c(1,13))+
   geom_hline(yintercept=0)+
-  facet_wrap(~var)+
+  facet_wrap(~factor(var, levels=c("aet","cwd","vpdmax","ppt","dolsf","dofff","tmin","tmean","tmax")), nrow=3)+
   theme_bw()+
-  xlab("")
+  ylim(c(-0.15, 0.3))+
+  xlab("")+ylab("Mean Pearson's R")+
+  theme(axis.text.x=element_text(angle=45, hjust=1))
 
 sig_trees_per_clim <- cor_clean %>% 
   filter(p.value<0.05) %>% 
@@ -8171,12 +8109,12 @@ allanovas %>% mutate(diff_prov = residMS - provMS) ##when residMS is greater tha
 allanovas %>% mutate(diff_prov = residMS - provMS) %>% filter(diff_prov>0) %>% nrow()#within greater than between
 allanovas %>% mutate(diff_prov = residMS - provMS) %>% filter(diff_prov<0) %>% nrow()#between greater than within
 
-allanovas %>% mutate(diff_prov = residMS - provMS) %>% filter(diff_prov>0)
-allanovas %>% mutate(diff_prov = residMS - provMS) %>% filter(diff_prov<0) 
+more_intrapop_diff<- allanovas %>% mutate(diff_prov = residMS - provMS) %>% filter(diff_prov>0)
+more_interpop_diff<- allanovas %>% mutate(diff_prov = residMS - provMS) %>% filter(diff_prov<0) 
 
 write.csv(allanovas %>% mutate(diff = residMS - provMS), "growth_climate_MS.csv")
 
-allanovas %>% filter(pvalue<0.05) #prior_ppt_wt, cwd_sp, prior_spei_wt have significant differences between provenances
+allanovas %>% filter(pvalue<0.05) #prior_ppt_wt, cwd_sp, prior_spei_wt have significant differences between provenances. Not looking at sPEI cause it says same thing as ppt
 
 #prior_ppt_wt
 prior_ppt_wt_RWI_mod <- lm(cor ~ Provenance, data=cor_clean %>% filter(climvar == "prior_ppt_wt"))
@@ -8189,12 +8127,6 @@ cwd_sp_RWI_mod <- lm(cor ~ Provenance, data=cor_clean %>% filter(climvar == "cwd
 Anova(cwd_sp_RWI_mod, type="2")
 lsmeans_cwd_sp_RWI_mod <- lsmeans(cwd_sp_RWI_mod, ~Provenance)
 cld(lsmeans_cwd_sp_RWI_mod)
-
-#prior_spei_wt
-prior_spei_wt_RWI_mod <- lm(cor ~ Provenance, data=cor_clean %>% filter(climvar == "prior_spei_wt"))
-Anova(prior_spei_wt_RWI_mod, type="2")
-lsmeans_prior_spei_wt_RWI_mod <- lsmeans(prior_spei_wt_RWI_mod, ~Provenance)
-cld(lsmeans_prior_spei_wt_RWI_mod)
 
 min(allanovas$pvalue)
 max(allanovas$pvalue)
@@ -8222,7 +8154,7 @@ ttestdata %>% filter(pvalue < 0.05) %>%
   group_by(climvar) %>% 
   summarise(n=n()) %>% 
 arrange(n) %>% 
-  print(n=56)  ##look at vars that have more than half of the provenances with significant values
+  print(n=56)  ##number of provenances with significant values
 
 
 sig.cors.byprov <- cor_clean %>% left_join(ttestdata %>% filter(pvalue < 0.05)) %>% 
@@ -8323,6 +8255,9 @@ for(i in 1:length(climvar_list)){
 
 lmerdata %>% filter(pvalue.lmer_nog < 0.05)
 
+
+
+
 currentyr_plot<- ggplot(data=left_join(lmerdata %>% filter(pvalue.lmer < 0.05 & pvalue.lmer_nog<0.05), cor_provclim_long)  %>% filter(!str_detect(climvar, "prior")), aes(x=value, y=cor))+
   geom_point()+
   geom_smooth(method="lm")+
@@ -8344,44 +8279,91 @@ prioryr_plot
 
 
 ##########final plot
-##just going to plot the significant relationship with winter tmean because that was correlated with growth for a lot of provenances
 
-wt_tmean_CMD_data<- left_join(lmerdata %>% filter(climvar=="value_wt_tmean" & pvalue.lmer_nog<0.05), cor_provclim_long)
-wt_tmean_CMD_mod <- lmer(cor ~ value + (1|Provenance) + (1|BLK), data=wt_tmean_CMD_data)
-summary(wt_tmean_CMD_mod)
-wt_tmean_CMD_mod_nog <- lmer(cor ~ value + (1|Provenance) + (1|BLK), data=wt_tmean_CMD_data %>% filter(!Provenance=="Gila NF"))
-summary(wt_tmean_CMD_mod_nog)
+lmerdata %>% filter(climvar %in% c("prior_ppt_wt", "cwd_sp")) %>% filter(pvalue.lmer_nog < 0.05) ##just look at trends if provenances significantly differed from each other in the ANOVA
 
-##predictions - with Gila
-wt_tmean_CMD_mod_lm <- lm(cor ~ value, data=wt_tmean_CMD_data)
-newdata_wt_tmean_CMD <- data.frame(value= seq(min(wt_tmean_CMD_data$value),max(wt_tmean_CMD_data$value), length.out=50))
+##cwd_sp & CMD
 
-predict_wt_tmean_CMD <- predict(wt_tmean_CMD_mod_lm, newdata_wt_tmean_CMD, interval="confidence")
+cwd_sp_CMD_mod <- lmer(cor ~ value + (1|Provenance) + (1|BLK), data=cor_provclim_long %>% filter(climvar=="cwd_sp" & name=="CMD" ))
+plot(cwd_sp_CMD_mod)
+qqmath(cwd_sp_CMD_mod)
+summary(cwd_sp_CMD_mod)
 
-predict_data_wt_tmean_CMD <- as.data.frame(bind_cols(newdata_wt_tmean_CMD,predict_wt_tmean_CMD))
+##predictions
+cwd_sp_CMD_data <- cor_provclim_long %>% filter(climvar=="cwd_sp" & name=="CMD" )
+cwd_sp_CMD_mod_lm <- lm(cor ~ value, data=cwd_sp_CMD_data)
+cwd_sp_CMD_mod_lm_nog <- lm(cor ~ value, data=cwd_sp_CMD_data %>% filter(!Provenance=="Gila NF"))
+
+## with Gila
+newdata_cwd_sp_CMD <- data.frame(value= seq(min(cwd_sp_CMD_data$value),max(cwd_sp_CMD_data$value), length.out=50))
+
+predict_cwd_sp_CMD <- predict(cwd_sp_CMD_mod_lm, newdata_cwd_sp_CMD, interval="confidence")
+
+predict_data_cwd_sp_CMD <- as.data.frame(bind_cols(newdata_cwd_sp_CMD,predict_cwd_sp_CMD))
 
 ##predictions - without Gila
-wt_tmean_CMD_mod_lm_nog <- lm(cor ~ value, data=wt_tmean_CMD_data %>% filter(!Provenance=="Gila NF"))
-newdata_wt_tmean_CMD_nog <- data.frame(value= seq(min(wt_tmean_CMD_data %>% filter(!Provenance=="Gila NF") %>% pull(value)),max(wt_tmean_CMD_data %>% filter(!Provenance=="Gila NF") %>% pull(value)), length.out=50))
+newdata_cwd_sp_CMD_nog <- data.frame(value= seq(min(cwd_sp_CMD_data %>% filter(!Provenance=="Gila NF") %>% pull(value)),max(cwd_sp_CMD_data %>% filter(!Provenance=="Gila NF") %>% pull(value)), length.out=50))
 
-predict_wt_tmean_CMD_nog <- predict(wt_tmean_CMD_mod_lm_nog, newdata_wt_tmean_CMD_nog, interval="confidence")
+predict_cwd_sp_CMD_nog <- predict(cwd_sp_CMD_mod_lm_nog, newdata_cwd_sp_CMD_nog, interval="confidence")
 
-predict_data_wt_tmean_CMD_nog <- as.data.frame(bind_cols(newdata_wt_tmean_CMD_nog,predict_wt_tmean_CMD_nog))
+predict_data_cwd_sp_CMD_nog <- as.data.frame(bind_cols(newdata_cwd_sp_CMD_nog,predict_cwd_sp_CMD_nog))
 
-predict_data_wt_tmean_CMD_all <- bind_rows(predict_data_wt_tmean_CMD_nog %>% mutate(model="without Gila NF"), predict_data_wt_tmean_CMD %>% mutate(model="with Gila NF"))
+predict_data_cwd_sp_CMD_all <- bind_rows(predict_data_cwd_sp_CMD_nog %>% mutate(model="without Gila NF"), predict_data_cwd_sp_CMD %>% mutate(model="with Gila NF"))
 
-wt_tmean_CMD_plot <- ggplot()+
-  geom_point(data=wt_tmean_CMD_data, aes(x=value, y=cor), color="black")+
-  geom_line(data=predict_data_wt_tmean_CMD_all, aes(x=value, y=fit, col=model))+
-  geom_ribbon(data=predict_data_wt_tmean_CMD_all, aes(x=value, y=fit, ymin=lwr, ymax=upr, fill=model), alpha=0.3)+
+cwd_sp_CMD_plot <- ggplot()+
+  geom_point(data=cwd_sp_CMD_data, aes(x=value, y=cor), color="black")+
+  geom_line(data=predict_data_cwd_sp_CMD_all, aes(x=value, y=fit, col=model))+
+  geom_ribbon(data=predict_data_cwd_sp_CMD_all, aes(x=value, y=fit, ymin=lwr, ymax=upr, fill=model), alpha=0.3)+
   scale_color_manual(values=c("darkgrey","black"))+
   scale_fill_manual(values=c("darkgrey","black"))+
   geom_hline(yintercept=0)+
   xlab("Provenance CMD")+
-  ylab("Correlation between TMEAN WT & RWI")+
+  ylab("Pearson's R")+
   theme_bw()+
-  theme(legend.position="top")
+  theme(legend.position="top")+
+  ggtitle("")
 
-ggarrange(correlation_plot, wt_tmean_CMD_plot, nrow=1, ncol=2, labels=c("A)","B)"))
 
+##cwd_sp & MCMT
+
+cwd_sp_MCMT_mod <- lmer(cor ~ value + (1|Provenance) + (1|BLK), data=cor_provclim_long %>% filter(climvar=="cwd_sp" & name=="MCMT" ))
+plot(cwd_sp_MCMT_mod)
+qqmath(cwd_sp_MCMT_mod)
+summary(cwd_sp_MCMT_mod)
+
+##predictions
+cwd_sp_MCMT_data <- cor_provclim_long %>% filter(climvar=="cwd_sp" & name=="MCMT" )
+cwd_sp_MCMT_mod_lm <- lm(cor ~ value, data=cwd_sp_MCMT_data)
+cwd_sp_MCMT_mod_lm_nog <- lm(cor ~ value, data=cwd_sp_MCMT_data %>% filter(!Provenance=="Gila NF"))
+
+## with Gila
+newdata_cwd_sp_MCMT <- data.frame(value= seq(min(cwd_sp_MCMT_data$value),max(cwd_sp_MCMT_data$value), length.out=50))
+
+predict_cwd_sp_MCMT <- predict(cwd_sp_MCMT_mod_lm, newdata_cwd_sp_MCMT, interval="confidence")
+
+predict_data_cwd_sp_MCMT <- as.data.frame(bind_cols(newdata_cwd_sp_MCMT,predict_cwd_sp_MCMT))
+
+##predictions - without Gila
+newdata_cwd_sp_MCMT_nog <- data.frame(value= seq(min(cwd_sp_MCMT_data %>% filter(!Provenance=="Gila NF") %>% pull(value)),max(cwd_sp_MCMT_data %>% filter(!Provenance=="Gila NF") %>% pull(value)), length.out=50))
+
+predict_cwd_sp_MCMT_nog <- predict(cwd_sp_MCMT_mod_lm_nog, newdata_cwd_sp_MCMT_nog, interval="confidence")
+
+predict_data_cwd_sp_MCMT_nog <- as.data.frame(bind_cols(newdata_cwd_sp_MCMT_nog,predict_cwd_sp_MCMT_nog))
+
+predict_data_cwd_sp_MCMT_all <- bind_rows(predict_data_cwd_sp_MCMT_nog %>% mutate(model="without Gila NF"), predict_data_cwd_sp_MCMT %>% mutate(model="with Gila NF"))
+
+cwd_sp_MCMT_plot <- ggplot()+
+  geom_point(data=cwd_sp_MCMT_data, aes(x=value, y=cor), color="black")+
+  geom_line(data=predict_data_cwd_sp_MCMT_all, aes(x=value, y=fit, col=model))+
+  geom_ribbon(data=predict_data_cwd_sp_MCMT_all, aes(x=value, y=fit, ymin=lwr, ymax=upr, fill=model), alpha=0.3)+
+  scale_color_manual(values=c("darkgrey","black"))+
+  scale_fill_manual(values=c("darkgrey","black"))+
+  geom_hline(yintercept=0)+
+  xlab("Provenance MCMT")+
+  ylab("Pearson's R")+
+  theme_bw()+
+  theme(legend.position="top")+
+  ggtitle("Spring CWD")
+
+ggarrange(cwd_sp_MCMT_plot, cwd_sp_CMD_plot, nrow=1, common.legend = TRUE)
 ```
