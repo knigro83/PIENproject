@@ -24,7 +24,7 @@ library(ggspatial)
 library(tidyterra)
 library(dplyr)
 library(stringr)
-library(ClimateNAr)
+# library(ClimateNAr)
 library(ggfortify)
 library(RColorBrewer)
 library(tidyr)
@@ -509,13 +509,7 @@ ggplot(ppt_summed %>% filter(CN=="Plantation"), aes(x=year, y=ppt)) +
   geom_hline(yintercept=mean(ppt_summed %>% filter(CN=="Plantation") %>% pull(ppt)), col="red")
 
 ##seasonal ppt
-prior_ppt_sp <- ppt_comb_plantation %>% 
-  filter(month %in% c(3,4,5)) %>% 
-  mutate(year = year+1) %>% 
-  group_by(CN, year) %>% 
-  summarise(prior_ppt_sp = sum(ppt)) %>% 
-  filter(year>1969)
-  
+ 
 prior_ppt_sm <- ppt_comb_plantation %>% 
   filter(month %in% c(6,7,8)) %>% 
   mutate(year = year+1) %>% 
@@ -549,8 +543,7 @@ ppt_sm <- ppt_comb_plantation %>%
   summarise(ppt_sm = sum(ppt)) %>% 
   filter(year>1969)
 
-ppt_seasonal_plantation <- left_join(prior_ppt_sp, prior_ppt_sm) %>% 
-  left_join(prior_ppt_fa) %>% 
+ppt_seasonal_plantation <- left_join(prior_ppt_sm,prior_ppt_fa) %>% 
   left_join(prior_ppt_wt) %>% 
   left_join(ppt_sp) %>% 
   left_join(ppt_sm)
@@ -839,8 +832,7 @@ sm_cwd<- plantation_cwd %>%
   summarise(cwd_sm = sum(cwd))%>% 
   filter(year>1970)
 
-cwd_seasonal <- left_join(priorsp_cwd, priorsm_cwd) %>% 
-  left_join(priorfa_cwd) %>% 
+cwd_seasonal <- left_join(priorsm_cwd,priorfa_cwd) %>% 
   left_join(wt_cwd) %>% 
   left_join(sp_cwd) %>% 
   left_join(sm_cwd)
@@ -943,8 +935,7 @@ sm_aet<- plantation_cwd %>%
   summarise(aet_sm = sum(aet))%>% 
   filter(year>1970)
 
-aet_seasonal <- left_join(priorsp_aet, priorsm_aet) %>% 
-  left_join(priorfa_aet) %>% 
+aet_seasonal <- left_join(priorsm_aet,priorfa_aet) %>% 
   left_join(wt_aet) %>% 
   left_join(sp_aet) %>% 
   left_join(sm_aet)
@@ -998,7 +989,7 @@ colnames(plantation_clim)
 
 plantation_clim_long <- plantation_clim %>% 
   dplyr::select(-site) %>% 
-  pivot_longer(prior_ppt_sp:prior_spei_sm) %>% 
+  pivot_longer(prior_ppt_sm:aet_sm) %>% 
   separate(name, into=c("name1","name2","name3"), sep="_",remove=FALSE, fill="left") %>% 
   mutate(statistic = case_when(name2=="tmax" ~ "max",
                                name2=="tmin"~ "min",
@@ -1014,6 +1005,7 @@ plantation_clim_long <- plantation_clim %>%
 plantation_clim_long_currentyr <- plantation_clim_long %>% 
   filter(name1=="prior") %>% 
   mutate(year = year-1) %>% 
+  bind_rows(plantation_clim_long %>% filter(name3=="sp")) %>% 
   dplyr::select(c(CN, year, name, name2, name3, value, statistic, type))
   
 
@@ -7962,7 +7954,7 @@ summary(sumgr.pcmod)
 plantation_clim_cor<- plantation_clim %>% 
   ungroup() %>% 
   filter(year > 1970 & year < 2023) %>% 
- dplyr::select(c(prior_ppt_sp, prior_ppt_sm, ppt_sp, ppt_sm,prior_tmean_sp:prior_tmax_sm, tmean_sp:vpdmax_sm, vpdmax_sp:prior_vpdmax_sm, prior_cwd_sp:prior_cwd_sm, cwd_sp:prior_aet_sm, aet_sp:spei_sm, prior_spei_sp, prior_spei_sm)) %>% 
+ dplyr::select(c(prior_ppt_sm, prior_ppt_wt:prior_tmax_sm, prior_tmean_wt:vpdmax_sm, prior_vpdmax_wt:prior_vpdmax_sm, prior_cwd_sm, prior_cwd_wt:prior_aet_sm, prior_aet_wt:aet_sm)) %>% 
   cor()
 
 plantation_clim_cor
@@ -7988,9 +7980,10 @@ growth_climate_df <- growth.detrended.df %>%
   filter(year>1970) %>% 
   filter(!is.na(rw_spline)) %>% 
   dplyr::select(-site) %>% 
-  rename(dofff_sm = day_of_first_fall_frost, dolsf_sp= day_of_last_spring_frost, prior_dofff_sm = prior_day_of_first_fall_frost, prior_dolsf_sp= prior_day_of_last_spring_frost)
+  dplyr::select(-prior_day_of_last_spring_frost) %>% 
+  rename(dofff_sm = day_of_first_fall_frost, dolsf_sp= day_of_last_spring_frost, prior_dofff_sm = prior_day_of_first_fall_frost)
 
-climvars <- colnames(growth_climate_df %>% dplyr::select(c(prior_ppt_sp:prior_dolsf_sp)))
+climvars <- colnames(growth_climate_df %>% dplyr::select(c(prior_ppt_sm:prior_dofff_sm)))
 tree_ids <- unique(growth_climate_df$tree)
 
 gc_cor_df<-data.frame()
@@ -8061,7 +8054,7 @@ cor_means <- cor_clean %>%
 ) %>% 
   mutate(sig=ifelse(pvalue<0.05, "*", ""))
 
-ggplot(cor_means %>% filter(!time_season=="priorsp") %>% filter(!var=="spei"), aes(x=factor(time_season, levels=c("priorsp","priorsm","priorfa","priorwt","NAsp","NAsm"), labels= c("priorsp","priorsm","priorfa","priorwt","sp","sm")), y=estimate,col=mean.cor>0))+
+ggplot(cor_means, aes(x=factor(time_season, levels=c("priorsp","priorsm","priorfa","priorwt","NAsp","NAsm"), labels= c("priorsp","priorsm","priorfa","priorwt","sp","sm")), y=estimate,col=mean.cor>0))+
   geom_point(position=position_dodge(1), size=3)+
   geom_errorbar(aes(ymin=lwr, ymax=upr),width=0.5)+
   geom_text(aes(y=0.25, label=sig), size=5)+
@@ -8071,7 +8064,7 @@ ggplot(cor_means %>% filter(!time_season=="priorsp") %>% filter(!var=="spei"), a
   facet_wrap(~factor(var, levels=c("aet","cwd","vpdmax","ppt","dolsf","dofff","tmin","tmean","tmax")), nrow=3)+
   theme_bw()+
   ylim(c(-0.15, 0.3))+
-  xlab("")+ylab("Mean Pearson's R")+
+  xlab("")+ylab("Mean Pearson's r")+
   theme(axis.text.x=element_text(angle=45, hjust=1))
 
 sig_trees_per_clim <- cor_clean %>% 
@@ -8079,7 +8072,6 @@ sig_trees_per_clim <- cor_clean %>%
   group_by(climvar, time, var, season, time_season) %>% 
   summarise(n_sig_trees=n())
   
-
 ggplot(cor_clean, aes(x=factor(Provenance, levels=provs_bylat$Provenance), y=cor, color=p.value<0.05))+
   geom_jitter(height=0, width=0.1, size=3,alpha=0.7)+
   facet_grid(var~factor(time_season, levels=c("priorsp","priorsm","priorfa","priorwt","NAsp","NAsm"), labels=c("prior sp","prior sm","prior fa","prior wt","sp","sm")))+
@@ -8114,7 +8106,7 @@ more_interpop_diff<- allanovas %>% mutate(diff_prov = residMS - provMS) %>% filt
 
 write.csv(allanovas %>% mutate(diff = residMS - provMS), "growth_climate_MS.csv")
 
-allanovas %>% filter(pvalue<0.05) #prior_ppt_wt, cwd_sp, prior_spei_wt have significant differences between provenances. Not looking at sPEI cause it says same thing as ppt
+allanovas %>% filter(pvalue<0.05) #prior_ppt_wt, cwd_sp have significant differences between provenances
 
 #prior_ppt_wt
 prior_ppt_wt_RWI_mod <- lm(cor ~ Provenance, data=cor_clean %>% filter(climvar == "prior_ppt_wt"))
@@ -8165,9 +8157,9 @@ sig.cors.byprov <- cor_clean %>% left_join(ttestdata %>% filter(pvalue < 0.05)) 
   filter(!var=="spei")#getting rid of prior spring and SPEI just to simplify
 
 ggplot(data=sig.cors.byprov, aes(x=factor(code, levels=provs_bylat$code), y=estimate))+
-    geom_jitter(data= cor_clean %>% filter(!time_season=="priorsp")%>% filter(!var=="spei") %>% left_join(prov_names), aes(x=factor(code, levels=provs_bylat$code), y=cor, color=p.value<0.05),size=2, height=0, width=0.1, alpha=0.2)+
-    geom_text(data=cor_means %>% filter(!time_season=="priorsp")%>% filter(!var=="spei"), aes(x="RoNF", y=0.95,label=paste0("mean r = ",round(mean.cor,2)," \u00B1 ",round(sd.cor,2)), col=mean.cor<0))+
-    geom_text(data=sig_trees_per_clim %>% filter(!time_season=="priorsp")%>% filter(!var=="spei"), aes(x="RoNF", y=0.7,label=paste0("N[p<0.05] = ",n_sig_trees)))+
+    geom_jitter(data= cor_clean  %>% left_join(prov_names), aes(x=factor(code, levels=provs_bylat$code), y=cor, color=p.value<0.05),size=2, height=0, width=0.1, alpha=0.2)+
+    geom_text(data=cor_means , aes(x="RoNF", y=0.95,label=paste0("mean r = ",round(mean.cor,2)," \u00B1 ",round(sd.cor,2)), col=mean.cor<0))+
+    geom_text(data=sig_trees_per_clim , aes(x="RoNF", y=0.7,label=paste0("N[p<0.05] = ",n_sig_trees)))+
   scale_color_manual(values=c("gray20","red"))+
   ggnewscale::new_scale_color()+
   geom_errorbar(aes(x=factor(code, levels=provs_bylat$code), ymin=lwr, ymax=upr, color = factor(code, levels=provs_bylat$code)),width=0.8, linewidth=1)+
@@ -8176,7 +8168,7 @@ ggplot(data=sig.cors.byprov, aes(x=factor(code, levels=provs_bylat$code), y=esti
   scale_color_manual(values=unname(stepped()), name="Provenance")+
   scale_fill_manual(values=unname(stepped()), name="Provenance")+
   geom_hline(yintercept=0, col="black")+
-  facet_grid(var~factor(time_season, levels=c("priorsp","priorsm","priorfa","priorwt","NAsp","NAsm"), labels=c("prior sp","prior sm","prior fa","prior wt","sp","sm")))+
+  facet_grid(var~factor(time_season, levels=c("priorsm","priorfa","priorwt","NAsp","NAsm"), labels=c("prior sm","prior fa","prior wt","sp","sm")))+
   xlab("")+
   ylim(c(-.6,1))+
   theme_bw()+
@@ -8255,9 +8247,6 @@ for(i in 1:length(climvar_list)){
 
 lmerdata %>% filter(pvalue.lmer_nog < 0.05)
 
-
-
-
 currentyr_plot<- ggplot(data=left_join(lmerdata %>% filter(pvalue.lmer < 0.05 & pvalue.lmer_nog<0.05), cor_provclim_long)  %>% filter(!str_detect(climvar, "prior")), aes(x=value, y=cor))+
   geom_point()+
   geom_smooth(method="lm")+
@@ -8317,8 +8306,9 @@ cwd_sp_CMD_plot <- ggplot()+
   scale_color_manual(values=c("darkgrey","black"))+
   scale_fill_manual(values=c("darkgrey","black"))+
   geom_hline(yintercept=0)+
+  geom_vline(xintercept=plantation_only$CMD, color="steelblue", linewidth=1)+
   xlab("Provenance CMD")+
-  ylab("Pearson's R")+
+  ylab("Pearson's r")+
   theme_bw()+
   theme(legend.position="top")+
   ggtitle("")
@@ -8350,7 +8340,8 @@ predict_cwd_sp_MCMT_nog <- predict(cwd_sp_MCMT_mod_lm_nog, newdata_cwd_sp_MCMT_n
 
 predict_data_cwd_sp_MCMT_nog <- as.data.frame(bind_cols(newdata_cwd_sp_MCMT_nog,predict_cwd_sp_MCMT_nog))
 
-predict_data_cwd_sp_MCMT_all <- bind_rows(predict_data_cwd_sp_MCMT_nog %>% mutate(model="without Gila NF"), predict_data_cwd_sp_MCMT %>% mutate(model="with Gila NF"))
+predict_data_cwd_sp_MCMT_all <- bind_rows(predict_data_cwd_sp_MCMT_nog %>% mutate(model="without Gila NF"), predict_data_cwd_sp_MCMT %>% mutate(model="with Gila NF")) 
+  
 
 cwd_sp_MCMT_plot <- ggplot()+
   geom_point(data=cwd_sp_MCMT_data, aes(x=value, y=cor), color="black")+
@@ -8359,8 +8350,9 @@ cwd_sp_MCMT_plot <- ggplot()+
   scale_color_manual(values=c("darkgrey","black"))+
   scale_fill_manual(values=c("darkgrey","black"))+
   geom_hline(yintercept=0)+
+  geom_vline(xintercept=plantation_only$MCMT, color="steelblue", linewidth=1)+
   xlab("Provenance MCMT")+
-  ylab("Pearson's R")+
+  ylab("Pearson's r")+
   theme_bw()+
   theme(legend.position="top")+
   ggtitle("Spring CWD")
