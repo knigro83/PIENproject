@@ -1121,12 +1121,13 @@ summary(wttmax_mod) #NS
 plantation_clim_all_studyperiod<- plantation_clim_long_currentyr %>% 
   filter(!year > 2014) %>% 
   filter(!year < 1970) %>% 
-  filter(!is.na(value))
+  filter(!is.na(value)) %>% 
+  mutate(name=paste(name2,name3,sep="_"))
 
-ggplot(plantation_clim_all_studyperiod, aes(x=year, y=value, col=name, group=name))+
+ggplot(plantation_clim_all_studyperiod, aes(x=year, y=value, col=name2, group=name2))+
   geom_point()+
   geom_smooth(method="lm",col="black")+
-  facet_wrap(~name, scales="free")
+  facet_wrap(type~factor(name3, levels=c("sp","sm","fa","wt"), labels=c("Spring","Summer","Fall","Winter")), scales="free", nrow=5)
 
 plantation_climvars <- unique(plantation_clim_all_studyperiod$name)
 
@@ -1173,7 +1174,8 @@ plantation_clim_long_qs<- plantation_clim_long_currentyr %>%
               mutate(var_season=paste(name2,name3,sep="_")) %>% 
               filter(!is.na(value)) %>% 
               group_by(name2, name3, var_season) %>% 
-              summarise(q2.5 = quantile(value, 0.025), q97.5 = quantile(value, 0.975), out.hi = quantile(value, c(0.75))  + IQR(value)*1.5, out.low = quantile(value, c(0.75)) - IQR(value)*1.5))
+              summarise(q2.5 = quantile(value, 0.025), q97.5 = quantile(value, 0.975), out.hi = quantile(value, c(0.75))  + IQR(value)*1.5, out.low = quantile(value, c(0.75)) - IQR(value)*1.5)) %>% 
+  mutate(name=paste(name2,name3,sep="_"))
 
 ##look at years where each climate variable exceeded the 97.5th (or 2.5th) percentile - these are years of potentially extreme climate 
 ggplot(plantation_clim_long_qs, aes(x=year, y=value, col=name))+
@@ -1762,7 +1764,7 @@ dbh_numeric14 <- dbh_numeric %>% filter(year=="DBH14") %>%
 
 dbh_aov14 <- lmer(DBH ~ Provenance + (1|BLK), data =dbh_numeric14)
 plot(dbh_aov14)
-anova(dbh_aov14)
+Anova(dbh_aov14, type="3")
 dbh_aov14_marg = lsmeans(dbh_aov14, ~ Provenance)
 
 CLD_dbh_aov14 = cld(dbh_aov14_marg,
@@ -3062,7 +3064,7 @@ ht_data14<- ht_data %>% filter(name=="HT14") %>%
 
 totht_mod14 <- lmer(value ~ Provenance + (1|BLK), data=ht_data14)
 plot(totht_mod14)
-anova(totht_mod14)
+Anova(totht_mod14, type="3")
 rand(totht_mod14)
 totht_mod14_marg = lsmeans(totht_mod14, ~ Provenance)
 
@@ -5671,7 +5673,6 @@ moniger_survival_byyr_binom_zeros_2014 %>%
   arrange(surv.prop)
 ```
 
-
 ###PC only mods
 ```{r}
 
@@ -8029,8 +8030,21 @@ allanovas %>% mutate(diff_prov = residMS - provMS) %>% filter(diff_prov<0) %>% n
 
 more_intrapop_diff<- allanovas %>% mutate(diff_prov = residMS - provMS) %>% filter(diff_prov>0)
 more_interpop_diff<- allanovas %>% mutate(diff_prov = residMS - provMS) %>% filter(diff_prov<0) 
+anova_table<- allanovas %>% mutate(diff = residMS - provMS) %>% 
+  separate(climvar, into=c("time","var","season"), sep="_", fill="left")
 
-write.csv(allanovas %>% mutate(diff = residMS - provMS), "growth_climate_MS.csv")
+write.csv(anova_table, "growth_climate_MS.csv")
+
+anova_table %>% 
+  mutate(neg=ifelse(diff<0, TRUE, FALSE)) %>% 
+  group_by(var, neg) %>% 
+  summarise(n=n()) %>% 
+  filter(neg==TRUE)
+anova_table %>% 
+  mutate(neg=ifelse(diff<0, TRUE, FALSE), time_season=paste(time, season, sep=" ")) %>% 
+  group_by(time_season, neg) %>% 
+  summarise(n=n()) %>% 
+  filter(neg==TRUE)
 
 allanovas %>% filter(pvalue<0.05) #prior_ppt_wt, cwd_sp have significant differences between provenances
 
@@ -8117,6 +8131,61 @@ climate_growth_table<- ttestdata %>%
   dplyr::select(c("climvar", provs_bylat$code[-9]))
 
 write.csv(climate_growth_table, "climate_growth_table.csv")
+
+```
+
+####temporal trends
+
+```{r}
+growth_climate_df
+min(growth_climate_df$year)
+max(growth_climate_df$year)
+
+gc_cor_df_1994<-data.frame()
+for(i in 1:length(climvars)){
+  for(j in 1:length(tree_ids)){
+  clim <- growth_climate_df%>% filter(year<1995) %>% dplyr::filter(tree == tree_ids[j]) %>% dplyr::select(climvars[i]) 
+  tree <- growth_climate_df%>% filter(year<1995) %>% dplyr::filter(tree == tree_ids[j]) %>%dplyr::select(rw_spline) 
+  gc.cor <- cor(clim, tree)
+  p.value <- cor.test(clim %>% pull(1), tree %>% pull(1))$p.value
+  row <- cbind(climvars[i], tree_ids[j], gc.cor, p.value) %>% as.data.frame()
+  gc_cor_df_1994 <- bind_rows(gc_cor_df_1994, row)
+  }}
+gc_cor_df_1994 %>% mutate(rw_spline=as.numeric(rw_spline)) %>% group_by(V1) %>% summarise(mean.rwi = mean(rw_spline, na.rm=T), n=n()) %>% mutate(period="1994")
+
+gc_cor_df_2004<-data.frame()
+for(i in 1:length(climvars)){
+  for(j in 1:length(tree_ids)){
+  clim <- growth_climate_df%>% filter(year<2005 & year > 1994) %>% dplyr::filter(tree == tree_ids[j]) %>% dplyr::select(climvars[i]) 
+  tree <- growth_climate_df%>% filter(year<2005 & year > 1994) %>% dplyr::filter(tree == tree_ids[j]) %>%dplyr::select(rw_spline) 
+  gc.cor <- cor(clim, tree)
+  p.value <- cor.test(clim %>% pull(1), tree %>% pull(1))$p.value
+  row <- cbind(climvars[i], tree_ids[j], gc.cor, p.value) %>% as.data.frame()
+  gc_cor_df_2004 <- bind_rows(gc_cor_df_2004, row)
+  }}
+gc_cor_df_2004 %>% mutate(rw_spline=as.numeric(rw_spline)) %>% group_by(V1) %>% summarise(mean.rwi = mean(rw_spline, na.rm=T), n=n()) %>% mutate(period="2004")
+
+gc_cor_df_2014<-data.frame()
+for(i in 1:length(climvars)){
+  for(j in 1:length(tree_ids)){
+  clim <- growth_climate_df%>% filter(year<2015 & year > 2004) %>% dplyr::filter(tree == tree_ids[j]) %>% dplyr::select(climvars[i]) 
+  tree <- growth_climate_df%>% filter(year<2015 & year > 2004) %>% dplyr::filter(tree == tree_ids[j]) %>%dplyr::select(rw_spline) 
+  gc.cor <- cor(clim, tree)
+  p.value <- cor.test(clim %>% pull(1), tree %>% pull(1))$p.value
+  row <- cbind(climvars[i], tree_ids[j], gc.cor, p.value) %>% as.data.frame()
+  gc_cor_df_2014 <- bind_rows(gc_cor_df_2014, row)
+  }}
+gc_cor_df_2014 %>% mutate(rw_spline=as.numeric(rw_spline)) %>% group_by(V1) %>% summarise(mean.rwi = mean(rw_spline, na.rm=T), n=n()) %>% mutate(period="2014")
+
+
+gc_cor_periods<- bind_rows(gc_cor_df_1994 %>% mutate(rw_spline=as.numeric(rw_spline)) %>% group_by(V1) %>% summarise(mean.rwi = mean(rw_spline, na.rm=T), n=n()) %>% mutate(period="1994"),
+          gc_cor_df_2004 %>% mutate(rw_spline=as.numeric(rw_spline)) %>% group_by(V1) %>% summarise(mean.rwi = mean(rw_spline, na.rm=T), n=n()) %>% mutate(period="2004"),
+          gc_cor_df_2014 %>% mutate(rw_spline=as.numeric(rw_spline)) %>% group_by(V1) %>% summarise(mean.rwi = mean(rw_spline, na.rm=T), n=n()) %>% mutate(period="2014"))
+
+ggplot(gc_cor_periods, aes(x=period, y=mean.rwi, col=mean.rwi>0))+
+  geom_point()+
+  facet_wrap(~V1)+
+  geom_hline(yintercept=0, color="black")
 
 ```
 
