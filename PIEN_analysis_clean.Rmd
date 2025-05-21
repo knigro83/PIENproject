@@ -1143,24 +1143,24 @@ plant_clim_mods <- bind_rows(plant_clim_mods, data.frame(climvar=climvar, pvalue
 plant_clim_mods %>% filter(pvalue<0.05)  ###fall and summer tmin and fall aet significantly increased during the study period
 
 ##sm tmin
-mod_smtmin <- lm(value ~ year, data=plantation_clim_all_studyperiod %>% filter(name=="prior_tmin_sm"))
+mod_smtmin <- lm(value ~ year, data=plantation_clim_all_studyperiod %>% filter(name=="tmin_sm"))
 par(mfrow=c(2,2))
 plot(mod_smtmin)
 summary(mod_smtmin)
 
 ##fa tmin
-mod_fatmin <- lm(value ~ year, data=plantation_clim_all_studyperiod %>% filter(name=="prior_tmin_fa"))
+mod_fatmin <- lm(value ~ year, data=plantation_clim_all_studyperiod %>% filter(name=="tmin_fa"))
 par(mfrow=c(2,2))
 plot(mod_fatmin)
 summary(mod_fatmin)
 
 ##aet
-mod_aet <- lm(value ~ year, data=plantation_clim_all_studyperiod %>% filter(name=="prior_aet_fa"))
+mod_aet <- lm(value ~ year, data=plantation_clim_all_studyperiod %>% filter(name=="aet_fa"))
 par(mfrow=c(2,2))
 plot(mod_aet)
 summary(mod_aet)
 
-ggplot(plantation_clim_all_studyperiod %>% filter(name %in% c("prior_aet_fa","prior_tmin_sm","prior_tmin_fa")), aes(x=year, y=value, col=name, group=name))+
+ggplot(plantation_clim_all_studyperiod %>% filter(name %in% c("aet_fa","tmin_sm","tmin_fa")), aes(x=year, y=value, col=name, group=name))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_wrap(~name, scales="free")
@@ -1646,6 +1646,69 @@ ggplot()+
   geom_histogram(data=pien_clim_niche, aes(x=PC2), fill="gray", col="black")+
   geom_vline(xintercept = plant_pca_scores %>% filter(period=="1970s") %>% pull(PC2), col="steelblue", linewidth=2)+
   theme_bw())
+
+##future
+plantation_future
+clim_pien
+
+future_engelmann_clim_us <- terra::extract(future_clim_raster_stack, engelmann_points_usonly %>% project(crs(clim_raster_stack)), method="simple", weights=TRUE)
+
+future_pien_mathys_little_ca_clim <- terra::extract(future_clim_raster_stack, pien_mathys_little_ca_points_crop %>% project(crs(clim_raster_stack)), method="simple", weights=TRUE)
+
+future_clim_pien<- bind_rows(future_pien_mathys_little_ca_clim,future_engelmann_clim_us)
+
+future_clim_pien_long <- future_clim_pien %>% 
+  pivot_longer(AHM_ssp585_2020s:SHM_ssp585_2080s) %>% 
+  separate(name, sep="_", into=c("var","carbon","period"))
+
+clim_pien_long <- clim_pien %>% 
+  pivot_longer(AHM:SHM, names_to=c("var")) %>% 
+  mutate(period="1970s")
+  
+clim_pien_all <- bind_rows(future_clim_pien_long, clim_pien_long)
+
+clim_pien_all %>% 
+  filter(var=="NFFD") %>% 
+  group_by(period) %>% 
+  summarise(n=n())
+nrow(clim_pien)
+nrow()
+future_clim_pien_long %>% filter(var=="NFFD") %>% nrow()
+clim_pien_long %>% filter(var=="NFFD") %>% nrow()
+clim_pien_all %>% filter(var=="NFFD") %>% nrow()
+
+ggplot()+
+  geom_histogram(data=clim_pien_all %>% filter(var=="NFFD"), aes(x=value, fill=period), alpha=0.3, binwidth = 10, position="identity")+
+  scale_fill_manual(values=c("blue","green","orange","red"))+
+  geom_vline(xintercept = plantation_all %>% filter(period=="1970s") %>% pull(NFFD), col="black", linewidth=1.5)+
+  geom_text(aes(x=75, y=6000, label="1970's \n plantation"))+
+  labs(x="NFFD", y="Count")+
+  theme_bw()
+
+ggplot()+
+  geom_histogram(data=clim_pien_all %>% filter(var=="MAP"), aes(x=value, fill=period), alpha=0.3, binwidth = 100, position="identity")+
+  scale_fill_manual(values=c("blue","green","orange","red"))+
+  geom_vline(xintercept = plantation_all %>% filter(period=="1970s") %>% pull(MAP), col="black", linewidth=1.5)+
+  geom_text(aes(x=1200, y=4500, label="1970's \n plantation"))+
+  labs(x="MAP", y="Count")+
+  theme_bw()
+
+
+
+ggplot()+
+  geom_histogram(data=clim_pien, aes(x=MCMT), fill="blue", alpha=0.3)+
+  geom_histogram(data=future_clim_pien, aes(x=MCMT_ssp585_2020s), fill="yellow", alpha=0.3)+
+  geom_histogram(data=future_clim_pien, aes(x=MCMT_ssp585_2050s), fill="orange", alpha=0.3)+
+  geom_histogram(data=future_clim_pien, aes(x=MCMT_ssp585_2080s), fill="red", alpha=0.3)+
+  geom_vline(xintercept = plantation_all %>% filter(period=="1970s") %>% pull(MCMT), col="black", linewidth=2)
+
+ggplot()+
+  geom_histogram(data=clim_pien, aes(x=MAP), fill="blue", alpha=0.3)+
+  geom_histogram(data=future_clim_pien, aes(x=MAP_ssp585_2020s), fill="yellow", alpha=0.3)+
+  geom_histogram(data=future_clim_pien, aes(x=MAP_ssp585_2050s), fill="orange", alpha=0.3)+
+  geom_histogram(data=future_clim_pien, aes(x=MAP_ssp585_2080s), fill="red", alpha=0.3)+
+  geom_vline(xintercept = plantation_all %>% filter(period=="1970s") %>% pull(MAP), col="black", linewidth=2)
+
 
 ```
 
