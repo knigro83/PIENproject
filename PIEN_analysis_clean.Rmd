@@ -996,23 +996,24 @@ plantation_clim_long <- plantation_clim %>%
                                name2=="tmean" ~ "mean",
                                name2%in%c("ppt","aet","cwd") ~ "sum",
                                TRUE ~ NA),
-         type = case_when(name2=="tmax" ~ "TEMP",
-                               name2=="tmin"~ "TEMP",
-                               name2=="tmean" ~ "TEMP",
-                               name2=="ppt" ~ "PPT",
+         type = case_when(name2=="tmax" ~ "TEMP (C)",
+                               name2=="tmin"~ "TEMP (C)",
+                               name2=="tmean" ~ "TEMP (C)",
+                               name2=="ppt" ~ "PPT (mm)",
                                name2=="vpdmax"~"VPD",
                                name2=="aet"~"AET",
                                name2=="cwd"~"CWD",
                                TRUE ~ NA))
 
-plantation_clim_long_currentyr <- plantation_clim_long %>% 
-  filter(name1=="prior") %>% 
-  mutate(year = year-1) %>% 
-  bind_rows(plantation_clim_long %>% filter(name3=="sp")) %>% 
-  dplyr::select(c(CN, year, name2, name3, value, statistic, type))
-  
+plantation_clim_long_currentyr<- plantation_clim_long %>%
+  mutate(time_season=paste(name1, name3, sep="_")) %>% 
+  dplyr::filter(! time_season == "prior_sm") %>% 
+  mutate(currentyr = case_when(time_season=="prior_fa" ~ year-1,
+                               TRUE ~ year)) %>% 
+  filter(currentyr>1969) %>% 
+  filter(currentyr<2024)
 
-ggplot(plantation_clim_long_currentyr %>% filter(name2 %in% c("ppt","tmin","tmean","tmax")), aes(x=year, y=value, col=type))+
+ggplot(plantation_clim_long_currentyr %>% filter(name2 %in% c("ppt","tmin","tmean","tmax")), aes(x=currentyr, y=value, col=type))+
   scale_color_manual(values=c("skyblue4","firebrick"))+
   ggnewscale::new_scale_color()+
     geom_line(aes(color=factor(statistic, levels=c("sum","max","mean","min"))))+
@@ -1023,7 +1024,7 @@ ggplot(plantation_clim_long_currentyr %>% filter(name2 %in% c("ppt","tmin","tmea
   theme(axis.text=element_text(angle=45, hjust=1))
 
 
-ggplot(plantation_clim_long_currentyr, aes(x=year, y=value, col=name2))+
+ggplot(plantation_clim_long_currentyr, aes(x=currentyr, y=value, col=name2))+
   ggnewscale::new_scale_color()+
   geom_line(aes(color=factor(statistic, levels=c("sum","max","mean","min"))))+
   geom_smooth(method="lm", aes(color=factor(statistic, levels=c("sum","max","mean","min"))))+
@@ -1036,81 +1037,81 @@ ggplot(plantation_clim_long_currentyr, aes(x=year, y=value, col=name2))+
 
 ##spring ppt
 
-spppt_mod <- lm(value~year, data=plantation_clim_long %>% filter(name=="ppt_sp"))
+spppt_mod <- lm(value~currentyr, data=plantation_clim_long_currentyr %>% filter(name=="ppt_sp"))
 plot(spppt_mod)
 summary(spppt_mod) #NS
 
 ##summer ppt
 
-smppt_mod <- lm(value~year, data=plantation_clim_long %>% filter(name=="ppt_sm"))
+smppt_mod <- lm(value~currentyr, data=plantation_clim_long_currentyr %>% filter(name=="ppt_sm"))
 plot(smppt_mod)
 summary(smppt_mod) #NS
 
 ##fall ppt
 
-atppt_mod <- lm(value~year, data=plantation_clim_long %>% filter(name=="prior_ppt_fa"))
+atppt_mod <- lm(value~currentyr, data=plantation_clim_long_currentyr %>% filter(name=="prior_ppt_fa"))
 plot(atppt_mod)
 summary(atppt_mod) #NS
 
 ##winter ppt
 
-wtppt_mod <- lm(value~year, data=plantation_clim_long %>% filter(name=="prior_ppt_wt"))
+wtppt_mod <- lm(value~currentyr, data=plantation_clim_long_currentyr %>% filter(name=="prior_ppt_wt"))
 plot(wtppt_mod)
 summary(wtppt_mod) #NS
 
-##spring tmean
+##spring temp
 
-sptmean_mod <- lm(value~year, data=plantation_clim_long %>% filter(name=="tmean_sp"))
+sptmean_mod <- lm(value~currentyr, data=plantation_clim_long_currentyr %>% filter(name=="tmean_sp"))
 plot(sptmean_mod)
 summary(sptmean_mod) #NS
 
-sptmin_mod <- lm(value~year, data=plantation_clim_long %>% filter(name=="tmin_sp"))
+sptmin_mod <- lm(value~currentyr, data=plantation_clim_long_currentyr %>% filter(name=="tmin_sp"))
 plot(sptmin_mod)
 summary(sptmin_mod) #significant
 
-sptmax_mod <- lm(value~year, data=plantation_clim_long %>% filter(name=="tmax_sp"))
+sptmax_mod <- lm(value~currentyr, data=plantation_clim_long_currentyr %>% filter(name=="tmax_sp"))
 plot(sptmax_mod)
 summary(sptmax_mod) #NS
 
-##summer tmean
+##summer temp
 
-smtmean_mod <- lm(value~year, data=plantation_clim_long %>% filter(name=="tmean_sm"))
+smtmean_mod <- lm(value~currentyr, data=plantation_clim_long_currentyr %>% filter(name=="tmean_sm"))
 plot(smtmean_mod)
 summary(smtmean_mod) #Significant
 
-smtmin_mod <- lm(value~year, data=plantation_clim_long %>% filter(name=="tmin_sm"))
+smtmin_mod <- lm(value~currentyr, data=plantation_clim_long_currentyr %>% filter(name=="tmin_sm"))
 plot(smtmin_mod)
 summary(smtmin_mod) #significant
 
-smtmax_mod <- lm(value~year, data=plantation_clim_long %>% filter(name=="tmax_sm"))
+smtmax_mod <- lm(value~currentyr, data=plantation_clim_long_currentyr %>% filter(name=="tmax_sm"))
 plot(smtmax_mod)
-summary(smtmax_mod) #significant
+summary(smtmax_mod) #NS
 
-##fall tmean
+##fall temp
 
-attmean_mod <- lm(value~year, data=plantation_clim_long %>% filter(name=="prior_tmean_fa"))
+attmean_mod <- lm(value~currentyr, data=plantation_clim_long_currentyr %>% filter(name=="prior_tmean_fa"))
 plot(attmean_mod)
 summary(attmean_mod) #Significant
 
-fatmin_mod <- lm(value~year, data=plantation_clim_long %>% filter(name=="prior_tmin_fa"))
+fatmin_mod <- lm(value~currentyr, data=plantation_clim_long_currentyr %>% filter(name=="prior_tmin_fa"))
 plot(fatmin_mod)
 summary(fatmin_mod) #significant
 
-fatmax_mod <- lm(value~year, data=plantation_clim_long %>% filter(name=="prior_tmax_fa"))
+fatmax_mod <- lm(value~currentyr, data=plantation_clim_long_currentyr %>% filter(name=="prior_tmax_fa"))
 plot(fatmax_mod)
 summary(fatmax_mod) #significant
 
-##winter tmean
+##winter temp
 
-wttmean_mod <- lm(value~year, data=plantation_clim_long %>% filter(name=="prior_tmean_wt"))
+wttmean_mod <- lm(value~currentyr, data=plantation_clim_long_currentyr %>% filter(name=="prior_tmean_wt"))
 plot(wttmean_mod)
 summary(wttmean_mod) #NS
 
-wttmin_mod <- lm(value~year, data=plantation_clim_long %>% filter(name=="prior_tmin_wt"))
+wttmin_mod <- lm(value~currentyr, data=plantation_clim_long_currentyr %>% filter(name=="prior_tmin_wt"))
 plot(wttmin_mod)
-summary(wttmin_mod) #NS
+summary(wttmin_mod) #significant
 
-wttmax_mod <- lm(value~year, data=plantation_clim_long %>% filter(name=="prior_tmax_wt"))
+wttmax_mod <- lm(value~currentyr, data=plantation_clim_long_currentyr %>% filter(name=="prior_tmax_wt"))
 plot(wttmax_mod)
 summary(wttmax_mod) #NS
 ```
