@@ -253,12 +253,16 @@ ggplot(prov_vars, aes(x=factor(Provenance, levels=order), y=value, col=factor(Pr
   theme(axis.text.x = element_text(angle=45,hjust=1, size=10), legend.position = 'none', strip.text=element_text(size=12), axis.title.x = element_blank())
 # dev.off()
 
-ggplot(prov_vars %>% filter(!Provenance=="Gila NF"), aes(x=factor(Provenance, levels=order), y=value, col=factor(Provenance, levels=order)))+
+ggplot(prov_vars %>% filter(!Provenance=="Gila NF") %>% filter(var=="smrpb"), aes(x=factor(Provenance, levels=order), y=value, col=factor(Provenance, levels=order)))+
   geom_point(size=4)+
-  geom_hline(data=prov_vars %>% filter(Provenance=="Plantation"),aes(yintercept = value, group=var), col=unname(stepped())[9])+
+  geom_hline(data=prov_vars %>% filter(Provenance=="Plantation")%>% filter(var=="smrpb"),aes(yintercept = value, group=var), col=unname(stepped())[9])+
   facet_wrap(~var, scales="free_y")+
   scale_color_manual(values=unname(stepped()), name="Provenance")+
-  theme(axis.text.x = element_text(angle=45,hjust=1, size=10), legend.position = 'none', strip.text=element_text(size=12), axis.title.x = element_blank())
+  theme(axis.text.x = element_text(angle=45,hjust=1, size=10), legend.position = 'none', strip.text=element_text(size=12), axis.title.x = element_blank())+
+  theme_bw()+
+  theme(legend.position="none", axis.text.x = element_text(angle=45, hjust=1, color="black", size=12))+
+  xlab("Provenance")+
+  ylab("Summer to Spring Precip Ratio")
 ```
 
 
@@ -1625,11 +1629,11 @@ pien_clim_niche<- as.data.frame(clim_pca_big$x[-(1:5),])
 ggarrange(
 ggplot()+
   geom_histogram(data=pien_clim_niche, aes(x=PC1), fill="gray", col="black")+
-  geom_vline(xintercept = plant_pca_scores %>% filter(period=="1970s") %>% pull(PC1), col="steelblue", linewidth=2)+
+  geom_vline(xintercept = plant_pca_scores %>% filter(period=="1970s") %>% pull(PC1), col="darkorange2", linewidth=2)+
   theme_bw(),
 ggplot()+
   geom_histogram(data=pien_clim_niche, aes(x=PC2), fill="gray", col="black")+
-  geom_vline(xintercept = plant_pca_scores %>% filter(period=="1970s") %>% pull(PC2), col="steelblue", linewidth=2)+
+  geom_vline(xintercept = plant_pca_scores %>% filter(period=="1970s") %>% pull(PC2), col="darkorange2", linewidth=2)+
   theme_bw())
 
 ##future
@@ -1837,11 +1841,13 @@ dbh_early<- ggplot(dbh_numeric %>% filter(!year=="DBH14"), aes(x=factor(year, le
 
 dbh_2014<-ggplot(dbh_numeric14, aes(x=factor(year, levels=c("DBH14"), labels=c(2014)), y=DBH, fill=factor(Provenance, levels=provs_bylat$Provenance), group=factor(Provenance, levels=provs_bylat$Provenance)))+
   geom_boxplot(position=position_dodge(width=1))+
-  geom_text(data=dbh14_letter_df, aes(x=factor(year, levels=c("DBH14"), labels=c(2014)), y= 35, label=letters, group=factor(Provenance, levels=provs_bylat$Provenance)), position=position_dodge(width=1), size=5, angle=45, hjust=1)+
+  #geom_text(data=dbh14_letter_df, aes(x=factor(year, levels=c("DBH14"), labels=c(2014)), y= 35, label=letters, group=factor(Provenance, levels=provs_bylat$Provenance)), position=position_dodge(width=1), size=5, angle=45, hjust=1)+
   scale_fill_manual(values=unname(stepped()), name="Provenance")+
   ylab("DBH (cm)")+
     scale_x_discrete(name="Year")+
-  theme_bw()
+  theme_bw()+
+  theme(axis.text=element_text(color="black", size=12),
+        axis.title=element_text(color="black", size=12))
 
 ggarrange(dbh_early,dbh_2014, nrow=2, common.legend = TRUE)
 
@@ -1863,6 +1869,16 @@ dbh_means_fig <- ggplot(dbh_aves, aes(x=factor(year,levels=c(1974,1979,1985,1991
   ylab("Mean DBH (cm)")
 
 dbh_means_fig
+
+##just for 2014
+ ggplot(dbh_aves %>% filter(year==2014), aes(x=factor(year,levels=c(1974,1979,1985,1991,1996,2006,2014), labels=c(1974,1979,1985,1991,1996,2006,2014)), y=meanDBH, col=factor(Provenance, levels=provs_bylat$Provenance),group=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_errorbar(aes(x=factor(year,levels=c(1974,1979,1985,1991,1996,2006,2014), labels=c(1974,1979,1985,1991,1996,2006,2014)),ymin=meanDBH-se_DBH, ymax=meanDBH+se_DBH, group=factor(Provenance, levels=provs_bylat$Provenance)),position = position_dodge(width=0.8), width=0.2)+
+  geom_point(size=3, position = position_dodge(width=0.8))+
+  scale_color_manual(values=unname(stepped()), "")+
+  theme_bw()+
+  xlab("Year")+
+  ylab("Mean DBH (cm)")+
+  theme(axis.text=element_text(color="black", size=12), axis.title=element_text(color="black", size=12))
 
 ##look for outliers
 ggplot(dbh_numeric, aes(x=num.yr, y=DBH, col=factor(Provenance, levels=provs_bylat$Provenance), group=Series))+
@@ -2895,10 +2911,23 @@ summary(smrpb_nht_mod)
 par(mfrow=c(2,2))
 plot(smrpb_nht_mod)
 
+smrpb_nht_point_data <- nursery_ht_clim %>% filter(name == "smrpb")  %>% rename(predicted=nursery_ht_m)
+  
+plot(ggpredict(smrpb_nht_mod))+
+  geom_point(data=smrpb_nht_point_data, aes(x=value, y=predicted))+
+  theme_bw()+
+  theme(axis.text=element_text(color="black", size=12), axis.title=element_text(color="black", size=12))+
+  xlab("Summer to Spring Precip Ratio")+
+  ylab("Nursery Height (m)")+
+  ggtitle("Nursery Height")
+  
+
 smrpb_nht_mod_nog <- lm(nursery_ht_m ~ value, data=nursery_ht_clim %>% filter(name == "smrpb") %>% filter(!Provenance=="Gila NF"))
 summary(smrpb_nht_mod_nog)
 par(mfrow=c(2,2))
 plot(smrpb_nht_mod_nog)
+plot(ggpredict(smrpb_nht_mod_nog))
+
 
 ggarrange(ggplot(data=nursery_ht_clim %>% filter(name=="smrpb"), aes(x=value, y=nursery_ht_m))+
   geom_point()+
@@ -3027,6 +3056,17 @@ ht_means_fig <- ggplot(ht_data_aves_forfig, aes(x=factor(name,levels=c("HT74","H
   xlab("Year")+
   ylab("Mean Height (m)")
 
+##just 2014
+ggplot(ht_data_aves_forfig %>% filter(name=="HT14"), aes(x=factor(name,levels=c("HT74","HT79","HT85","HT91","HT96","HT06","HT14"), labels=c(1974,1979,1985,1991,1996,2006,2014)), y=meantotht, col=factor(Provenance, levels=provs_bylat$Provenance),group=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_errorbar(aes(x=factor(name,levels=c("HT74","HT79","HT85","HT91","HT96","HT06","HT14"), labels=c(1974,1979,1985,1991,1996,2006,2014)),ymin=meantotht-seTH, ymax=meantotht+seTH, group=factor(Provenance, levels=provs_bylat$Provenance)),position = position_dodge(width=0.8), width=0.2)+
+  geom_point(size=3, position = position_dodge(width=0.8))+
+  scale_color_manual(values=unname(stepped()), "")+
+  theme_bw()+
+  xlab("Year")+
+  ylab("Mean Height (m)")+
+  theme_bw()+
+  theme(axis.text=element_text(color="black", size=12), axis.title=element_text(color="black", size=12))
+#######
 #each year separately
 totht_mod74 <- lmer(value ~ Provenance + (1|BLK), data= ht_data %>% filter(name=="HT74"))
 plot(totht_mod74)
@@ -4054,8 +4094,8 @@ predictdata_FFP_relht_all <- predictdata_FFP_relht %>%
   bind_rows(predictdata_FFP_relht_nog %>% mutate(model="without Gila NF"))
 
 FFP_relht_plot <- ggplot()+
-  geom_vline(xintercept = prov_clim_adjusted_bi_long %>% filter(Provenance=="Plantation") %>% filter(name=="FFP") %>% pull(value), col="steelblue")+
-  geom_text(aes(x=prov_clim_adjusted_bi_long %>% filter(Provenance=="Plantation") %>% filter(name=="FFP") %>% pull(value) + 12, y=12.5, label="plantation"), col="steelblue")+
+  geom_vline(xintercept = prov_clim_adjusted_bi_long %>% filter(Provenance=="Plantation") %>% filter(name=="FFP") %>% pull(value), col="darkorange2")+
+  geom_text(aes(x=prov_clim_adjusted_bi_long %>% filter(Provenance=="Plantation") %>% filter(name=="FFP") %>% pull(value) + 12, y=12.5, label="plantation"), col="darkorange2")+
   geom_ribbon(data=predictdata_FFP_relht_all, aes(x=value, ymin=lwr, ymax=upr, fill=model), alpha=0.2)+
   geom_line(data=predictdata_FFP_relht_all, aes(x=value,y=fit, linetype=model))+
   geom_rug(data=ht_growth_rel_clim %>% dplyr::select(c("FFP","Provenance"))%>% mutate(fit=10), aes(x=FFP,y=fit, col=factor(Provenance, levels=provs_bylat$Provenance)), linewidth=1, sides="b")+
@@ -4097,8 +4137,8 @@ predictdata_y_relht_all <- predictdata_y_relht %>%
   bind_rows(predictdata_y_relht_nog %>% mutate(model="without Gila NF", pvalue = summary(y_relht_mod_nog)$coefficient[2,5]))
 
 ggplot()+
-  geom_vline(xintercept = prov_clim_adjusted_bi_long %>% filter(Provenance=="Plantation") %>% filter(name=="y") %>% pull(value), col="steelblue")+
-  geom_text(aes(x=prov_clim_adjusted_bi_long %>% filter(Provenance=="Plantation") %>% filter(name=="y") %>% pull(value) + 12, y=12.5, label="plantation"), col="steelblue")+
+  geom_vline(xintercept = prov_clim_adjusted_bi_long %>% filter(Provenance=="Plantation") %>% filter(name=="y") %>% pull(value), col="darkorange2")+
+  geom_text(aes(x=prov_clim_adjusted_bi_long %>% filter(Provenance=="Plantation") %>% filter(name=="y") %>% pull(value) + 12, y=12.5, label="plantation"), col="darkorange2")+
   geom_ribbon(data=predictdata_y_relht_all, aes(x=value, ymin=lwr, ymax=upr, fill=model), alpha=0.2)+
   geom_line(data=predictdata_y_relht_all, aes(x=value,y=fit, linetype=model))+
   geom_rug(data=ht_growth_rel_clim %>% dplyr::select(c("y","Provenance"))%>% mutate(fit=10), aes(x=y,y=fit, col=factor(Provenance, levels=provs_bylat$Provenance)), linewidth=1, sides="b")+
@@ -4253,8 +4293,8 @@ relht_quad_mod_max <- data.frame(max=c(x_max_Tavewt_relht_quad_nog,x_max_PPTsp_r
 relht_quad_mod_plot<- ggplot()+
   geom_vline(data=relht_quad_mod_max, aes(xintercept=max), col="black", linetype=2)+
   geom_text(data=relht_quad_mod_max, aes(x=max, y=12.5, label="max"), col="black", size=3)+
-  geom_vline(data= prov_clim_adjusted_bi_long %>% filter(Provenance=="Plantation") %>% rename(var=name) %>% filter(var %in% unique(relht_quad_mod_results$var)), aes(xintercept = value), col="steelblue")+
-  geom_text(data=prov_clim_adjusted_bi_long %>% filter(Provenance=="Plantation")  %>% rename(var=name)%>% filter(var %in% unique(relht_quad_mod_results$var)), aes(x=value, y=12.5, label="plantation"), col="steelblue", size=3)+
+  geom_vline(data= prov_clim_adjusted_bi_long %>% filter(Provenance=="Plantation") %>% rename(var=name) %>% filter(var %in% unique(relht_quad_mod_results$var)), aes(xintercept = value), col="darkorange2")+
+  geom_text(data=prov_clim_adjusted_bi_long %>% filter(Provenance=="Plantation")  %>% rename(var=name)%>% filter(var %in% unique(relht_quad_mod_results$var)), aes(x=value, y=12.5, label="plantation"), col="darkorange2", size=3)+
   geom_ribbon(data=relht_quad_mod_results, aes(x=value, ymin=lwr, ymax=upr, fill=model), alpha=0.2)+
   geom_line(data=relht_quad_mod_results, aes(x=value,y=fit, linetype=model))+
   geom_rug(data=ht_growth_rel_clim_long %>% dplyr::rename(var=name) %>% mutate(fit=10)%>% filter(var %in% unique(relht_quad_mod_results$var)), aes(x=value,y=fit, col=factor(Provenance, levels=provs_bylat$Provenance)), linewidth=1, sides="b")+
@@ -4859,7 +4899,7 @@ cones_TD_plot<- ggplot() +
   geom_ribbon(data=cone_ht_td_nog_newdata3, aes(ymin = LL,ymax = UL, x = climvar.value, col=factor(height, levels=c(5.1,3.9,2.6)), fill=factor(height, levels=c(5.1,3.9,2.6))), alpha = 0.2) + 
   geom_line(data=cone_ht_td_nog_newdata3, aes(x = climvar.value, y = PredictedProb, col=factor(height, levels=c(5.1,3.9,2.6)), fill=factor(height, levels=c(5.1,3.9,2.6))), linewidth = 1)+
   geom_rug(data=moniger_provclim_ht %>% filter(climvar.name=="TD") %>% mutate(PredictedProb=0.6) %>% dplyr::select(-height), aes(x=climvar.value), sides="b", linewidth=1, color="black", alpha=0.5)+
-  geom_vline(xintercept=plantation_only$TD, col="steelblue", linewidth=1)+
+  geom_vline(xintercept=plantation_only$TD, col="darkorange2", linewidth=1)+
   scale_color_viridis(discrete=T, name="Height (m)")+
   scale_fill_viridis(discrete=T, name="Height (m)")+
   ylim(c(0,1))+
@@ -4934,7 +4974,7 @@ cones_pptsm_plot<- ggplot(cone_ht_pptsm_quad_newdata3_all, aes(x = climvar.value
   scale_linetype_manual(values=c(2,1))+
   scale_fill_manual(values=c("darkgray","black"))+
   scale_color_manual(values=c("darkgray","black"))+
-  geom_vline(xintercept=plantation_only$PPTsm, col="steelblue", linewidth=1)+
+  geom_vline(xintercept=plantation_only$PPTsm, col="darkorange2", linewidth=1)+
   ylim(c(0,1))+
   xlab("Provenance summer precip")+
   ylab("Predicted Probability of Cones at 3.9m")+
@@ -5707,7 +5747,7 @@ CLD_alltree_survmod14
 
 #####calculate summary stats
 moniger_survival_byyr_binom_zeros_2014<- moniger_survival_byyr_binom_zeros %>% filter(year=="2014")
-moniger_survival_byyr_binom_zeros_2014 %>% 
+prop_surv_by_prov <- moniger_survival_byyr_binom_zeros_2014 %>% 
   group_by(Provenance) %>% 
   summarise(alive=sum(alive), died=sum(died)) %>% 
   mutate(surv.prop=alive/(died+alive)) %>% 
@@ -6023,6 +6063,68 @@ surv2014_provclim_coef_plot <- ggplot(surv_mods_2014_coeffs_all, aes(y = factor(
 
 
 
+#eFFP
+surv2014_eFFP_mod_nog <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + (1|Provenance) + (1|BLK), data=moniger_survival2014_long %>% filter(climvar.name=="eFFP") %>% filter(!Provenance=="Gila NF"), family="binomial")
+summary(surv2014_eFFP_mod_nog) 
+r2(surv2014_eFFP_mod_nog)
+plot(ggpredict(surv2014_eFFP_mod_nog, terms = "climvar.value"))+
+  geom_vline(xintercept=plantation_only$eFFP, col="darkorange2", linewidth=1)+
+  xlab("Provenance eFFP (day)")+
+  ylab("Survival Probability")+ggtitle("End of Frost-Free Period (eFFP)")+
+  theme_bw()+
+  theme(axis.text = element_text(color="black", size=12),
+        axis.title = element_text(color="black", size=12))
+
+#bFFP
+surv2014_bFFP_mod_nog <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + (1|Provenance) + (1|BLK), data=moniger_survival2014_long %>% filter(climvar.name=="bFFP") %>% filter(!Provenance=="Gila NF"), family="binomial")
+summary(surv2014_bFFP_mod_nog) 
+r2(surv2014_bFFP_mod_nog)
+plot(ggpredict(surv2014_bFFP_mod_nog, terms = "climvar.value"))+
+  geom_vline(xintercept=plantation_only$bFFP, col="darkorange2", linewidth=1)+
+  xlab("Provenance bFFP (day)")+
+  ylab("Survival Probability")+ggtitle("Beginning of Frost-Free Period (bFFP)")+
+  theme_bw()+
+  theme(axis.text = element_text(color="black", size=12),
+        axis.title = element_text(color="black", size=12))
+
+#Eref
+surv2014_Eref_mod_nog <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance) + (1|BLK), data=moniger_survival2014_long %>% filter(climvar.name=="Eref") %>% filter(!Provenance=="Gila NF"), family="binomial")
+summary(surv2014_Eref_mod_nog) 
+r2(surv2014_Eref_mod_nog)
+plot(ggpredict(surv2014_Eref_mod_nog, terms = "climvar.value [all]"))+
+  geom_vline(xintercept=plantation_only$Eref, col="darkorange2", linewidth=1)+
+  xlab("Provenance Eref")+
+  ylab("Survival Probability")+ggtitle("Hargreave's Reference Evaporation (Eref)")+
+  theme_bw()+
+  theme(axis.text = element_text(color="black", size=12),
+        axis.title = element_text(color="black", size=12))
+
+#NFFD
+surv2014_NFFD_mod_nog <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + (1|Provenance) + (1|BLK), data=moniger_survival2014_long %>% filter(climvar.name=="NFFD") %>% filter(!Provenance=="Gila NF"), family="binomial")
+summary(surv2014_NFFD_mod_nog) 
+r2(surv2014_NFFD_mod_nog)
+plot(ggpredict(surv2014_NFFD_mod_nog, terms = "climvar.value"))+
+  geom_vline(xintercept=plantation_only$NFFD, col="darkorange2", linewidth=1)+
+  xlab("Provenance NFFD")+
+  ylab("Survival Probability")+ggtitle("# Frost-Free Days (NFFD)")+
+  theme_bw()+
+  theme(axis.text = element_text(color="black", size=12),
+        axis.title = element_text(color="black", size=12))
+
+#CMD
+surv2014_CMD_mod_nog <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance) + (1|BLK), data=moniger_survival2014_long %>% filter(climvar.name=="CMD") %>% filter(!Provenance=="Gila NF"), family="binomial")
+summary(surv2014_CMD_mod_nog) 
+r2(surv2014_CMD_mod_nog)
+plot(ggpredict(surv2014_CMD_mod_nog, terms = "climvar.value [100:700]"))+
+  geom_vline(xintercept=plantation_only$CMD, col="darkorange2", linewidth=1)+
+  xlab("Provenance CMD")+
+  ylab("Survival Probability")+ggtitle("Climate Moisture Deicit (CMD)")+
+  theme_bw()+
+  theme(axis.text = element_text(color="black", size=12),
+        axis.title = element_text(color="black", size=12))
+
+
+
 ##Eref
 surv2014_eref_mod <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance) + (1|BLK), data=moniger_survival2014_long %>% filter(climvar.name=="Eref"), family="binomial")
 summary(surv2014_eref_mod)
@@ -6116,6 +6218,53 @@ ggplot(surv2014_mcmt_bothmod, aes(x = climvar.value, y = PredictedProb, linetype
   ggtitle("Survival")+
   theme_bw()
 #########
+
+##CMD
+surv2014_CMD_mod <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance) + (1|BLK), data=moniger_survival2014_long %>% filter(climvar.name=="CMD"), family="binomial")
+summary(surv2014_CMD_mod)
+r2(surv2014_CMD_mod)
+
+surv2014_CMD_mod_glm <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2), data=moniger_survival2014_long %>% filter(climvar.name=="CMD"), family="binomial")
+
+surv2014_CMD_data <- moniger_survival2014_long %>% filter(climvar.name=="CMD")
+
+##predictions
+surv2014_CMD_newdata1 <- expand.grid(climvar.value = seq(min(surv2014_CMD_data$climvar.value),max(surv2014_CMD_data$climvar.value),length.out=50))
+
+surv2014_CMD_newdata2 <- cbind(surv2014_CMD_newdata1, predict(surv2014_CMD_mod_glm, newdata = surv2014_CMD_newdata1, type = "link", se=TRUE))
+surv2014_CMD_newdata3 <- within(surv2014_CMD_newdata2, {
+    PredictedProb <- plogis(fit)
+    LL <- plogis(fit - (1.96 * se.fit))
+    UL <- plogis(fit + (1.96 * se.fit))
+})
+
+#without Gila is still significant
+surv2014_CMD_mod_nog <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2) + (1|Provenance) + (1|BLK), data=moniger_survival2014_long %>% filter(climvar.name=="CMD") %>% filter(!Provenance=="Gila NF"), family="binomial")
+summary(surv2014_CMD_mod_nog)
+r2(surv2014_CMD_mod_nog)
+
+surv2014_CMD_mod_nog_glm <- glmmTMB(cbind(alive,died) ~ scale(climvar.value) + I(scale(climvar.value)^2), data=moniger_survival2014_long %>% filter(climvar.name=="CMD") %>% filter(!Provenance=="Gila NF"), family="binomial")
+
+##predictions
+surv2014_CMD_newdata1_nog <- expand.grid(climvar.value = seq(min(moniger_survival2014_long %>% filter(climvar.name=="CMD") %>% filter(!Provenance=="Gila NF") %>% pull(climvar.value)),max(moniger_survival2014_long %>% filter(climvar.name=="CMD") %>% filter(!Provenance=="Gila NF") %>% pull(climvar.value)),length.out=50))
+
+surv2014_CMD_newdata2_nog <- cbind(surv2014_CMD_newdata1_nog, predict(surv2014_CMD_mod_nog_glm, newdata = surv2014_CMD_newdata1_nog, type = "link", se=TRUE))
+surv2014_CMD_newdata3_nog <- within(surv2014_CMD_newdata2_nog, {
+    PredictedProb <- plogis(fit)
+    LL <- plogis(fit - (1.96 * se.fit))
+    UL <- plogis(fit + (1.96 * se.fit))
+})
+
+surv2014_CMD_bothmod <- bind_rows(surv2014_CMD_newdata3 %>% mutate(model="with Gila NF"),surv2014_CMD_newdata3_nog %>% mutate(model="without Gila NF"))
+
+ggplot(surv2014_CMD_bothmod, aes(x = climvar.value, y = PredictedProb, linetype=model)) + geom_ribbon(aes(ymin = LL,
+    ymax = UL), alpha = 0.2) + 
+  geom_line(linewidth = 1)+
+  xlab("CMD")+
+    ylab("Predicted Probability")+
+  ggtitle("Survival")+
+  theme_bw()
+#########
 ```
 
 #####transfer distance
@@ -6178,6 +6327,10 @@ surv2014_transfer_coef_plot <- ggplot(surv2014_mods_transfer_coeffs_all, aes(y =
 
 ggarrange(surv2014_provclim_coef_plot, surv2014_transfer_coef_plot, ncol=2, common.legend = TRUE)
 
+#which were the variables with the largest coefficients?
+surv2014_mods_transfer_coeffs_nog %>% 
+  arrange(desc(estimate))
+
 #Eref
 surv2014_Eref_mod_nog <- glmmTMB(cbind(alive,died) ~ diff_plant + (1|Provenance)+(1|BLK), data=surv2014_clim_long_transfer_nog %>% filter(climvar.name=="Eref"), family=binomial)
 summary(surv2014_Eref_mod_nog) #provenances with Eref more similar to plantation had higher survival
@@ -6194,6 +6347,14 @@ plot(ggpredict(surv2014_CMD_mod_nog, terms = "diff_plant"))+
   xlab("CMD difference from plantation")+
   ylab("Survival Probability")+ggtitle("CMD")
 
+#MWMT
+surv2014_MWMT_mod_nog <- glmmTMB(cbind(alive,died) ~ diff_plant + (1|Provenance)+(1|BLK), data=surv2014_clim_long_transfer_nog %>% filter(climvar.name=="MWMT"), family=binomial)
+summary(surv2014_MWMT_mod_nog) #provenances with MWMT more similar to the plantation have higher probability of survival
+r2(surv2014_MWMT_mod_nog)
+plot(ggpredict(surv2014_MWMT_mod_nog, terms = "diff_plant"))+
+  xlab("MWMT difference from plantation")+
+  ylab("Survival Probability")+ggtitle("MWMT")
+
 #FFP
 surv2014_FFP_mod_nog <- glmmTMB(cbind(alive,died) ~ diff_plant + (1|Provenance)+(1|BLK), data=surv2014_clim_long_transfer_nog %>% filter(climvar.name=="FFP"), family=binomial)
 summary(surv2014_FFP_mod_nog) #provenances with FFP more similar to the plantation have higher probability of survival
@@ -6201,6 +6362,27 @@ r2(surv2014_FFP_mod_nog)
 plot(ggpredict(surv2014_FFP_mod_nog, terms = "diff_plant"))+
   xlab("FFP difference from plantation")+
   ylab("Survival Probability")+ggtitle("FFP")
+
+#Tavesm
+surv2014_Tavesm_mod_nog <- glmmTMB(cbind(alive,died) ~ diff_plant + (1|Provenance)+(1|BLK), data=surv2014_clim_long_transfer_nog %>% filter(climvar.name=="Tavesm"), family=binomial)
+summary(surv2014_Tavesm_mod_nog) #provenances with Tavesm more similar to the plantation have higher probability of survival
+r2(surv2014_Tavesm_mod_nog)
+
+tavesm_data <- surv2014_clim_long_transfer_nog %>% filter(climvar.name=="Tavesm") %>% ungroup() %>% dplyr::select(c(Provenance,climvar.name,climvar.value, diff_plant)) %>% unique() %>% 
+  left_join(prop_surv_by_prov) %>% 
+  rename(predicted = surv.prop) %>% 
+  mutate(prov_plant = climvar.value - plantation_only$Tavesm)
+
+predict_surv_tavesm <- ggpredict(surv2014_Tavesm_mod_nog, terms = "diff_plant")
+predict_surv_tavesm_df <- data.frame(predicted = as.numeric(predict_surv_tavesm$predicted), diff_plant = as.numeric(predict_surv_tavesm$x), lwr = as.numeric(predict_surv_tavesm$conf.low), upr=as.numeric(predict_surv_tavesm$conf.high))
+
+ggplot(data=predict_surv_tavesm_df, aes(x=diff_plant, y=predicted))+
+  geom_ribbon(aes(ymin=lwr, ymax=upr), fill="black", alpha=0.2)+
+  geom_line()+
+  scale_color_manual(values=c("skyblue4","tomato3"))+
+  geom_point(data=tavesm_data, aes(x=diff_plant, y=predicted, col=prov_plant>0))+
+  xlab("Tavesm difference from plantation")+
+  ylab("Survival Probability")+ggtitle("Tavesm")
 
 #bFFP
 surv2014_bFFP_mod_nog <- glmmTMB(cbind(alive,died) ~ diff_plant + (1|Provenance)+(1|BLK), data=surv2014_clim_long_transfer_nog %>% filter(climvar.name=="bFFP"), family=binomial)
@@ -6394,11 +6576,28 @@ ggplot(all_lat_data, aes(x=value, y=fit))+
   geom_text(aes(x=32.5,y=ypos,label=paste0("p = ",round(pvalue,2)), col=model), size=3.5, hjust=0)+
   scale_color_manual(values=c("darkgrey","black"))+
   scale_fill_manual(values=c("darkgrey","black"))+
-  geom_vline(xintercept=plantation_only$y, col="steelblue", linewidth=1)+
+  geom_vline(xintercept=plantation_only$y, col="darkorange2", linewidth=1)+
   xlab("Provenance latitude (degrees)")+
   ylab("Model fit")+
   theme_bw()
 
+```
+
+```{r}
+#for presentation
+ggplot(all_lat_data %>% filter(metric%in%c("absolute","increment")& trait %in%c("DBH","Height")), aes(x=value, y=fit))+
+  geom_line(aes(color=model))+
+  geom_ribbon(aes(ymin=lwr, ymax=upr, fill=model), alpha=0.3)+
+  geom_rug(data=lat_rug_data%>% filter(metric%in%c("absolute","increment")& trait %in%c("DBH","Height")), aes(x=value,y=fit), linewidth=1, col="black", sides="b")+
+  facet_wrap(metric~trait, scales="free")+
+  facet_wrap(~factor(units, levels=c("% Survival to 2014","DBH (cm)","Height (m)","% Survival each year","Basal area growth (cm^2/yr)","Height growth (m/yr)","NA","Basal area relative growth (%/yr)","Height relative growth (%/yr)")), scales="free_y")+
+  geom_text(aes(x=32.5,y=ypos,label=paste0("p = ",round(pvalue,2)), col=model), size=2, hjust=0)+
+  scale_color_manual(values=c("darkgrey","black"))+
+  scale_fill_manual(values=c("darkgrey","black"))+
+  geom_vline(xintercept=plantation_only$y, col="darkorange2", linewidth=1)+
+  xlab("Provenance latitude (degrees)")+
+  ylab("Model fit")+
+  theme_bw()
 ```
 
 ##RWI
@@ -8350,7 +8549,7 @@ cwd_sp_CMD_plot <- ggplot()+
   scale_fill_manual(values=c("gray35","black"))+
   geom_text(data=pvalues_cwd_sp_CMD, aes(x=x, y=y, label=paste0("p = ",round(pvalue,4)), col=model), hjust=0)+
   geom_hline(yintercept=0)+
-  geom_vline(xintercept=plantation_only$CMD, color="steelblue", linewidth=1)+
+  geom_vline(xintercept=plantation_only$CMD, color="darkorange2", linewidth=1)+
   xlab("Provenance CMD")+
   ylab("Pearson's r")+
   theme_bw()+
@@ -8398,7 +8597,7 @@ cwd_sp_MCMT_plot <- ggplot()+
   scale_fill_manual(values=c("gray35","black"))+
   geom_text(data=pvalues_cwd_sp_MCMT, aes(x=x, y=y, label=paste0("p = ",round(pvalue,4)), col=model), hjust=0)+
   geom_hline(yintercept=0)+
-  geom_vline(xintercept=plantation_only$MCMT, color="steelblue", linewidth=1)+
+  geom_vline(xintercept=plantation_only$MCMT, color="darkorange2", linewidth=1)+
   xlab("Provenance MCMT")+
   ylab("Pearson's r")+
   theme_bw()+
