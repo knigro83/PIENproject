@@ -6878,8 +6878,8 @@ plantation_ppt_sm_scaled <- plantation_clim %>%
 
 
 rwi_gini_plot<- ggplot(growth.detrended.byprov, aes(x=year, y=meanrwi-1))+
-  #geom_bar(data=plantation_vpd_scaled, aes(x=year, y=vpdmax_scale_1, fill=droughtyr), stat="identity")+
-  geom_bar(data=plantation_ppt_sm_scaled, aes(x=year, y=ppt_sm_scale_1, fill=droughtyr), stat="identity")+
+  geom_bar(data=plantation_vpd_scaled, aes(x=year, y=vpdmax_scale_1, fill=droughtyr), stat="identity")+
+  #geom_bar(data=plantation_vpd_scaled, aes(x=year, y=vpdmax_scale_1), stat="identity", fill="gray20")+
   scale_fill_manual(values=c("gray20","red"), name="Drought Year")+
   ggnewscale::new_scale_fill()+
   geom_point(aes( col=factor(Provenance, levels=provs_bylat$Provenance)), size=2)+
