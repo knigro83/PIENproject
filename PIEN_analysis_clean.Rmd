@@ -1886,6 +1886,40 @@ ggplot(dbh_numeric, aes(x=num.yr, y=DBH, col=factor(Provenance, levels=provs_byl
   geom_point()+
     scale_color_manual(values=unname(stepped()), "")+
   facet_wrap(~factor(Provenance, levels=provs_bylat$Provenance))
+
+##rank provenances for each year
+
+provs_byreg<- provs_bylat %>% 
+  mutate(region = c(rep("S",13), rep("N",8)))
+
+dbh_ranks<- dbh_aves %>% 
+  dplyr::select(-se_DBH) %>% 
+  pivot_wider(names_from=year, values_from=meanDBH) %>% 
+  arrange((`1991`)) %>% 
+  bind_cols(data.frame(rank91 = seq(1,20,1)))%>% 
+  arrange((`1996`)) %>% 
+  bind_cols(data.frame(rank96 = seq(1,20,1)))%>% 
+  arrange((`2006`)) %>% 
+  bind_cols(data.frame(rank06 = seq(1,20,1)))%>% 
+  arrange((`2014`)) %>% 
+  bind_cols(data.frame(rank14 = seq(1,20,1))) %>% 
+  pivot_longer(rank91:rank14, names_to="year", values_to="rank") %>% 
+  mutate(year=case_when(year == "rank91" ~ 3,
+                        year =="rank96" ~ 4,
+                        year=="rank06" ~ 5,
+                        year=="rank14" ~ 6)) %>% 
+  left_join(provs_byreg)
+
+ggplot(data=dbh_ranks)+
+  #geom_point(aes(x=year, y=rank, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  #geom_line(aes(x=year, y=rank, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_ribbon(alpha = 0.6, aes(x=year, ymin=rank-.5, ymax=rank+.5, fill=factor(Provenance, levels=provs_bylat$Provenance)))+
+  scale_color_manual(values=unname(stepped()),name="Provenance")+
+  scale_fill_manual(values=unname(stepped()), name="Provenance")+
+  facet_wrap(~region)+
+  ggtitle("DBH")
+
+
 ```
 
 ####PC only models
@@ -2974,6 +3008,10 @@ qqmath(nurse_ht_mod74)
 summary(nurse_ht_mod74)  ##significant 
 summary(lmer(value ~ nursery_ht_m + (1|Provenance) + (1|BLK), data=ht_data %>% filter(name=="HT74") %>% filter(!Provenance=="Gila NF")))
 
+ggplot(data=ht_data %>% filter(!Provenance=="Gila NF"), aes(x=nursery_ht_m, y=value))+
+  geom_smooth(method="lm")+
+  facet_wrap(~name)
+
 #1979
 nurse_ht_mod79 <- lmer(value ~ nursery_ht_m + (1|Provenance) + (1|BLK), data=ht_data %>% filter(name=="HT79"))
 plot(nurse_ht_mod79)
@@ -3167,6 +3205,59 @@ ht_letters_plot<- ggplot(ht_data14, aes(x=factor(Provenance, levels=prov_ht_orde
   theme(axis.text.x=element_text(angle=45, hjust=1, color="black",size=14), axis.text.y=element_text(color="black",size=14),axis.title.y=element_text(color="black",size=14), axis.title.x=element_blank(), legend.position = "none")
   
 ht_letters_plot
+
+###rank them
+ht_ranks<- ht_data_aves_forfig %>% 
+  filter(!is.na(nursery_ht_m)) %>% 
+  dplyr::select(-c("seRG","seTH","meangrowth")) %>% 
+  pivot_wider(names_from=name, values_from=meantotht) %>% 
+  arrange(nursery_ht_m) %>% 
+  bind_cols(data.frame(rank0 = seq(1,20,1)))%>% 
+  arrange(HT79) %>% 
+  bind_cols(data.frame(rank79 = seq(1,20,1)))%>% 
+  arrange(HT85) %>% 
+  bind_cols(data.frame(rank85 = seq(1,20,1)))%>% 
+  arrange(HT91) %>% 
+  bind_cols(data.frame(rank91 = seq(1,20,1)))%>% 
+  arrange(HT96) %>% 
+  bind_cols(data.frame(rank96 = seq(1,20,1)))%>% 
+  arrange(HT06) %>% 
+  bind_cols(data.frame(rank06 = seq(1,20,1)))%>% 
+  arrange(HT14) %>% 
+  bind_cols(data.frame(rank14 = seq(1,20,1))) %>% 
+  pivot_longer(rank0:rank14, names_to="year", values_to="rank") %>% 
+  mutate(year=case_when(year=="rank0" ~ 0,
+                        year == "rank79" ~ 1,
+                        year =="rank85" ~ 2,
+                        year=="rank91" ~ 3,
+                        year =="rank96" ~ 4,
+                        year=="rank06" ~ 5,
+                        year=="rank14" ~ 6)) %>% 
+  left_join(provs_byreg)
+
+ggplot(data=ht_ranks)+
+  #geom_point(aes(x=year, y=rank, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  #geom_line(aes(x=year, y=rank, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_ribbon(alpha = 0.7, aes(x=year, ymin=rank-.5, ymax=rank+.5, fill=factor(Provenance, levels=provs_bylat$Provenance)))+
+  scale_color_manual(values=unname(stepped()))+
+  scale_fill_manual(values=unname(stepped()))+
+  facet_wrap(~region)+
+  ggtitle("Height")+
+  theme_bw()
+
+dbh_ht_ranks<- dbh_ranks %>% 
+  mutate(trait="dbh") %>% 
+  bind_rows(ht_ranks %>% mutate(trait="ht"))
+
+ggplot(data=dbh_ht_ranks)+
+  #geom_point(aes(x=year, y=rank, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  #geom_line(aes(x=year, y=rank, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_ribbon(alpha = 0.7, aes(x=year, ymin=rank-.5, ymax=rank+.5, fill=factor(Provenance, levels=provs_bylat$Provenance)))+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  scale_fill_manual(values=unname(stepped()), name="Provenance")+
+  facet_grid(trait~region)+
+  theme_bw()
+
 ```
 
 ####PC only mods
@@ -5232,9 +5323,9 @@ survival_means_fig <- ggplot(survival_means, aes(x=factor(year,levels=c(1974,197
   xlab("Year")+
   ylab("Survival (%)")
 
-#png("figure_summary.png", width=190, height=225, unit="mm", res=600)
+png("figure_summary.png", width=275, height=225, unit="mm", res=600)
 ggarrange(survival_means_fig, dbh_means_fig, ht_means_fig, cone_means_fig, ncol=1, nrow=4, common.legend = TRUE)
-#dev.off()
+dev.off()
 ```
 
 ####PC only mods
@@ -6868,6 +6959,7 @@ plantation_vpd_scaled <- plantation_clim %>%
   dplyr::select(c(year, prior_vpdmax_wt))%>% 
   filter(year>1984 & year < 2016) %>% 
   mutate(vpdmax_scale_1 = 2*((prior_vpdmax_wt  - min(prior_vpdmax_wt)) / (max(prior_vpdmax_wt) - min(prior_vpdmax_wt))) - 1) %>% 
+  mutate(vpdmax_scale.5 = 1*((prior_vpdmax_wt  - min(prior_vpdmax_wt)) / (max(prior_vpdmax_wt) - min(prior_vpdmax_wt))) - .5) %>% 
   mutate(droughtyr = ifelse(year==2002, "yes","no"))
 
 plantation_ppt_sm_scaled <- plantation_clim %>% 
@@ -6896,6 +6988,27 @@ rwi_gini_plot<- ggplot(growth.detrended.byprov, aes(x=year, y=meanrwi-1))+
 png("figures/rwi_gini_plot.png", width=11,height=7, unit="in", res=300)
 rwi_gini_plot
 dev.off()
+
+##make figure 4 simpler
+gini_sum
+
+ggplot(growth.detrended.byprov, aes(x=year, y=meanrwi-1))+
+  geom_bar(data=plantation_vpd_scaled, aes(x=year, y=vpdmax_scale.5, color=droughtyr), stat="identity", fill=NA)+
+  #geom_bar(data=plantation_vpd_scaled, aes(x=year, y=vpdmax_scale_1), stat="identity", fill="gray20")+
+  scale_color_manual(values=c("gray20","red"), name="Drought Year")+
+  ggnewscale::new_scale_color()+
+  geom_point(aes( col=factor(Provenance, levels=provs_bylat$Provenance)), size=2)+
+  geom_ribbon(aes(x=year, ymin=meanrwi-se-1, ymax=meanrwi+se-1, fill=factor(Provenance, levels=provs_bylat$Provenance)), alpha=0.3)+
+  scale_y_continuous(name="Winter VPDmax (scaled)", sec.axis = sec_axis(~.+1, name="RWI"))+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  scale_fill_manual(values=unname(stepped()), name="Provenance")+
+  geom_line(aes(col=factor(Provenance, levels=provs_bylat$Provenance)), linewidth=1)+
+  geom_hline(yintercept=0, linetype=1)+
+  geom_text(data=gini_sum, x=2013, y=0.7, aes(label=paste0("gini = ", round(mean,2))))+
+  facet_wrap(~factor(Provenance, levels=provs_bylat$Provenance))+
+  theme_bw()+
+  theme(axis.text = element_text(color="black",size=10), axis.title = element_text(color="black", size=12), panel.grid = element_blank(), strip.text = element_text(size=12, color="black"))
+
 
 ##ANOVA
 
