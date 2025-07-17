@@ -4868,6 +4868,14 @@ height
 ```{r}
 moniger_subset
 
+ggplot(moniger_subset)+
+  geom_jitter(aes(x=height, y=n_cones))
+
+```
+
+```{r}
+moniger_subset
+
 cone_ht_anova <- glmmTMB(cbind(n_cones, total-n_cones) ~ scale(year)*Provenance*height + (1|BLK), data=moniger_subset, family=binomial)
 summary(cone_ht_anova)
 Anova(cone_ht_anova, type="3")
@@ -7009,6 +7017,21 @@ ggplot(growth.detrended.byprov, aes(x=year, y=meanrwi-1))+
   theme_bw()+
   theme(axis.text = element_text(color="black",size=10), axis.title = element_text(color="black", size=12), panel.grid = element_blank(), strip.text = element_text(size=12, color="black"))
 
+growth.detrended.ave <- growth.detrended.df %>% 
+  group_by(year) %>% 
+  summarize(meanrwi = mean(rw_spline, na.rm=T), sd=sd(rw_spline, na.rm=T))
+
+ggplot(growth.detrended.ave, aes(x=year, y=meanrwi-1))+
+  geom_bar(data=plantation_vpd_scaled, aes(x=year, y=vpdmax_scale_1, color=droughtyr), stat="identity", fill=NA)+
+  #geom_bar(data=plantation_vpd_scaled, aes(x=year, y=vpdmax_scale_1), stat="identity", fill="gray20")+
+  scale_color_manual(values=c("gray20","red"), name="Drought Year")+
+  geom_point(size=2)+
+  geom_ribbon(aes(x=year, ymin=meanrwi-sd-1, ymax=meanrwi+sd-1), alpha=0.3)+
+  scale_y_continuous(name="Winter VPDmax (scaled)", sec.axis = sec_axis(~.+1, name="RWI"))+
+  geom_line(linewidth=1)+
+  geom_hline(yintercept=0, linetype=2)+
+  theme_bw()+
+  theme(axis.text = element_text(color="black",size=10), axis.title = element_text(color="black", size=12), panel.grid = element_blank())
 
 ##ANOVA
 
