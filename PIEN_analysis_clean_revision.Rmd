@@ -949,7 +949,7 @@ aet_seasonal <- left_join(priorsm_aet,priorfa_aet) %>%
 ##RAWS
 This data is from Dowd Junction weather station, located at 39.626944, -106.451667 - just down the mountain from the White River Plantation site. 
 
-```{r}
+```{r, run=FALSE}
 DJ <- read.csv("DowdJunction_monthlydata.csv")
 
 DJ[ DJ == "-9999"] <- NA
@@ -1416,6 +1416,10 @@ as.data.frame(clim_pca_big$rotation[,1:3]) %>%
 ```{r}
 #plot PCA
 prov_pcapts_big <- clim_pca_big$x[1:nrow(env_vars_noplant),] %>% 
+  cbind(prov_clim_adjusted_bi %>% filter(!Provenance=="Plantation")) %>% 
+  left_join(prov_names) 
+
+plantation_pcapts <- clim_pca_big$x[1:nrow(env_vars_noplant),] %>% 
   cbind(prov_clim_adjusted_bi %>% filter(!Provenance=="Plantation")) %>% 
   left_join(prov_names) 
 
@@ -1925,212 +1929,49 @@ ggplot(data=dbh_ranks)+
 ####PC only models
 
 ```{r}
-
+#calculate PCA transfer distances
 dbh_numeric_time <- dbh_numeric %>% 
   mutate(year=case_when(year == "DBH06" ~ 2006,
                          year == "DBH14" ~ 2014,
                          year == "DBH91" ~ 1991,
-                         year == "DBH96" ~ 1996))
+                         year == "DBH96" ~ 1996)) %>% 
+  mutate(plant_PC1 = plant_pca_scores$PC1[1], plant_PC2 = plant_pca_scores$PC2[1]) %>% 
+  mutate(PC1transfer = plant_PC1 - PC1, PC2transfer = plant_PC2 - PC2) %>% 
+  mutate(absPC1transfer = abs(PC1transfer), absPC2transfer = abs(PC2transfer)) %>% 
+  mutate(pcadist2d = sqrt(absPC1transfer^2 + absPC2transfer^2))
+
+dbh_numeric_time %>% 
+  dplyr::select(c(PC1transfer, PC2transfer, pcadist2d)) %>% 
+  cor()
+
 dbh_numeric_time_noG <- dbh_numeric_time %>% filter(!Provenance=="Gila NF")
 
-###using year as a random effect
-mod_dbh_pca <- lmer(DBH ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK) + (1|year), data=dbh_numeric_time)
-plot(mod_dbh_pca)
-qqmath(mod_dbh_pca)
-summary(mod_dbh_pca)
-options(na.action="na.fail")
-# mod_dbh_pca_dredge<- dredge(mod_dbh_pca)
-# mod_dbh_pca_dredge
+dbh_numeric_time_noG %>% 
+  dplyr::select(c(PC1transfer, PC2transfer, pcadist2d)) %>% 
+  cor()
 
-bestmod_dbh_pca <- lmer(DBH ~ PC2 + (1|Provenance) + (1|BLK) + (1|year), data=dbh_numeric_time)
-summary(bestmod_dbh_pca)
-r2(bestmod_dbh_pca)
+###using year as a random effect
+
+#with Gila
+# mod_dbh_pca <- lmer(DBH ~ PC1transfer*PC2transfer + I(PC1transfer^2) + I(PC2transfer^2) + pcadist2d + (1|Provenance) + (1|BLK) + (1|year), data=dbh_numeric_time)
+# plot(mod_dbh_pca)
+# qqmath(mod_dbh_pca)
+# summary(mod_dbh_pca)
 
 #no gila
 
-mod_dbh_pca_noG <- lmer(DBH ~ PC1*PC2 + I(PC1^2) + I(PC2^2)+ (1|Provenance) + (1|BLK) + (1|year), data=dbh_numeric_time_noG)
+mod_dbh_pca_noG <- lmer(DBH ~ PC1transfer*PC2transfer + I(PC1transfer^2) + I(PC2transfer^2) + pcadist2d + (1|Provenance) + (1|BLK) + (1|year), data=dbh_numeric_time_noG)
 plot(mod_dbh_pca_noG)
 qqmath(mod_dbh_pca_noG)
 summary(mod_dbh_pca_noG)
-# mod_dbh_pca_noG_dredge<- dredge(mod_dbh_pca_noG)
-# mod_dbh_pca_noG_dredge #null is best
+options(na.action="na.fail")
+mod_dbh_pca_noG_dredge<- dredge(mod_dbh_pca_noG)
+mod_dbh_pca_noG_dredge #null is best
+
 
 ```
 
-#####each year separate
-
-
-```{r}
-###2014
-dbh_numeric_time_2014 <- dbh_numeric_time %>% filter(year==2014)
-
-mod_dbh_pca_2014 <- lmer(DBH ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK) , data=dbh_numeric_time_2014)
-plot(mod_dbh_pca_2014)
-qqmath(mod_dbh_pca_2014)
-summary(mod_dbh_pca_2014)
-# mod_dbh_pca_2014_dredge<- dredge(mod_dbh_pca_2014)
-# mod_dbh_pca_2014_dredge
-
-bestmod_dbh_pca_2014 <- lmer(DBH ~ PC2 + (1|Provenance) + (1|BLK) , data=dbh_numeric_time_2014)
-summary(bestmod_dbh_pca_2014)
-r2(bestmod_dbh_pca_2014)
-
-#2014 - no gila
-dbh_numeric_time_2014_nog <- dbh_numeric_time %>% filter(year==2014) %>% filter(!Provenance=="Gila NF")
-
-mod_dbh_pca_2014_noG <- lmer(DBH ~ PC1*PC2 + I(PC1^2) + I(PC2^2)+ (1|Provenance) + (1|BLK) , data=dbh_numeric_time_2014_nog)
-plot(mod_dbh_pca_2014_noG)
-qqmath(mod_dbh_pca_2014_noG)
-summary(mod_dbh_pca_2014_noG)
-# mod_dbh_pca_2014_noG_dredge<- dredge(mod_dbh_pca_2014_noG)
-# mod_dbh_pca_2014_noG_dredge #null is best
-
-bestmod_dbh_pca_2014_noG <- lmer(DBH ~  (1|Provenance) + (1|BLK) , data=dbh_numeric_time_2014_nog)
-summary(bestmod_dbh_pca_2014_noG)
-r2(bestmod_dbh_pca_2014_noG)
-```
-
-```{r}
-###2006
-dbh_numeric_time_2006 <- dbh_numeric_time %>% filter(year==2006)
-
-mod_dbh_pca_2006 <- lmer(DBH ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK) , data=dbh_numeric_time_2006)
-plot(mod_dbh_pca_2006)
-qqmath(mod_dbh_pca_2006)
-summary(mod_dbh_pca_2006)
-# mod_dbh_pca_2006_dredge<- dredge(mod_dbh_pca_2006)
-# mod_dbh_pca_2006_dredge
-
-bestmod_dbh_pca_2006 <- lmer(DBH ~ PC2 + (1|Provenance) + (1|BLK) , data=dbh_numeric_time_2006)
-summary(bestmod_dbh_pca_2006)
-r2(bestmod_dbh_pca_2006)
-
-#2006 - no gila
-dbh_numeric_time_2006_nog <- dbh_numeric_time %>% filter(year==2006) %>% filter(!Provenance=="Gila NF")
-
-mod_dbh_pca_2006_noG <- lmer(DBH ~ PC1*PC2 + I(PC1^2) + I(PC2^2)+ (1|Provenance) + (1|BLK) , data=dbh_numeric_time_2006_nog)
-plot(mod_dbh_pca_2006_noG)
-qqmath(mod_dbh_pca_2006_noG)
-summary(mod_dbh_pca_2006_noG)
-# mod_dbh_pca_2006_noG_dredge<- dredge(mod_dbh_pca_2006_noG)
-# mod_dbh_pca_2006_noG_dredge #null is best
-
-bestmod_dbh_pca_2006_noG <- lmer(DBH ~  (1|Provenance) + (1|BLK) , data=dbh_numeric_time_2006_nog)
-summary(bestmod_dbh_pca_2006_noG)
-r2(bestmod_dbh_pca_2006_noG)
-```
-
-```{r}
-###1996
-dbh_numeric_time_1996 <- dbh_numeric_time %>% filter(year==1996)
-
-mod_dbh_pca_1996 <- lmer(DBH ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK) , data=dbh_numeric_time_1996)
-plot(mod_dbh_pca_1996)
-qqmath(mod_dbh_pca_1996)
-summary(mod_dbh_pca_1996)
-# mod_dbh_pca_1996_dredge<- dredge(mod_dbh_pca_1996)
-# mod_dbh_pca_1996_dredge #null is best
-
-bestmod_dbh_pca_1996 <- lmer(DBH ~  (1|Provenance) + (1|BLK) , data=dbh_numeric_time_1996)
-summary(bestmod_dbh_pca_1996)
-r2(bestmod_dbh_pca_1996)
-
-#1996 - no gila
-dbh_numeric_time_1996_nog <- dbh_numeric_time %>% filter(year==1996) %>% filter(!Provenance=="Gila NF")
-
-mod_dbh_pca_1996_noG <- lmer(DBH ~ PC1*PC2 + I(PC1^2) + I(PC2^2)+ (1|Provenance) + (1|BLK) , data=dbh_numeric_time_1996_nog)
-plot(mod_dbh_pca_1996_noG)
-qqmath(mod_dbh_pca_1996_noG)
-summary(mod_dbh_pca_1996_noG)
-# mod_dbh_pca_1996_noG_dredge<- dredge(mod_dbh_pca_1996_noG)
-# mod_dbh_pca_1996_noG_dredge #null is best
-
-bestmod_dbh_pca_1996_noG <- lmer(DBH ~  (1|Provenance) + (1|BLK) , data=dbh_numeric_time_1996_nog)
-summary(bestmod_dbh_pca_1996_noG)
-r2(bestmod_dbh_pca_1996_noG)
-```
-
-```{r}
-###1991
-dbh_numeric_time_1991 <- dbh_numeric_time %>% filter(year==1991)
-
-mod_dbh_pca_1991 <- lmer(DBH ~ PC1*PC2 + I(PC1^2) + I(PC2^2) + (1|Provenance) + (1|BLK) , data=dbh_numeric_time_1991)
-plot(mod_dbh_pca_1991)
-qqmath(mod_dbh_pca_1991)
-summary(mod_dbh_pca_1991)
-# mod_dbh_pca_1991_dredge<- dredge(mod_dbh_pca_1991)
-# mod_dbh_pca_1991_dredge #null is best
-
-bestmod_dbh_pca_1991 <- lmer(DBH ~ (1|Provenance) + (1|BLK) , data=dbh_numeric_time_1991)
-summary(bestmod_dbh_pca_1991)
-r2(bestmod_dbh_pca_1991)
-
-#1991 - no gila
-dbh_numeric_time_1991_nog <- dbh_numeric_time %>% filter(year==1991) %>% filter(!Provenance=="Gila NF")
-
-mod_dbh_pca_1991_noG <- lmer(DBH ~ PC1*PC2 + I(PC1^2) + I(PC2^2)+ (1|Provenance) + (1|BLK) , data=dbh_numeric_time_1991_nog)
-plot(mod_dbh_pca_1991_noG)
-qqmath(mod_dbh_pca_1991_noG)
-summary(mod_dbh_pca_1991_noG)
-# mod_dbh_pca_1991_noG_dredge<- dredge(mod_dbh_pca_1991_noG)
-# mod_dbh_pca_1991_noG_dredge #null is best
-
-bestmod_dbh_pca_1991_noG <- lmer(DBH ~  (1|Provenance) + (1|BLK) , data=dbh_numeric_time_1991_nog)
-summary(bestmod_dbh_pca_1991_noG)
-r2(bestmod_dbh_pca_1991_noG)
-```
-
-
-####individual climate var models
-```{r}
-dbh_numeric_time_long <- dbh_numeric_time %>% 
-  pivot_longer(c(PC1, PC2, AHM:SHM, x:monsoonality))
-provenance_climvars <- c(colnames(big_pca_data),"PC1","PC2")
-
-dbh_mods<- data.frame()
-
-for(i in 1:length(provenance_climvars)){
-mod <- lmer(DBH ~ value + (1|Provenance)+ (1|BLK) + (1|year), data=dbh_numeric_time_long %>% filter(name==provenance_climvars[i]))
-pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
-Cr2 <- performance::r2(mod)$R2_conditional
-Mr2 <- performance::r2(mod)$R2_marginal
-    
-mod_nog <- lmer(DBH ~ value + (1|Provenance)+ (1|BLK) + (1|year), data=dbh_numeric_time_long %>% filter(name==provenance_climvars[i]) %>% filter(!Provenance=="Gila NF"))
-pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|t|)`
-Cr2_nog <- performance::r2(mod_nog)$R2_conditional
-Mr2_nog <- performance::r2(mod_nog)$R2_marginal
-
-
-dbh_mods <- bind_rows(dbh_mods, data.frame(var=provenance_climvars[i], pvalue = pvalue, cr2= Cr2, mr2 = Mr2, pvalue_nog = pvalue_nog, cr_nog = Cr2_nog, mr2_nog = Mr2_nog))
-
-}
-
-dbh_mods %>% arrange(pvalue_nog) #nothing significant
-
-###quadratic
-
-dbh_mods_quad<- data.frame()
-
-for(i in 1:length(provenance_climvars)){
-mod <- lmer(DBH ~ value + I(value^2) + (1|Provenance) + (1|BLK) + (1|year), data=dbh_numeric_time_long %>% filter(name==provenance_climvars[i]))
-pvalues<- as.data.frame(summary(mod)$coefficients)[2:3,]$`Pr(>|t|)`
-Cr2 <- performance::r2(mod)$R2_conditional
-Mr2 <- performance::r2(mod)$R2_marginal
- 
-mod_nog <- lmer(DBH ~ value + I(value^2) + (1|Provenance) + (1|BLK) + (1|year), data=dbh_numeric_time_long %>% filter(name==provenance_climvars[i]) %>% filter(!Provenance=="Gila NF"))
-pvalues_nog<- as.data.frame(summary(mod_nog)$coefficients)[2:3,]$`Pr(>|t|)`
-Cr2_nog <- performance::r2(mod_nog)$R2_conditional
-Mr2_nog <- performance::r2(mod_nog)$R2_marginal
-
-dbh_mods_quad <- bind_rows(dbh_mods_quad, data.frame(var=provenance_climvars[i], pvalue1 = pvalues[1], pvalue2 = pvalues[2], cr2= Cr2, mr2 = Mr2, pvalue1_nog = pvalues_nog[1], pvalue2_nog = pvalues_nog[2], cr_nog = Cr2_nog, mr2_nog = Mr2_nog))
-
-}
-
-dbh_mods_quad %>% arrange(pvalue2_nog) #nothing significant
-
-```
-
-#####transfer distance
+####transfer distance
 ```{r}
 plantation_climNA <- prov_vars %>% 
   filter(Provenance=="Plantation") %>% 
@@ -2138,58 +1979,67 @@ plantation_climNA <- prov_vars %>%
   rename(plant_value = value) %>% 
   bind_rows(data.frame(var=c("PC1","PC2"), plant_value=c(plant_pca_scores %>% filter(period=="1970s") %>% pull(PC1),plant_pca_scores %>% filter(period=="1970s") %>% pull(PC2)) ))
 
+provenance_climvars <- c(colnames(big_pca_data))
+
+dbh_numeric_time_long <- dbh_numeric_time %>% 
+  dplyr::select(c(SORT,LOC,BLK,REP,Provenance,code,Series,year,DBH,all_of(provenance_climvars))) %>% 
+  pivot_longer(CMD:monsoonality)
+
 dbh_clim_long_transfer <- dbh_numeric_time_long %>%
   left_join(plantation_climNA, by=c("name"="var")) %>% 
-  mutate(diff_plant = abs(plant_value - value))
+  mutate(transfer = plant_value - value) %>% 
+  bind_rows(dbh_numeric_time[,c("SORT","LOC","BLK","REP","Provenance","code","Series","year","DBH","PC1transfer","PC2transfer","pcadist2d")] %>% 
+  pivot_longer(PC1transfer:pcadist2d, names_to="name", values_to="transfer"))
 
 dbh_clim_long_transfer_nog <- dbh_clim_long_transfer %>% filter(!Provenance=="Gila NF")
 
+transfer_vars <- unique(dbh_clim_long_transfer_nog$name)
+
 dbh_mods_transfer<- data.frame()
-for(i in 1:length(provenance_climvars)){
-mod <- lmer(DBH ~ diff_plant + (1|Provenance)+ (1|BLK) + (1|year), data=dbh_clim_long_transfer %>% filter(name==provenance_climvars[i]))
+for(i in 1:length(transfer_vars)){
+mod <- lmer(DBH ~ transfer + (1|Provenance)+ (1|BLK) + (1|year), data=dbh_clim_long_transfer %>% filter(name==transfer_vars[i]))
 pvalue<- as.data.frame(summary(mod)$coefficients)[2,]$`Pr(>|t|)`
 Mr2 <- r2(mod)$R2_marginal
 
-mod_nog <- lmer(DBH ~ diff_plant + (1|Provenance)+ (1|BLK) + (1|year), data=dbh_clim_long_transfer_nog %>% filter(name==provenance_climvars[i]) %>% filter(!Provenance=="Gila NF"))
+mod_nog <- lmer(DBH ~ transfer + (1|Provenance)+ (1|BLK) + (1|year), data=dbh_clim_long_transfer_nog %>% filter(name==transfer_vars[i]) %>% filter(!Provenance=="Gila NF"))
 pvalue_nog<- as.data.frame(summary(mod_nog)$coefficients)[2,]$`Pr(>|t|)`
 Mr2_nog <- r2(mod_nog)$R2_marginal
 
-dbh_mods_transfer <- bind_rows(dbh_mods_transfer, data.frame(var=provenance_climvars[i], pvalue = pvalue, Mr2=Mr2, pvalue_nog = pvalue_nog, Mr2_nog=Mr2_nog))
+dbh_mods_transfer <- bind_rows(dbh_mods_transfer, data.frame(var=transfer_vars[i], pvalue = pvalue, Mr2=Mr2, pvalue_nog = pvalue_nog, Mr2_nog=Mr2_nog))
 
 }
 
 dbh_mods_transfer %>% arrange(pvalue_nog) #nothing significant without Gila
 
-###each year separately
-##2014
-dbh_y_transfermod_nog14 <- lmer(DBH ~ diff_plant + (1|Provenance)+ (1|BLK), data=dbh_clim_long_transfer_nog %>% filter(name=="y" & year=="2014") %>% filter(!Provenance=="Gila NF"))
-summary(dbh_y_transfermod_nog14) ##significant
-#2006
-dbh_y_transfermod_nog06 <- lmer(DBH ~ diff_plant + (1|Provenance)+ (1|BLK), data=dbh_clim_long_transfer_nog %>% filter(name=="y" & year=="2006") %>% filter(!Provenance=="Gila NF"))
-summary(dbh_y_transfermod_nog06) ##marginally significant
-#1996
-dbh_y_transfermod_nog96 <- lmer(DBH ~ diff_plant + (1|Provenance)+ (1|BLK), data=dbh_clim_long_transfer_nog %>% filter(name=="y" & year=="1996") %>% filter(!Provenance=="Gila NF"))
-summary(dbh_y_transfermod_nog96) ##significant
+#quadratic
 
-##distance in 2d climate space
+dbh_mods_quad<- data.frame()
 
-dbh_climdist_df <- dbh_clim_long_transfer %>% 
-  dplyr::select(Provenance, LOC,BLK, REP, year, DBH, name, diff_plant) %>% 
-  filter(name %in% c("PC1","PC2")) %>% 
-  pivot_wider(names_from=name,values_from = diff_plant) %>% 
-  mutate(dist_2d = sqrt(PC1^2 + PC2^2))
-  
-dbh_climdist_mod <- lmer(DBH ~ dist_2d + (1|Provenance)+ (1|BLK) + (1|year), data=dbh_climdist_df)
-plot(dbh_climdist_mod)
-qqmath(dbh_climdist_mod)
-summary(dbh_climdist_mod) #not significant 
+for(i in 1:length(transfer_vars)){
+mod <- lmer(DBH ~ transfer + I(transfer^2) + (1|Provenance) + (1|BLK) + (1|year), data=dbh_clim_long_transfer %>% filter(name==transfer_vars[i]))
+pvalues<- as.data.frame(summary(mod)$coefficients)[2:3,]$`Pr(>|t|)`
+Cr2 <- performance::r2(mod)$R2_conditional
+Mr2 <- performance::r2(mod)$R2_marginal
+ 
+mod_nog <- lmer(DBH ~ transfer + I(transfer^2) + (1|Provenance) + (1|BLK) + (1|year), data=dbh_clim_long_transfer %>% filter(name==transfer_vars[i]) %>% filter(!Provenance=="Gila NF"))
+pvalues_nog<- as.data.frame(summary(mod_nog)$coefficients)[2:3,]$`Pr(>|t|)`
+Cr2_nog <- performance::r2(mod_nog)$R2_conditional
+Mr2_nog <- performance::r2(mod_nog)$R2_marginal
+
+dbh_mods_quad <- bind_rows(dbh_mods_quad, data.frame(var=transfer_vars[i], pvalue1 = pvalues[1], pvalue2 = pvalues[2], cr2= Cr2, mr2 = Mr2, pvalue1_nog = pvalues_nog[1], pvalue2_nog = pvalues_nog[2], cr_nog = Cr2_nog, mr2_nog = Mr2_nog))
+
+}
+
+dbh_mods_quad %>% arrange(pvalue2_nog) #nothing significant
+
+hist(dbh_clim_long_transfer_nog %>% filter(name=="PC1transfer") %>% pull(transfer))
+hist(dbh_clim_long_transfer_nog %>% filter(name=="PC2transfer") %>% pull(transfer))
 
 ```
 
 ###growth rate
 
 ```{r}
-
 dbh_growth_data<- dbh %>% 
   mutate(areagrowth96=((pi*(DBH96/2)^2)-(pi*(DBH91/2)^2))/5, areagrowth06=((pi*(DBH06/2)^2)- (pi*(DBH96/2)^2))/10, areagrowth14=((pi*(DBH14/2)^2)- (pi*(DBH06/2)^2))/8) %>% 
   mutate(areagrowth96=case_when(DBH96 == 0 ~ NA,
@@ -6364,7 +6214,7 @@ summary(gini_surv14_mod_nog)
 
 ```
 
-###Resistance vs. Resilience
+ ###Resistance vs. Resilience
 
 ####long pre-drought
 
