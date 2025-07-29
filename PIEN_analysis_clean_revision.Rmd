@@ -2725,16 +2725,46 @@ ggplot(data=ht_ranks)+
 
 ##add absolute DBH
 dbh_ht_ranks<- dbh_ranks %>% 
-  mutate(trait="dbh") %>% 
-  bind_rows(ht_ranks %>% mutate(trait="ht"))
+  mutate(trait="DBH") %>% 
+  bind_rows(ht_ranks %>% mutate(trait="Height"))
 
-ggplot(data=dbh_ht_ranks)+
+ht0_rank <- dbh_ht_ranks %>% 
+  filter(year==0 & trait=="Height") %>% 
+  ungroup() %>% 
+  dplyr::select(code,rank, trait) %>% 
+  rename(rank_0 = rank) 
+ht6_rank <- dbh_ht_ranks %>% 
+  filter(year==6 & trait=="Height") %>% 
+    ungroup() %>% 
+  dplyr::select(code,rank, trait) %>% 
+  rename(rank_6 = rank)
+dbh0_rank <- dbh_ht_ranks %>% 
+  filter(year==3 & trait=="DBH") %>% 
+  ungroup() %>% 
+  dplyr::select(code,rank, trait) %>% 
+  rename(rank_0 = rank)
+dbh6_rank <- dbh_ht_ranks %>% 
+  filter(year==6 & trait=="DBH") %>% 
+    ungroup() %>% 
+  dplyr::select(code,rank,trait) %>% 
+  rename(rank_6 = rank)
+
+rank_labels<- left_join(ht0_rank, ht6_rank) %>% 
+  bind_rows(left_join(dbh0_rank,dbh6_rank)) %>% 
+  mutate(x1 = ifelse(trait=="DBH",2,-2), 
+         x2 = ifelse(trait=="DBH", 7, 8))
+
+ggplot()+
   #geom_point(aes(x=year, y=rank, col=factor(Provenance, levels=provs_bylat$Provenance)))+
   #geom_line(aes(x=year, y=rank, col=factor(Provenance, levels=provs_bylat$Provenance)))+
-  geom_ribbon(alpha = 0.7, aes(x=year, ymin=rank-.5, ymax=rank+.5, fill=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_text(data=rank_labels, aes(x = x1, y=rank_0, label=code), hjust=0)+
+  geom_text(data=rank_labels, aes(x = x2, y=rank_6, label=code), hjust=1)+
+  geom_ribbon(data=dbh_ht_ranks, alpha = 0.7, aes(x=year, ymin=rank-.5, ymax=rank+.5, fill=factor(Provenance, levels=provs_bylat$Provenance, labels=provs_bylat$code)))+
   scale_color_manual(values=unname(stepped()), name="Provenance")+
   scale_fill_manual(values=unname(stepped()), name="Provenance")+
-  facet_grid(trait~region)+
+  ylab("Rank")+
+  xlab("Year")+
+  facet_grid(~trait, scales = "free_x")+
   theme_bw()
 
 ```
@@ -3588,11 +3618,10 @@ pcadist2d_relht_plot <- ggplot()+
   #geom_text(aes(x=prov_clim_adjusted_bi_long %>% filter(Provenance=="Plantation") %>% filter(name=="pcadist2d") %>% pull(value) + 12, y=12.5, label="plantation"), col="darkorange2")+
   geom_ribbon(data=predictdata_pcadist2d_relht_nog, aes(x=transfer, ymin=lwr, ymax=upr), alpha=0.2)+
   geom_line(data=predictdata_pcadist2d_relht_nog, aes(x=transfer,y=fit))+
-  geom_rug(data=ht_growth_rel_clim_long_transfer_nog %>% filter(name=="pcadist2d") %>% mutate(fit=12) %>% filter(!Provenance=="Gila NF"), aes(x=transfer,y=fit, col=factor(Provenance, levels=provs_bylat$Provenance)), linewidth=1, sides="b")+
-  scale_color_manual(values=unname(stepped())[-1], name="Provenance")+
-  xlab("pcadist2d Transfer")+
+  geom_vline(xintercept=0, linetype=2)+
+  geom_rug(data=ht_growth_rel_clim_long_transfer_nog %>% filter(name=="pcadist2d") %>% mutate(fit=12) %>% filter(!Provenance=="Gila NF"), aes(x=transfer,y=fit), linewidth=1, sides="b")+
+  xlab("Transfer in 2D PCA")+
   ylab("Relative Height Growth Rate (%/year)")+
-  facet_grid(~var)+
   theme_bw()+
   theme(legend.position="right")
 pcadist2d_relht_plot
@@ -4651,8 +4680,8 @@ nffd_surv14_plot<- ggplot(surv2014_NFFD_nog_newdata3, aes(x = transfer, y = Pred
   geom_line(linewidth = 1)+
     geom_vline(xintercept = 0, color="black", linetype=2)+
     ylim(c(0.5,1))+
-  xlab("NFFD transfer distance")+
-      ylab("Predicted Probability")+
+  xlab("NFFD transfer")+
+      ylab("Predicted Probability of Survival")+
   theme_bw()
 #########
 #########
@@ -4684,8 +4713,8 @@ smrpb_surv14_plot<- ggplot(surv2014_smrpb_nog_newdata3, aes(x = transfer, y = Pr
   geom_line(linewidth = 1)+
     geom_vline(xintercept = 0, color="black", linetype=2)+
   ylim(c(0.5,1))+
-  xlab("Summer:Spring Precip transfer distance")+
-  ylab("Predicted Probability")+
+  xlab("Summer:Spring Precip transfer")+
+  ylab("Predicted Probability of Survival")+
   theme_bw()
 #########
 
@@ -4765,12 +4794,12 @@ cmd2_surv14_plot<- ggplot(surv2014_CMD_newdata3_nog, aes(x = transfer, y = Predi
   geom_line(linewidth = 1)+
   geom_vline(xintercept = 0, color="black", linetype=2)+
     ylim(c(0.5,1))+
-  xlab("CMD transfer distance")+
-    ylab("Predicted Probability")+
+  xlab("CMD transfer")+
+    ylab("Predicted Probability of Survival")+
   theme_bw()
 #########
 
-ggarrange(cmd2_surv14_plot,smrpb_surv14_plot,nffd_surv14_plot, ncol=3)
+ggarrange(cmd2_surv14_plot,smrpb_surv14_plot,nffd_surv14_plot, pcadist2d_relht_plot, ncol=2, nrow=2)
 ```
 
 ##Means figure
@@ -5951,9 +5980,21 @@ cor_provclim<- cor_clean %>%
   left_join(prov_names) %>% 
   left_join(
 prov_pcapts_big %>% 
-  dplyr::select(c(Provenance,PC1:PC2,all_of(colnames(big_pca_data)))), by="Provenance")
+  dplyr::select(c(Provenance,PC1:PC2,all_of(colnames(big_pca_data)))), by="Provenance") %>% 
+  left_join(dbh_numeric_time %>% 
+  dplyr::select(Provenance, pcadist2d) %>% 
+  unique())
 
-cor_provclim_long <- pivot_longer(cor_provclim, PC1:monsoonality)
+cor_provclim_long <- pivot_longer(cor_provclim, PC1:pcadist2d)
+
+#translate into transfer distance
+
+cor_provclim_long_transfer <- cor_provclim_long %>% 
+  left_join(plantation_climNA, by=c("name"="var")) %>% 
+  mutate(transfer = value - plant_value) %>% 
+  mutate(name=ifelse(name=="PC1","PC1transfer",ifelse(name=="PC2","PC2transfer", name))) %>% 
+  mutate(transfer = ifelse(name=="pcadist2d", value, transfer))
+
 
 # makes plot for every plantation and provenance clim variable
 
@@ -5969,16 +6010,16 @@ cor_provclim_long <- pivot_longer(cor_provclim, PC1:monsoonality)
 # dev.off()
 
 ##corresponding models
-climvar_list <- unique(cor_provclim_long$climvar)
+climvar_list <- unique(cor_provclim_long_transfer$climvar)
 
-names <- unique(cor_provclim_long$name)
+names <- transfer_vars
 lmerdata <- data.frame()
 for(i in 1:length(climvar_list)){
   for(j in 1:length(names)){
-    data <- cor_provclim_long %>% filter(climvar==climvar_list[i] & name==names[j]) 
-    mod <- lmer(cor ~ value + (1|Provenance) + (1|BLK), data=data)
+    data <- cor_provclim_long_transfer %>% filter(climvar==climvar_list[i] & name==names[j]) 
+    mod <- lmer(cor ~ transfer + (1|Provenance) + (1|BLK), data=data)
     pvalue.lmer <- as.data.frame(summary(mod)$coefficients)[2,] %>% pull(`Pr(>|t|)`)
-    mod_nog <- lmer(cor ~ value + (1|Provenance) + (1|BLK), data=data %>% filter(!Provenance=="Gila NF"))
+    mod_nog <- lmer(cor ~ transfer + (1|Provenance) + (1|BLK), data=data %>% filter(!Provenance=="Gila NF"))
     pvalue.lmer_nog <- as.data.frame(summary(mod_nog)$coefficients)[2,] %>% pull(`Pr(>|t|)`)
     # Cr2.lmer <- performance::r2(mod)$R2_conditional
     # Mr2.lmer <- performance::r2(mod)$R2_marginal
@@ -5997,7 +6038,7 @@ lmerdata %>% filter(pvalue.lmer_nog < 0.05)
 
 lmerdata %>% filter(pvalue.lmer < 0.05)
 
-currentyr_plot<- ggplot(data=left_join(lmerdata %>% filter(pvalue.lmer < 0.05 & pvalue.lmer_nog<0.05), cor_provclim_long)  %>% filter(!str_detect(climvar, "prior")), aes(x=value, y=cor))+
+currentyr_plot<- ggplot(data=left_join(lmerdata %>% filter(pvalue.lmer < 0.05 & pvalue.lmer_nog<0.05), cor_provclim_long_transfer)  %>% filter(!str_detect(climvar, "prior")), aes(x=transfer, y=cor))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_grid(climvar~name, scales="free")+
@@ -6007,7 +6048,7 @@ currentyr_plot<- ggplot(data=left_join(lmerdata %>% filter(pvalue.lmer < 0.05 & 
 currentyr_plot
 clim_pien_cor
 
-prioryr_plot <- ggplot(data=left_join(lmerdata %>% filter(pvalue.lmer < 0.05 & pvalue.lmer_nog<0.05), cor_provclim_long) %>% filter(str_detect(climvar, "prior")), aes(x=value, y=cor))+
+prioryr_plot <- ggplot(data=left_join(lmerdata %>% filter(pvalue.lmer < 0.05 & pvalue.lmer_nog<0.05), cor_provclim_long_transfer) %>% filter(str_detect(climvar, "prior")), aes(x=transfer, y=cor))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_grid(climvar~name, scales="free")+
@@ -6023,27 +6064,27 @@ lmerdata %>% filter(climvar %in% c("prior_ppt_wt", "cwd_sp")) %>% filter(pvalue.
 
 ##cwd_sp & CMD
 
-cwd_sp_CMD_mod <- lmer(cor ~ value + (1|Provenance) + (1|BLK), data=cor_provclim_long %>% filter(climvar=="cwd_sp" & name=="CMD" ))
+cwd_sp_CMD_mod <- lmer(cor ~ transfer + (1|Provenance) + (1|BLK), data=cor_provclim_long_transfer %>% filter(climvar=="cwd_sp" & name=="CMD" ))
 plot(cwd_sp_CMD_mod)
 qqmath(cwd_sp_CMD_mod)
 summary(cwd_sp_CMD_mod)
-cwd_sp_CMD_mod_nog <- lmer(cor ~ value + (1|Provenance) + (1|BLK), data=cor_provclim_long %>% filter(!Provenance=="Gila NF") %>%  filter(climvar=="cwd_sp" & name=="CMD" ))
+cwd_sp_CMD_mod_nog <- lmer(cor ~ transfer + (1|Provenance) + (1|BLK), data=cor_provclim_long_transfer %>% filter(!Provenance=="Gila NF") %>%  filter(climvar=="cwd_sp" & name=="CMD" ))
 
 
 ##predictions
-cwd_sp_CMD_data <- cor_provclim_long %>% filter(climvar=="cwd_sp" & name=="CMD" )
-cwd_sp_CMD_mod_lm <- lm(cor ~ value, data=cwd_sp_CMD_data)
-cwd_sp_CMD_mod_lm_nog <- lm(cor ~ value, data=cwd_sp_CMD_data %>% filter(!Provenance=="Gila NF"))
+cwd_sp_CMD_data <- cor_provclim_long_transfer %>% filter(climvar=="cwd_sp" & name=="CMD" )
+cwd_sp_CMD_mod_lm <- lm(cor ~ transfer, data=cwd_sp_CMD_data)
+cwd_sp_CMD_mod_lm_nog <- lm(cor ~ transfer, data=cwd_sp_CMD_data %>% filter(!Provenance=="Gila NF"))
 
 ## with Gila
-newdata_cwd_sp_CMD <- data.frame(value= seq(min(cwd_sp_CMD_data$value),max(cwd_sp_CMD_data$value), length.out=50))
+newdata_cwd_sp_CMD <- data.frame(transfer= seq(min(cwd_sp_CMD_data$transfer),max(cwd_sp_CMD_data$transfer), length.out=50))
 
 predict_cwd_sp_CMD <- predict(cwd_sp_CMD_mod_lm, newdata_cwd_sp_CMD, interval="confidence")
 
 predict_data_cwd_sp_CMD <- as.data.frame(bind_cols(newdata_cwd_sp_CMD,predict_cwd_sp_CMD))
 
 ##predictions - without Gila
-newdata_cwd_sp_CMD_nog <- data.frame(value= seq(min(cwd_sp_CMD_data %>% filter(!Provenance=="Gila NF") %>% pull(value)),max(cwd_sp_CMD_data %>% filter(!Provenance=="Gila NF") %>% pull(value)), length.out=50))
+newdata_cwd_sp_CMD_nog <- data.frame(transfer= seq(min(cwd_sp_CMD_data %>% filter(!Provenance=="Gila NF") %>% pull(transfer)),max(cwd_sp_CMD_data %>% filter(!Provenance=="Gila NF") %>% pull(transfer)), length.out=50))
 
 predict_cwd_sp_CMD_nog <- predict(cwd_sp_CMD_mod_lm_nog, newdata_cwd_sp_CMD_nog, interval="confidence")
 
@@ -6054,15 +6095,15 @@ predict_data_cwd_sp_CMD_all <- bind_rows(predict_data_cwd_sp_CMD_nog %>% mutate(
 pvalues_cwd_sp_CMD <- data.frame(pvalue= c(summary(cwd_sp_CMD_mod)$coefficients[2,5], summary(cwd_sp_CMD_mod_nog)$coefficients[2,5]), model=c("with Gila NF", "without Gila NF"), x=c(500), y=c(-.28,-.35))   
 
 cwd_sp_CMD_plot <- ggplot()+
-  geom_point(data=cwd_sp_CMD_data, aes(x=value, y=cor), color="black")+
-  geom_line(data=predict_data_cwd_sp_CMD_all, aes(x=value, y=fit, col=model))+
-  geom_ribbon(data=predict_data_cwd_sp_CMD_all, aes(x=value, y=fit, ymin=lwr, ymax=upr, fill=model), alpha=0.3)+
+  geom_point(data=cwd_sp_CMD_data, aes(x=transfer, y=cor), color="gray")+
+  geom_line(data=predict_data_cwd_sp_CMD_nog, aes(x=transfer, y=fit))+
+  geom_ribbon(data=predict_data_cwd_sp_CMD_nog, aes(x=transfer, y=fit, ymin=lwr, ymax=upr), alpha=0.3)+
   scale_color_manual(values=c("gray35","black"))+
   scale_fill_manual(values=c("gray35","black"))+
-  geom_text(data=pvalues_cwd_sp_CMD, aes(x=x, y=y, label=paste0("p = ",round(pvalue,4)), col=model), hjust=0)+
+  #geom_text(data=pvalues_cwd_sp_CMD, aes(x=x, y=y, label=paste0("p = ",round(pvalue,4)), col=model), hjust=0)+
   geom_hline(yintercept=0)+
-  geom_vline(xintercept=plantation_only$CMD, color="darkorange2", linewidth=1)+
-  xlab("Provenance CMD")+
+  geom_vline(xintercept=0, color="black", linetype=2, linewidth=1)+
+  xlab("CMD transfer")+
   ylab("Pearson's r")+
   theme_bw()+
   theme(legend.position="top")+
@@ -6071,27 +6112,27 @@ cwd_sp_CMD_plot <- ggplot()+
 
 ##cwd_sp & MCMT
 
-cwd_sp_MCMT_mod <- lmer(cor ~ value + (1|Provenance) + (1|BLK), data=cor_provclim_long %>% filter(climvar=="cwd_sp" & name=="MCMT" ))
+cwd_sp_MCMT_mod <- lmer(cor ~ transfer + (1|Provenance) + (1|BLK), data=cor_provclim_long_transfer %>% filter(climvar=="cwd_sp" & name=="MCMT" ))
 plot(cwd_sp_MCMT_mod)
 qqmath(cwd_sp_MCMT_mod)
 summary(cwd_sp_MCMT_mod)
-cwd_sp_MCMT_mod_nog <- lmer(cor ~ value + (1|Provenance) + (1|BLK), data=cor_provclim_long %>% filter(!Provenance=="Gila NF") %>% filter(climvar=="cwd_sp" & name=="MCMT" ))
+cwd_sp_MCMT_mod_nog <- lmer(cor ~ transfer + (1|Provenance) + (1|BLK), data=cor_provclim_long_transfer %>% filter(!Provenance=="Gila NF") %>% filter(climvar=="cwd_sp" & name=="MCMT" ))
 
 
 ##predictions
-cwd_sp_MCMT_data <- cor_provclim_long %>% filter(climvar=="cwd_sp" & name=="MCMT" )
-cwd_sp_MCMT_mod_lm <- lm(cor ~ value, data=cwd_sp_MCMT_data)
-cwd_sp_MCMT_mod_lm_nog <- lm(cor ~ value, data=cwd_sp_MCMT_data %>% filter(!Provenance=="Gila NF"))
+cwd_sp_MCMT_data <- cor_provclim_long_transfer %>% filter(climvar=="cwd_sp" & name=="MCMT" )
+cwd_sp_MCMT_mod_lm <- lm(cor ~ transfer, data=cwd_sp_MCMT_data)
+cwd_sp_MCMT_mod_lm_nog <- lm(cor ~ transfer, data=cwd_sp_MCMT_data %>% filter(!Provenance=="Gila NF"))
 
 ## with Gila
-newdata_cwd_sp_MCMT <- data.frame(value= seq(min(cwd_sp_MCMT_data$value),max(cwd_sp_MCMT_data$value), length.out=50))
+newdata_cwd_sp_MCMT <- data.frame(transfer= seq(min(cwd_sp_MCMT_data$value),max(cwd_sp_MCMT_data$value), length.out=50))
 
 predict_cwd_sp_MCMT <- predict(cwd_sp_MCMT_mod_lm, newdata_cwd_sp_MCMT, interval="confidence")
 
 predict_data_cwd_sp_MCMT <- as.data.frame(bind_cols(newdata_cwd_sp_MCMT,predict_cwd_sp_MCMT))
 
 ##predictions - without Gila
-newdata_cwd_sp_MCMT_nog <- data.frame(value= seq(min(cwd_sp_MCMT_data %>% filter(!Provenance=="Gila NF") %>% pull(value)),max(cwd_sp_MCMT_data %>% filter(!Provenance=="Gila NF") %>% pull(value)), length.out=50))
+newdata_cwd_sp_MCMT_nog <- data.frame(transfer= seq(min(cwd_sp_MCMT_data %>% filter(!Provenance=="Gila NF") %>% pull(transfer)),max(cwd_sp_MCMT_data %>% filter(!Provenance=="Gila NF") %>% pull(transfer)), length.out=50))
 
 predict_cwd_sp_MCMT_nog <- predict(cwd_sp_MCMT_mod_lm_nog, newdata_cwd_sp_MCMT_nog, interval="confidence")
 
@@ -6102,19 +6143,58 @@ predict_data_cwd_sp_MCMT_all <- bind_rows(predict_data_cwd_sp_MCMT_nog %>% mutat
 pvalues_cwd_sp_MCMT <- data.frame(pvalue= c(summary(cwd_sp_MCMT_mod)$coefficients[2,5], summary(cwd_sp_MCMT_mod_nog)$coefficients[2,5]), model=c("with Gila NF", "without Gila NF"), x=c(-2,-2), y=c(-.28,-.35))   
 
 cwd_sp_MCMT_plot <- ggplot()+
-  geom_point(data=cwd_sp_MCMT_data, aes(x=value, y=cor), color="black")+
-  geom_line(data=predict_data_cwd_sp_MCMT_all, aes(x=value, y=fit, col=model))+
-  geom_ribbon(data=predict_data_cwd_sp_MCMT_all, aes(x=value, y=fit, ymin=lwr, ymax=upr, fill=model), alpha=0.3)+
+  geom_point(data=cwd_sp_MCMT_data, aes(x=transfer, y=cor), color="gray")+
+  geom_line(data=predict_data_cwd_sp_MCMT_nog, aes(x=transfer, y=fit))+
+  geom_ribbon(data=predict_data_cwd_sp_MCMT_nog, aes(x=transfer, y=fit, ymin=lwr, ymax=upr), alpha=0.3)+
   scale_color_manual(values=c("gray35","black"))+
   scale_fill_manual(values=c("gray35","black"))+
-  geom_text(data=pvalues_cwd_sp_MCMT, aes(x=x, y=y, label=paste0("p = ",round(pvalue,4)), col=model), hjust=0)+
+  #geom_text(data=pvalues_cwd_sp_MCMT, aes(x=x, y=y, label=paste0("p = ",round(pvalue,4)), col=model), hjust=0)+
   geom_hline(yintercept=0)+
-  geom_vline(xintercept=plantation_only$MCMT, color="darkorange2", linewidth=1)+
-  xlab("Provenance MCMT")+
+  geom_vline(xintercept=0, color="black", linetype=2, linewidth=1)+
+  xlab("MCMT transfer")+
   ylab("Pearson's r")+
   theme_bw()+
   theme(legend.position="top")+
   ggtitle("Spring CWD")
 
-ggarrange(cwd_sp_MCMT_plot, cwd_sp_CMD_plot, nrow=1, common.legend = TRUE)
+##cwd_sp & pcadist2d
+
+cwd_sp_pcadist2d_mod <- lmer(cor ~ transfer + (1|Provenance) + (1|BLK), data=cor_provclim_long_transfer %>% filter(climvar=="cwd_sp" & name=="pcadist2d" ))
+plot(cwd_sp_pcadist2d_mod)
+qqmath(cwd_sp_pcadist2d_mod)
+summary(cwd_sp_pcadist2d_mod)
+cwd_sp_pcadist2d_mod_nog <- lmer(cor ~ transfer + (1|Provenance) + (1|BLK), data=cor_provclim_long_transfer %>% filter(!Provenance=="Gila NF") %>% filter(climvar=="cwd_sp" & name=="pcadist2d" ))
+
+
+##predictions
+cwd_sp_pcadist2d_data <- cor_provclim_long_transfer %>% filter(climvar=="cwd_sp" & name=="pcadist2d" )
+cwd_sp_pcadist2d_mod_lm <- lm(cor ~ transfer, data=cwd_sp_pcadist2d_data)
+cwd_sp_pcadist2d_mod_lm_nog <- lm(cor ~ transfer, data=cwd_sp_pcadist2d_data %>% filter(!Provenance=="Gila NF"))
+
+##predictions - without Gila
+newdata_cwd_sp_pcadist2d_nog <- data.frame(transfer= seq(min(cwd_sp_pcadist2d_data %>% filter(!Provenance=="Gila NF") %>% pull(transfer)),max(cwd_sp_pcadist2d_data %>% filter(!Provenance=="Gila NF") %>% pull(transfer)), length.out=50))
+
+predict_cwd_sp_pcadist2d_nog <- predict(cwd_sp_pcadist2d_mod_lm_nog, newdata_cwd_sp_pcadist2d_nog, interval="confidence")
+
+predict_data_cwd_sp_pcadist2d_nog <- as.data.frame(bind_cols(newdata_cwd_sp_pcadist2d_nog,predict_cwd_sp_pcadist2d_nog))
+
+
+#pvalues_cwd_sp_pcadist2d <- data.frame(pvalue= c(summary(cwd_sp_pcadist2d_mod)$coefficients[2,5], summary(cwd_sp_pcadist2d_mod_nog)$coefficients[2,5]), model=c("with Gila NF", "without Gila NF"), x=c(-2,-2), y=c(-.28,-.35))   
+
+cwd_sp_pcadist2d_plot <- ggplot()+
+  geom_point(data=cwd_sp_pcadist2d_data, aes(x=transfer, y=cor), color="gray")+
+  geom_line(data=predict_data_cwd_sp_pcadist2d_nog, aes(x=transfer, y=fit))+
+  geom_ribbon(data=predict_data_cwd_sp_pcadist2d_nog, aes(x=transfer, y=fit, ymin=lwr, ymax=upr), alpha=0.3)+
+  scale_color_manual(values=c("gray35","black"))+
+  scale_fill_manual(values=c("gray35","black"))+
+  #geom_text(data=pvalues_cwd_sp_pcadist2d, aes(x=x, y=y, label=paste0("p = ",round(pvalue,4)), col=model), hjust=0)+
+  geom_hline(yintercept=0)+
+  geom_vline(xintercept=0, color="black", linewidth=1, linetype=2)+
+  xlab("Transfer in 2D PCA")+
+  ylab("Pearson's r")+
+  theme_bw()+
+  theme(legend.position="top")+
+  ggtitle("")
+
+ggarrange(cwd_sp_MCMT_plot, cwd_sp_CMD_plot, cwd_sp_pcadist2d_plot, nrow=1, common.legend = TRUE)
 ```
