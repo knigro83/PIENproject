@@ -2410,6 +2410,13 @@ nursery_mods <- bind_rows(nursery_mods, data.frame(var=provenance_climvars[i], p
 
 nursery_mods %>% arrange(pvalue_nog) #smrpb significant
 
+#smrpb
+nursery_smrpb_mod_nog <- lm(nursery_ht_m ~ value, data=nursery_ht_clim_long_nog %>% filter(name=="smrpb"))
+par(mfrow=c(2,2))
+plot(nursery_smrpb_mod_nog)
+summary(nursery_smrpb_mod_nog)
+
+
 #quadratic
 
 nursery_mods_quad<- data.frame()
@@ -2442,18 +2449,15 @@ ggplot(data=nursery_ht_clim_long %>% filter(name=="smrpb" & !Provenance=="Gila N
 ```{r}
 ##effect of initial nursery height
 
-ggplot(data=ht_data_year %>% filter(!Provenance=="Gila NF"), aes(x=nursery_ht_m, y=log(value)))+
-  geom_smooth(method="lm")+
-  theme_bw()+
-  ylab("Log(Height)")+
-  xlab("Nursery Height(m)")
-
-
 #1974
 nurse_ht_mod74 <- lmer(value ~ nursery_ht_m + (1|Provenance) + (1|BLK), data=ht_data %>% filter(name=="HT74") %>% filter(!Provenance=="Gila NF"))
 plot(nurse_ht_mod74)
 qqmath(nurse_ht_mod74)
 summary(nurse_ht_mod74)  ##significant 
+str(summary(nurse_ht_mod74))
+
+stats74 <- as.data.frame(summary(nurse_ht_mod74)$coefficients)[2,] %>% 
+  mutate(year=1974)
 
 ggplot(data=ht_data %>% filter(!Provenance=="Gila NF"), aes(x=nursery_ht_m, y=value))+
   geom_smooth(method="lm")+
@@ -2465,11 +2469,17 @@ qqmath(nurse_ht_mod79)
 summary(nurse_ht_mod79)  ###there is an effect when Gila is removed
 r2(nurse_ht_mod79) ##marginal r2 is very low
 
+stats79 <- as.data.frame(summary(nurse_ht_mod79)$coefficients)[2,] %>% 
+  mutate(year=1979)
+
 #1985
 nurse_ht_mod85 <- lmer(value ~ nursery_ht_m + (1|Provenance)+ (1|BLK), data=ht_data %>% filter(name=="HT85") %>% filter(!Provenance=="Gila NF"))
 qqmath(nurse_ht_mod85)
 summary(nurse_ht_mod85)  ###there is an effect when Gila is removed
 r2(nurse_ht_mod85) ##marginal r2 is very low
+
+stats85 <- as.data.frame(summary(nurse_ht_mod85)$coefficients)[2,] %>% 
+  mutate(year=1985)
 
 #1991
 nurse_ht_mod91 <- lmer(value ~ nursery_ht_m + (1|Provenance)+ (1|BLK), data=ht_data %>% filter(name=="HT91") %>% filter(!Provenance=="Gila NF"))
@@ -2477,11 +2487,17 @@ qqmath(nurse_ht_mod91)
 summary(nurse_ht_mod91)  ###there is an effect when Gila is removed
 r2(nurse_ht_mod91) ##marginal r2 is very low
 
+stats91 <- as.data.frame(summary(nurse_ht_mod91)$coefficients)[2,] %>% 
+  mutate(year=1991)
+
 #1996
 nurse_ht_mod96 <- lmer(value ~ nursery_ht_m + (1|Provenance)+ (1|BLK), data=ht_data %>% filter(name=="HT96") %>% filter(!Provenance=="Gila NF"))
 qqmath(nurse_ht_mod96)
 summary(nurse_ht_mod96)  ###there is an effect when Gila is removed
 r2(nurse_ht_mod96) ##marginal r2 is very low
+
+stats96 <- as.data.frame(summary(nurse_ht_mod96)$coefficients)[2,] %>% 
+  mutate(year=1996)
 
 #2006
 nurse_ht_mod06 <- lmer(value ~ nursery_ht_m + (1|Provenance)+ (1|BLK), data=ht_data %>% filter(name=="HT06") %>% filter(!Provenance=="Gila NF"))
@@ -2489,11 +2505,34 @@ qqmath(nurse_ht_mod06)
 summary(nurse_ht_mod06)  ###there is an effect when Gila is removed
 r2(nurse_ht_mod06) ##marginal r2 is very low
 
+stats06 <- as.data.frame(summary(nurse_ht_mod06)$coefficients)[2,] %>% 
+  mutate(year=2006)
+
 #2014
 nurse_ht_mod14 <- lmer(value ~ nursery_ht_m + (1|Provenance)+ (1|BLK), data=ht_data %>% filter(name=="HT14") %>% filter(!Provenance=="Gila NF"))
 qqmath(nurse_ht_mod14)
 summary(nurse_ht_mod14)  ###marginal effect 
 r2(nurse_ht_mod14) ##marginal r2 is very low
+
+stats14 <- as.data.frame(summary(nurse_ht_mod14)$coefficients)[2,] %>% 
+  mutate(year=2014)
+
+nursery_stats <- bind_rows(stats74, stats79, stats85, stats91, stats96, stats06, stats14) %>% 
+left_join(ht_data_year %>% group_by(year) %>% 
+  summarise(max=max(value))) %>%
+  mutate(x=0.13) %>% 
+  rename(p = `Pr(>|t|)`)
+
+ggplot()+
+  geom_text(data=nursery_stats, aes(x=x, y=max, label=paste0("p = ", round(p,2))), size=4)+
+  geom_point(data=ht_data_year %>% filter(!Provenance=="Gila NF"), aes(x=nursery_ht_m, y=value), col="grey30")+
+  geom_smooth(data=ht_data_year %>% filter(!Provenance=="Gila NF"), aes(x=nursery_ht_m, y=value), method="lm", col="red", fill="red")+
+  theme_bw()+
+  facet_wrap(~year, scales="free_y")+
+  ylab("Height (m)")+
+  xlab("Nursery Height(m)") ##put stats in this table
+
+
 
 ```
 
@@ -2724,12 +2763,6 @@ ht_data_year_clim_noG %>%
   cor()
 
 ###using year as a random effect
-
-#with Gila
-mod_ht_pca <- lmer(log(ht) ~ PC1transfer*PC2transfer + I(PC1transfer^2) + I(PC2transfer^2) + pcadist2d + (1|Provenance) + (1|BLK) + (1|year), data=ht_data_year_clim)
-plot(mod_ht_pca)
-qqmath(mod_ht_pca)
-summary(mod_ht_pca) #PC2transfer^2 significant with Gila
 
 #no gila
 
@@ -3537,6 +3570,9 @@ PC2transfer_relht_plot <- ggplot()+
 PC2transfer_relht_plot
 
 #####pcadist2d
+pcadist2d_relht_mod_lmer_nog <- lmer(relhtgrowth ~ transfer + (1|Provenance)+ (1|BLK) + (1|year), data=ht_growth_rel_clim_long_transfer_nog %>% filter(name=="pcadist2d"))
+summary(pcadist2d_relht_mod_lmer_nog)
+
 pcadist2d_relht_mod_lm_nog <- lm(relhtgrowth ~ transfer, data=ht_growth_rel_clim_long_transfer_nog %>% filter(name=="pcadist2d"))
 summary(pcadist2d_relht_mod_lm_nog)
 
@@ -3871,7 +3907,7 @@ mod_cones_pca_nog <- glmmTMB(cbind(n_cones, total-n_cones) ~ scale(height)*PC1tr
 summary(mod_cones_pca_nog) #nothing significant
 options(na.action="na.fail")
 mod_cones_pca_nog_dredge<- dredge(mod_cones_pca_nog)
-mod_cones_pca_nog_dredge #null is best
+mod_cones_pca_nog_dredge #pcadist and height 
 
 ##predictions
 #no gila
@@ -3898,10 +3934,10 @@ CCnewdata3_cone_nog_height <- within(CCnewdata2_cone_nog_height, {
 cone_plot_height<- ggplot(CCnewdata3_cone_nog_height %>% mutate(var="Height"), aes(x = height, y = PredictedProb)) +
   geom_segment(aes(x=3.859648, y = 0, xend=3.859648, yend=.5), col="red")+
   geom_segment(aes(x=0, y = 0.5, xend=3.859648, yend=.5), col="red")+
-  geom_ribbon(aes(ymin = LL,
-    ymax = UL), alpha = 0.2, col=NA) + geom_line(linewidth = 1)+
+  geom_ribbon(aes(ymin = LL, ymax = UL), alpha = 0.2, col=NA) + 
+  geom_line(linewidth = 1)+
   geom_line(aes(x=height, y=PredictedProb))+
-    geom_rug(data=moniger_subset_noG%>% mutate(PredictedProb=.8), aes(x=height, y=PredictedProb), sides="b", linewidth=1, col="black", alpha=0.5)+
+  geom_rug(data=moniger_subset_noG%>% mutate(PredictedProb=.8), aes(x=height, y=PredictedProb), sides="b", linewidth=1, col="black", alpha=0.5)+
   theme_bw()+
   ylim(c(0,1))+
   xlab("Height (m)")+
@@ -4610,9 +4646,6 @@ surv2014_NFFD_nog_newdata3 <- within(surv2014_NFFD_nog_newdata2, {
     UL <- plogis(fit + (1.96 * se.fit))
 })
 
-surv2014_NFFD_bothmod_data<- bind_rows(surv2014_NFFD_newdata3 %>% mutate(model="with Gila NF"),
-surv2014_NFFD_nog_newdata3 %>% mutate(model="without Gila NF"))
-
 nffd_surv14_plot<- ggplot(surv2014_NFFD_nog_newdata3, aes(x = transfer, y = PredictedProb)) + geom_ribbon(aes(ymin = LL,
     ymax = UL), alpha = 0.2) + 
   geom_line(linewidth = 1)+
@@ -4738,6 +4771,33 @@ cmd2_surv14_plot<- ggplot(surv2014_CMD_newdata3_nog, aes(x = transfer, y = Predi
 #########
 
 ggarrange(cmd2_surv14_plot,smrpb_surv14_plot,nffd_surv14_plot, ncol=3)
+```
+
+##Means figure
+
+```{r}
+recent_means<- survival_means %>% filter(year==2014) %>% dplyr::select(Provenance, prop.surv.since.1970) %>% 
+  left_join(ht_data_aves_forfig %>% ungroup() %>% filter(name=="HT14") %>% dplyr::select(Provenance, meantotht, seTH)) %>% 
+  left_join(dbh_aves %>% filter(year==2014) %>% dplyr::select(Provenance, meanDBH, se_DBH)) %>% 
+  left_join(cone_sum_forfig %>% filter(year==2006) %>% dplyr::select(Provenance, prop.w.cones)) %>% 
+  pivot_longer(c(prop.surv.since.1970,meantotht,meanDBH,prop.w.cones)) %>% 
+  mutate(seTH = ifelse(name=="meantotht", seTH, NA), se_DBH = ifelse(name=="meanDBH", se_DBH, NA)) %>% 
+  mutate(name = case_when(name=="meanDBH" ~ "DBH (cm) - 2014",
+                          name=="meantotht" ~ "Height (m) - 2014",
+                          name=="prop.surv.since.1970" ~ "Proportion Survival 1970 - 2014",
+                          name=="prop.w.cones" ~ "Proportion with Cones - 2006")) 
+
+ggplot(recent_means, aes(x=factor(Provenance, levels=provs_bylat$Provenance, labels=provs_bylat$code), y=value, col=factor(Provenance, levels=provs_bylat$Provenance, labels=provs_bylat$code)))+
+  geom_point(size=3)+
+  geom_errorbar(aes(ymax=value+se_DBH, ymin=value-se_DBH))+
+  geom_errorbar(aes(ymax=value+seTH, ymin=value-seTH))+
+  facet_wrap(~name, scales="free_y")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  xlab("Provenance")+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle=45, hjust=1), axis.title.y=element_blank())
+  
+ 
 ```
 
 ##RWI
@@ -5934,6 +5994,8 @@ for(i in 1:length(climvar_list)){
   }}
 
 lmerdata %>% filter(pvalue.lmer_nog < 0.05)
+
+lmerdata %>% filter(pvalue.lmer < 0.05)
 
 currentyr_plot<- ggplot(data=left_join(lmerdata %>% filter(pvalue.lmer < 0.05 & pvalue.lmer_nog<0.05), cor_provclim_long)  %>% filter(!str_detect(climvar, "prior")), aes(x=value, y=cor))+
   geom_point()+
