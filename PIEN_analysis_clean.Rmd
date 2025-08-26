@@ -5809,6 +5809,14 @@ prop_surv_by_prov <- moniger_survival_byyr_binom_zeros_2014 %>%
   summarise(alive=sum(alive), died=sum(died)) %>% 
   mutate(surv.prop=alive/(died+alive)) %>% 
   arrange(surv.prop)
+
+###plot NFFD x CMD and smrpb x CMD with survival values
+
+ggplot(data=prop_surv_by_prov %>% 
+  left_join(prov_clim_adjusted_bi), aes(x=CMD, y=smrpb, col=surv.prop))+
+  geom_point(size=4)+
+  scale_color_viridis(option="D")+
+  ylab("summer precip ratio")
 ```
 
 ###PC only mods

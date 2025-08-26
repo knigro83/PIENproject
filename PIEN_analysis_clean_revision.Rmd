@@ -147,6 +147,11 @@ prov_clim_table<- prov_clim_adjusted_bi %>%
   arrange(desc(y))
 
 #write.csv(prov_clim_table,"prov_clim_table.csv")  
+
+##plot NFFD x CMD and smrpb x CMD
+
+ggplot(prov_clim_adjusted_bi, aes(x=CMD, y=NFFD))+
+  geom_point()
 ```
 
 ###Rehfeldt comparison
@@ -2192,7 +2197,7 @@ relgrowth_mods_transfer_quad %>% arrange(pvalue2_nog) #nothing significant
 
 ht_data <- moniger_data_comb %>% 
   filter(! (LOC==30 & BLK=="D" & REP==3)) %>%  ##excluding Gila tree that was outlier for height in 1996
-  dplyr::select(c(LOC,BLK,REP,Provenance,HT74:HT14,Seedling.Ht..from.Nursery)) %>% 
+  dplyr::select(c(LOC,BLK,REP,Provenance,Notes85,HT74:HT14,Seedling.Ht..from.Nursery)) %>% 
   pivot_longer(HT74:HT14) %>% 
   mutate(nursery_ht_m = Seedling.Ht..from.Nursery/39.37) %>% 
   filter(!is.na(value))
@@ -2208,7 +2213,19 @@ ht.order <- ht_data %>%
 
 ht_data_aves <- ht_data %>% filter(!name=="HT74") %>% 
   group_by(name, Provenance,nursery_ht_m ) %>% 
-  summarise(meantotht = mean(value), seTH = sd(value)/sqrt(n()))
+  summarise(meantotht = mean(value), seTH = sd(value)/sqrt(n()), n=n())
+
+ht_data_FD <- moniger_data_comb %>% 
+  filter(! (LOC==30 & BLK=="D" & REP==3)) %>%  ##excluding Gila tree that was outlier for height in 1996
+  dplyr::select(c(LOC,BLK,REP,Provenance,Notes85,HT74:HT14,Seedling.Ht..from.Nursery)) %>% 
+  pivot_longer(HT74:HT14) %>% 
+  mutate(nursery_ht_m = Seedling.Ht..from.Nursery/39.37) %>% 
+  filter(!is.na(value)) %>% 
+  filter(Notes85=="FD")
+
+ggplot(data=ht_data_FD %>% filter(name=="HT14"), aes(x=name, y=value, fill=Provenance))+
+  geom_boxplot()
+
 
 ```
 
@@ -2235,6 +2252,77 @@ ht_data_year <-  ht_data %>% mutate(year=case_when(
   name == "HT96" ~ 1996,
   name == "HT06" ~ 2006,
   name == "HT14" ~ 2014))
+
+ht_data_unique_tree<- ht_data_year %>% 
+  mutate(tree = paste0(LOC,BLK,REP))
+  
+
+ggplot(data=ht_data_unique_tree, aes(x=year, y=value, color=tree))+
+  geom_point()+
+  geom_line()+
+  facet_wrap(~Provenance)+
+  theme(legend.position = "none")+
+  geom_hline(yintercept = 5)+
+  ylab("Height (m)")
+
+ht_data_unique_tree %>% 
+  filter(year==2014) %>% 
+  filter(value>5) %>% 
+  group_by(Provenance) %>% 
+  summarise(mean=mean(value))
+
+moniger_data_comb %>% 
+  filter(! (LOC==30 & BLK=="D" & REP==3)) %>%  ##excluding Gila tree that was outlier for height in 1996
+  filter(Notes85 == "FD") %>% 
+  colnames()
+
+ggplot(data= moniger_data_comb %>% 
+   group_by(Provenance, Form85) %>% 
+   summarise(n=n()) %>% 
+     filter(!is.na(Form85)), aes(x=factor(Form85), y=n, fill=factor(Provenance, levels=provs_bylat$Provenance)))+
+     geom_bar(stat="identity", position="dodge")+
+   scale_fill_manual(values=unname(stepped()))
+  
+DT_trees <- moniger_data_comb %>% 
+  pivot_longer(Form85:Form06) %>% 
+  filter(value == 3) %>% 
+  mutate(tree=paste0(LOC,BLK,REP)) %>% 
+  pull(tree) %>% 
+  unique()
+
+no_DT_aveht <- ht_data_unique_tree %>% 
+  filter(year==2014) %>% 
+  filter(!tree %in% DT_trees) %>% 
+  group_by(Provenance) %>% 
+  summarise(mean=mean(value), se = sd(value)/sqrt(n()), n=n())
+
+ggplot(no_DT_aveht,aes(x=factor(Provenance, levels=provs_bylat$Provenance), col=factor(Provenance, levels=provs_bylat$Provenance), y=mean))+
+  geom_point(size=3)+
+  geom_errorbar(aes(ymin=mean-se, ymax=mean+se), linewidth=1)+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  theme_bw()+
+  theme(axis.text.x=element_text(angle=45, hjust=1), legend.position="none")+
+  ylab("Mean 2014 Height (m)")+
+  xlab("")+
+  ggtitle("Trees with no record of `dead top`")
+
+ggplot(ht_data_aves %>% filter(name=="HT14"),aes(x=factor(Provenance, levels=provs_bylat$Provenance), col=factor(Provenance, levels=provs_bylat$Provenance), y=meantotht  ))+
+  geom_point(size=3)+
+  geom_errorbar(aes(ymin=meantotht  -seTH     , ymax=meantotht  +seTH     ), linewidth=1)+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  theme_bw()+
+  theme(axis.text.x=element_text(angle=45, hjust=1), legend.position="none")+
+  ylab("Mean 2014 Height (m)")+
+  xlab("")+
+  ggtitle("Trees with no record of `dead top`")
+
+
+
+View(ht_data_unique_tree %>% 
+  filter(year==2014) %>% 
+  filter(!tree %in% DT_trees) %>% 
+    filter(Provenance=="Gila NF"))
+
 ```
 
 ###nursery height
@@ -2811,8 +2899,8 @@ ht_growth_rel_data_forplot<- ht_growth_rel_data %>% dplyr::select(Provenance, na
 
 ggplot()+
   geom_bar(data=ht_growth_rel_data_forplot, aes(x=year, y=meangrowth/5, fill = factor(Provenance, levels=provs_bylat$Provenance)), stat="identity")+
-  geom_point(data=ht_3meas, aes(x=year, y=meanht), col="black", size=2)+
-  geom_line(data=ht_3meas, aes(x=year, y=meanht), col="black")+
+  #geom_point(data=ht_3meas, aes(x=year, y=meanht), col="black", size=2)+
+  #geom_line(data=ht_3meas, aes(x=year, y=meanht), col="black")+
   #geom_boxplot(data=height_growth_forplot, aes(x=year, y=value*10, fill=factor(Provenance, levels=provs_bylat$Provenance), group=year), outliers=FALSE)+
   scale_y_continuous(name = "Height (m)",sec.axis = sec_axis( transform=~.*5, name="Relative Height Growth Rate (%/yr)")) +
   scale_x_continuous(breaks=c(1970,1974,1979,1985,1991,1996,2006,2014))+
@@ -2821,6 +2909,44 @@ ggplot()+
   facet_wrap(~factor(Provenance, levels=provs_bylat$Provenance))+
   theme_bw()+
   theme(axis.text.x=element_text(angle=45, hjust=1))
+
+###no dead tops
+NODT_ht_growth_rel_data_forplot<- ht_growth_rel_data %>% 
+  mutate(tree=paste0(LOC,BLK,REP)) %>% 
+  filter(!tree %in% DT_trees) %>% 
+  dplyr::select(Provenance, name, value) %>% 
+    mutate(year= ifelse(name %in% c("growth79rel","growth85rel","growth91rel","growth96rel"), as.numeric(paste0("19",substr(name, 7,8))), as.numeric(paste0("20",substr(name, 7,8))))) %>% 
+  group_by(Provenance, year, name) %>% 
+  summarise(meangrowth=mean(value))
+
+ggplot()+
+  geom_bar(data=NODT_ht_growth_rel_data_forplot, aes(x=year, y=meangrowth/5, fill = factor(Provenance, levels=provs_bylat$Provenance)), stat="identity")+
+  #geom_point(data=ht_3meas, aes(x=year, y=meanht), col="black", size=2)+
+  #geom_line(data=ht_3meas, aes(x=year, y=meanht), col="black")+
+  #geom_boxplot(data=height_growth_forplot, aes(x=year, y=value*10, fill=factor(Provenance, levels=provs_bylat$Provenance), group=year), outliers=FALSE)+
+  scale_y_continuous(name = "Height (m)",sec.axis = sec_axis( transform=~.*5, name="Relative Height Growth Rate (%/yr)")) +
+  scale_x_continuous(breaks=c(1970,1974,1979,1985,1991,1996,2006,2014))+
+  scale_fill_manual(values=unname(stepped()), name="Provenance")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  facet_wrap(~factor(Provenance, levels=provs_bylat$Provenance))+
+  theme_bw()+
+  theme(axis.text.x=element_text(angle=45, hjust=1))
+
+relgrowth_NODT<- NODT_ht_growth_rel_data_forplot %>% 
+  group_by(Provenance) %>% 
+  summarise(mean=mean(meangrowth))
+
+ggplot(data=relgrowth_NODT, aes(x=factor(Provenance, levels=provs_bylat$Provenance), y=mean, col=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_point(size=3)+
+  scale_color_manual(values=unname(stepped()))+
+  theme_bw()+
+  ylab("Mean relative height growth rate (% per year)")+
+  theme(axis.text.x = element_text(angle=45, hjust=1), legend.position = "none")+
+  xlab("")+
+  ggtitle("Trees with no record of 'dead top'")
+  
+
+###
 
 
 dbh_growth_data_rel_forplot
@@ -3711,6 +3837,13 @@ ggarrange(cone_plot_height,cones_pptsm_plot, cones_TD_plot, ncol=3, labels=c("A)
 ###ANOVA
 
 ```{r}
+
+###checking Shepperd paper numbers
+moniger_data_comb %>% filter(Stat79 ==1) %>% group_by(Provenance) %>% summarise(n=n()) %>% mutate(percent=n/48*100) %>% pull(percent) %>% mean()
+####
+
+
+
 ### do survival analyses for each year independently (since overall survival for each year are not independent of each other). For the climate analysis, I'm just going to look at how provenance climate impacted survival to 2014, since this is the most informative for longevity of these trees. 
 
 moniger_survival_byyr_zeros <- moniger_data_comb %>% 
