@@ -2294,7 +2294,8 @@ no_DT_aveht <- ht_data_unique_tree %>%
   filter(year==2014) %>% 
   filter(!tree %in% DT_trees) %>% 
   group_by(Provenance) %>% 
-  summarise(mean=mean(value), se = sd(value)/sqrt(n()), n=n())
+  summarise(mean=mean(value), se = sd(value)/sqrt(n()), n=n()) %>% 
+  mutate(percent = n/48)
 
 ggplot(no_DT_aveht,aes(x=factor(Provenance, levels=provs_bylat$Provenance), col=factor(Provenance, levels=provs_bylat$Provenance), y=mean))+
   geom_point(size=3)+
@@ -2316,6 +2317,12 @@ ggplot(ht_data_aves %>% filter(name=="HT14"),aes(x=factor(Provenance, levels=pro
   xlab("")+
   ggtitle("Trees with no record of `dead top`")
 
+ggplot(no_DT_aveht, aes(x=factor(Provenance, levels=provs_bylat$Provenance), y=percent, fill=factor(Provenance, levels=provs_bylat$Provenance)))+
+  geom_bar(stat="identity", position="dodge")+
+  scale_fill_manual(values=unname(stepped()))+
+  ylab("% trees with no dead tops recorded")+
+  xlab("")+
+  theme(axis.text.x=element_text(angle=45, hjust=1), legend.position = "none")
 
 
 View(ht_data_unique_tree %>% 
@@ -3845,6 +3852,31 @@ moniger_data_comb %>% filter(Stat79 ==1) %>% group_by(Provenance) %>% summarise(
 
 
 ### do survival analyses for each year independently (since overall survival for each year are not independent of each other). For the climate analysis, I'm just going to look at how provenance climate impacted survival to 2014, since this is the most informative for longevity of these trees. 
+moniger_survival <- moniger_data_comb %>% 
+  mutate(Stat14 = ifelse(Stat14==9,0,Stat14))
+
+
+moniger_survival_byyr <- moniger_data_comb %>% 
+  mutate(Stat79 = ifelse(Stat74 == 9, NA, Stat79)) %>% 
+  mutate(Stat85 = ifelse(Stat79 %in% c(NA,9), NA, Stat85)) %>% 
+  mutate(Stat91 = ifelse(Stat85 %in% c(NA,9), NA, Stat91)) %>% 
+  mutate(Stat96 = ifelse(Stat91 %in% c(NA,9), NA, Stat96)) %>% 
+  mutate(Stat06 = ifelse(Stat96 %in% c(NA,9), NA, Stat06)) %>% 
+  mutate(Stat14 = ifelse(Stat06 %in% c(NA,9), NA, Stat14)) %>% 
+  dplyr::select(c(SORT,LOC,BLK,REP,Provenance,Stat74:Stat14)) %>% 
+  pivot_longer(Stat74:Stat14) %>% 
+  mutate(year=case_when(name == "Stat74" ~ 1974,
+                        name == "Stat79" ~ 1979,
+                        name == "Stat85" ~ 1985,
+                        name == "Stat91" ~ 1991,
+                        name == "Stat96" ~ 1996,
+                        name == "Stat06" ~ 2006,
+                        name == "Stat14" ~ 2014)) %>% 
+  mutate(value = ifelse(value==9,0,value)) %>%  
+  filter(!is.na(value))
+
+surv_df_zero <- expand.grid(Provenance=unique(moniger_survival_byyr$Provenance),
+                            BLK = unique(moniger_survival_byyr$BLK))
 
 moniger_survival_byyr_zeros <- moniger_data_comb %>% 
   mutate(Stat79 = ifelse(Stat74 == 9, 0, Stat79)) %>% 
