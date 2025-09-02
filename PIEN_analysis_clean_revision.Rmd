@@ -134,6 +134,8 @@ names(clim_raster_stack)<- filenames_edited
 prov_clim_adjusted_bi <- terra::extract(clim_raster_stack, adjusted_provs, method='bilinear') %>% cbind(as.data.frame(adjusted_provs)) %>% cbind(crds(adjusted_provs)) %>% 
   mutate(smrpb = PPTsm/PPTsp, monsoonality = MSP/MAP)
 
+write.csv(prov_clim_adjusted_bi, "PIEN_published_code/prov_clim_adjusted_bi.csv")
+
 prov_clim_adjusted_bi_long<- prov_clim_adjusted_bi %>% 
   mutate(no=ifelse(is.na(no),"Plan",no)) %>% 
   dplyr::select(c(Provenance,AHM:SHM, smrpb, monsoonality)) %>% 
@@ -209,6 +211,8 @@ monthly_clim <- monthly_ppt %>%
   mutate(month=substr(name,nchar(name)-1,nchar(name)),
          var = substr(name,0,nchar(name)-2))
 
+write.csv(monthly_clim, "monthly_clim.csv")
+
 monthly_clim_wide <- monthly_clim %>% 
   dplyr::select(c(Provenance, no, elev, value, month, var)) %>% 
   pivot_wider(values_from=value, names_from=var)
@@ -241,22 +245,21 @@ ggplot(monthly_clim %>% filter(var=="PPT") %>% filter(!Provenance=="Plantation")
 ```{r}
 #compare climates of provenances
 prov_vars<- prov_clim_adjusted_bi %>% 
-  dplyr::select(c(Provenance,AHM:SHM,x:monsoonality)) %>% 
+  dplyr::select(c(Provenance,AHM:SHM,smrpb:monsoonality)) %>% 
   left_join(prov_names) %>% 
   pivot_longer(AHM:monsoonality, names_to = "var", values_to = "value")
 
-order<- prov_clim_adjusted_bi %>% 
-  arrange(y) %>% 
-  pull(Provenance)
-
-# png("figures/prov_clim_plot.png", width=12, height=8, units="in", res=500)
-ggplot(prov_vars, aes(x=factor(Provenance, levels=order), y=value, col=factor(Provenance, levels=order)))+
+prov_climvars_plot<- ggplot(prov_vars, aes(x=factor(code, levels=provs_bylat$code), y=value, col=factor(code, levels=provs_bylat$code)))+
   geom_point(size=4)+
   geom_hline(data=prov_vars %>% filter(Provenance=="Plantation"),aes(yintercept = value, group=var), col=unname(stepped())[9])+
   facet_wrap(~var, scales="free_y")+
   scale_color_manual(values=unname(stepped()), name="Provenance")+
-  theme(axis.text.x = element_text(angle=45,hjust=1, size=10), legend.position = 'none', strip.text=element_text(size=12), axis.title.x = element_blank())
-# dev.off()
+  theme_bw()+
+  theme(axis.text.x = element_text(angle=55,hjust=1, size=10), legend.position = 'none', strip.text=element_text(size=12), axis.title.x = element_blank(), axis.text.y = element_text(size=12), axis.title.y=element_text(size=12))
+
+png("figures/final/prov_climvars_plot.png", width=20, height=9, units="in", res=500)
+prov_climvars_plot
+dev.off()
 
 ggplot(prov_vars %>% filter(!Provenance=="Gila NF") %>% filter(var=="smrpb"), aes(x=factor(Provenance, levels=order), y=value, col=factor(Provenance, levels=order)))+
   geom_point(size=4)+
@@ -1022,7 +1025,7 @@ plantation_clim_long_currentyr<- plantation_clim_long %>%
   filter(currentyr>1969) %>% 
   filter(currentyr<2016)
 
-ggplot(plantation_clim_long_currentyr %>% filter(name2 %in% c("ppt","tmin","tmean","tmax")), aes(x=currentyr, y=value, col=type))+
+plantation_seasonal_plot<- ggplot(plantation_clim_long_currentyr %>% filter(name2 %in% c("ppt","tmin","tmean","tmax")), aes(x=currentyr, y=value, col=type))+
   scale_color_manual(values=c("skyblue4","firebrick"))+
   ggnewscale::new_scale_color()+
     geom_line(aes(color=factor(statistic, levels=c("sum","max","mean","min"))))+
@@ -1033,6 +1036,9 @@ ggplot(plantation_clim_long_currentyr %>% filter(name2 %in% c("ppt","tmin","tmea
   theme(axis.text=element_text(angle=45, hjust=1))+
   xlab("year")
 
+png("figures/final/plantation_clim.png", width=6, height=4, res=300, units="in")
+plantation_seasonal_plot
+dev.off()
 
 ggplot(plantation_clim_long_currentyr, aes(x=currentyr, y=value, col=name2))+
   ggnewscale::new_scale_color()+
@@ -1187,7 +1193,7 @@ plantation_clim_xtremes<- plantation_clim_long_qs %>%
                              TRUE ~ "no")) %>% 
   filter(extreme=="yes")
 
-ggplot(plantation_clim_long_qs %>% 
+drought_xtreme<- ggplot(plantation_clim_long_qs %>% 
   mutate(extreme = case_when(name2 %in% c("ppt","aet") & value < out.low ~ "yes",
                              name2 %in% c("cwd","spei","tmax","tmean","tmin","vpdmax") & value > out.hi ~"yes",
                              TRUE ~ "no")), aes(x=currentyr, y=value))+
@@ -1200,8 +1206,11 @@ ggplot(plantation_clim_long_qs %>%
   geom_line(data=plantation_clim_long_qs, aes(x=currentyr, y=out.hi), col="gray20")+
   theme_bw()+
   xlab("year")+
-  theme(strip.text=element_text(size=12), legend.text=element_text(size=12))
+  theme(strip.text=element_text(size=12), legend.text=element_text(size=14), legend.title=element_text(size=14), axis.text.x=element_text(size=12), axis.text.y=element_text(size=12), axis.title.x=element_text(size=12), axis.title.y=element_text(size=12))
 
+png("figures/final/drought_xtreme.png", width=11, height=9, res=300, units="in")
+drought_xtreme
+dev.off()
 
 xtreme_d_byyr<- plantation_clim_xtremes %>% 
   group_by(currentyr) %>% 
@@ -1212,6 +1221,7 @@ ggplot(xtreme_d_byyr, aes(x=currentyr, y=n, fill=n))+
   geom_bar(stat='identity')+
   scale_fill_gradientn(colors=c("gold","brown"))+
   ylab("# of extreme variables")+
+  xlab("year")+
   theme_bw()
 
 ###########
@@ -1508,7 +1518,7 @@ pc1_pc2_niche_plot <- ggplot(as.data.frame(clim_pca_big$x[-(1:5),]), aes(x=PC1, 
   geom_text(data = as.data.frame(loadings_pc1pc2 * scale) %>% 
               mutate(name=rownames(loadings_pc1pc2)),
                aes(x = PC1, y = PC2, label=name),
-               color = "black", size=2, hjust=c(.1,.1,.1,.1,.1,.1,1,-.1,-.2,-.3), vjust=c(1.2,1.2,1.2,-1.2,1.2,1.2,1,1,1,1))+
+               color = "black", size=2, hjust=c(.1,.1,.1,.1,.8,.1,1,-.3,-.2,1.2), vjust=c(1.2,1.2,-1,1.4,1.2,1.2,1,1,1,1.2))+
   scale_fill_gradientn(colors=c("wheat","tan4"))+
   ggnewscale::new_scale_fill()+
   scale_fill_manual(values=unname(stepped()), name="Provenance", guide="none")+
@@ -1621,7 +1631,7 @@ map <- ggplot()+
  map
 # dev.off()
 
-png("figures/map_and_bigpca_bluewhite.png", width=8.3, height=6.5, res=300, units = "in")
+png("figures/final/map_and_bigpca_bluewhite.png", width=9, height=7, res=500, units = "in")
 ggarrange(map,ggarrange(pc1_pc2_niche_plot, contrib.plot, nrow=2, ncol=1, labels=c("B)","C)")), labels=c("A)",""), ncol=2, nrow=1)
 dev.off()
 ```
@@ -2322,6 +2332,7 @@ ggplot(no_DT_aveht, aes(x=factor(Provenance, levels=provs_bylat$Provenance), y=p
   scale_fill_manual(values=unname(stepped()))+
   ylab("% trees with no dead tops recorded")+
   xlab("")+
+  theme_bw()+
   theme(axis.text.x=element_text(angle=45, hjust=1), legend.position = "none")
 
 
@@ -2495,20 +2506,22 @@ stats14 <- as.data.frame(summary(nurse_ht_mod14)$coefficients)[2,] %>%
 nursery_stats <- bind_rows(stats74, stats79, stats85, stats91, stats96, stats06, stats14) %>% 
 left_join(ht_data_year %>% group_by(year) %>% 
   summarise(max=max(value))) %>%
-  mutate(x=0.13) %>% 
+  mutate(x=0.14) %>% 
   rename(p = `Pr(>|t|)`)
 
-ggplot()+
-  geom_text(data=nursery_stats, aes(x=x, y=max, label=paste0("p = ", round(p,2))), size=4)+
+nursery_ht_plot<- ggplot()+
+  geom_text(data=nursery_stats, aes(x=x, y=max-0.1, label=paste0("p = ", round(p,2))), size=4)+
   geom_point(data=ht_data_year %>% filter(!Provenance=="Gila NF"), aes(x=nursery_ht_m, y=value), col="grey30")+
   geom_smooth(data=ht_data_year %>% filter(!Provenance=="Gila NF"), aes(x=nursery_ht_m, y=value), method="lm", col="red", fill="red")+
   theme_bw()+
   facet_wrap(~year, scales="free_y")+
   ylab("Height (m)")+
-  xlab("Nursery Height(m)") ##put stats in this table
+  xlab("Nursery Height(m)") +
+  theme(axis.text=element_text(size=10), axis.title=element_text(size=11), strip.text=element_text(size=10))
 
-
-
+png("figures/final/nursery_ht_plot.png", height=6, width=9, res=500, units="in")
+nursery_ht_plot
+dev.off()
 ```
 
 ###absolute height
@@ -2669,7 +2682,7 @@ ht_letters_plot
 ###rank them
 ht_ranks<- ht_data_aves_forfig %>% 
   filter(!is.na(nursery_ht_m)) %>% 
-  dplyr::select(-c("seTH")) %>% 
+  dplyr::select(-c("seTH","n")) %>% 
   pivot_wider(names_from=name, values_from=meantotht) %>% 
   arrange(nursery_ht_m) %>% 
   bind_cols(data.frame(rank0 = seq(1,20,1)))%>% 
@@ -2736,7 +2749,7 @@ rank_labels<- left_join(ht0_rank, ht6_rank) %>%
   mutate(x1 = ifelse(trait=="DBH",2,-2), 
          x2 = ifelse(trait=="DBH", 7, 8))
 
-ggplot()+
+rank_plot <- ggplot()+
   #geom_point(aes(x=year, y=rank, col=factor(Provenance, levels=provs_bylat$Provenance)))+
   #geom_line(aes(x=year, y=rank, col=factor(Provenance, levels=provs_bylat$Provenance)))+
   geom_text(data=rank_labels, aes(x = x1, y=rank_0, label=code), hjust=0)+
@@ -2749,6 +2762,9 @@ ggplot()+
   facet_grid(~trait, scales = "free_x")+
   theme_bw()
 
+png("figures/final/rank_plot.png",height=5.5, width=8.5, res=300, units="in")
+rank_plot
+dev.off()
 ```
 
 ####PC only models
@@ -3836,7 +3852,12 @@ cones_pptsm_plot<- ggplot(cone_ht_pptsm_quad_nog_newdata3, aes(x = transfer, y =
   theme(legend.position="top")
 
 
-ggarrange(cone_plot_height,cones_pptsm_plot, cones_TD_plot, ncol=3, labels=c("A)","B)","C)"),nrow=1)
+cone_effects_plot<- ggarrange(cone_plot_height,cones_pptsm_plot, cones_TD_plot, ncol=3, labels=c("A)","B)","C)"),nrow=1)
+
+png("figures/final/cone_effects_plot.png", width=9, height=3.5, units="in", res=500)
+cone_effects_plot
+dev.off()
+
 ```
 
 ##Survival 2014
@@ -4214,12 +4235,36 @@ cmd2_surv14_plot<- ggplot(surv2014_CMD_newdata3_nog, aes(x = transfer, y = Predi
   theme_bw()
 #########
 
-ggarrange(cmd2_surv14_plot,smrpb_surv14_plot,nffd_surv14_plot, pcadist2d_relht_plot, ncol=2, nrow=2, labels=c("A)","B)","C)","D)"))
+transfer_effects_plot<- ggarrange(cmd2_surv14_plot,smrpb_surv14_plot,nffd_surv14_plot, pcadist2d_relht_plot, ncol=2, nrow=2, labels=c("A)","B)","C)","D)"))
+
+png("figures/final/transfer_effects_plot.png", width=7.5, height=7, units="in", res=500)
+transfer_effects_plot
+dev.off()
+
 ```
 
 ##Means figure
 
 ```{r}
+
+survival_means <- left_join(
+moniger_survival_byyr %>% 
+  filter(name=="Stat74") %>% 
+  group_by(Provenance) %>% 
+  summarise(alltrees74=n()),
+moniger_survival_byyr %>% 
+  group_by(Provenance, year) %>% 
+  summarise(n.trees=sum(value)) %>% 
+  pivot_wider(names_from=year, values_from=n.trees), by="Provenance") %>% 
+    mutate("1974" = `1974`/alltrees74, 
+           "1979" = `1979`/alltrees74,
+           "1985" = `1985`/alltrees74,
+           "1991" = `1991`/alltrees74,
+           "1996" = `1996`/alltrees74,
+           "2006" = `2006`/alltrees74,
+           "2014" = `2014`/alltrees74) %>% 
+    pivot_longer(`1974`:`2014`, names_to="year", values_to="prop.surv.since.1970")
+
 recent_means<- survival_means %>% filter(year==2014) %>% dplyr::select(Provenance, prop.surv.since.1970) %>% 
   left_join(ht_data_aves_forfig %>% ungroup() %>% filter(name=="HT14") %>% dplyr::select(Provenance, meantotht, seTH)) %>% 
   left_join(dbh_aves %>% filter(year==2014) %>% dplyr::select(Provenance, meanDBH, se_DBH)) %>% 
@@ -4231,7 +4276,7 @@ recent_means<- survival_means %>% filter(year==2014) %>% dplyr::select(Provenanc
                           name=="prop.surv.since.1970" ~ "Proportion Survival 1970 - 2014",
                           name=="prop.w.cones" ~ "Proportion with Cones - 2006")) 
 
-ggplot(recent_means, aes(x=factor(Provenance, levels=provs_bylat$Provenance, labels=provs_bylat$code), y=value, col=factor(Provenance, levels=provs_bylat$Provenance, labels=provs_bylat$code)))+
+recent_means_fig<- ggplot(recent_means, aes(x=factor(Provenance, levels=provs_bylat$Provenance, labels=provs_bylat$code), y=value, col=factor(Provenance, levels=provs_bylat$Provenance, labels=provs_bylat$code)))+
   geom_point(size=3)+
   geom_errorbar(aes(ymax=value+se_DBH, ymin=value-se_DBH))+
   geom_errorbar(aes(ymax=value+seTH, ymin=value-seTH))+
@@ -4241,7 +4286,10 @@ ggplot(recent_means, aes(x=factor(Provenance, levels=provs_bylat$Provenance, lab
   theme_bw()+
   theme(axis.text.x = element_text(angle=45, hjust=1), axis.title.y=element_blank())
   
- 
+png("figures/final/recent_means_fig.png", width=8, height=5.5, units="in", res=500)
+recent_means_fig
+dev.off()
+
 ```
 
 ##RWI
@@ -4545,7 +4593,7 @@ dev.off()
 ##make figure 4 simpler
 gini_sum
 
-ggplot(growth.detrended.byprov, aes(x=year, y=meanrwi-1))+
+rwi_by_prov<- ggplot(growth.detrended.byprov, aes(x=year, y=meanrwi-1))+
   geom_bar(data=plantation_vpd_scaled, aes(x=year, y=vpdmax_scale.5, color=droughtyr), stat="identity", fill=NA)+
   #geom_bar(data=plantation_vpd_scaled, aes(x=year, y=vpdmax_scale_1), stat="identity", fill="gray20")+
   scale_color_manual(values=c("gray20","red"), name="Drought Year")+
@@ -4557,16 +4605,20 @@ ggplot(growth.detrended.byprov, aes(x=year, y=meanrwi-1))+
   scale_fill_manual(values=unname(stepped()), name="Provenance")+
   geom_line(aes(col=factor(Provenance, levels=provs_bylat$Provenance)), linewidth=1)+
   geom_hline(yintercept=0, linetype=1)+
-  geom_text(data=gini_sum, x=2013, y=0.7, aes(label=paste0("gini = ", round(mean,2))))+
+  geom_text(data=gini_sum, x=2011, y=0.7, aes(label=paste0("gini = ", round(mean,2))))+
   facet_wrap(~factor(Provenance, levels=provs_bylat$Provenance))+
   theme_bw()+
-  theme(axis.text = element_text(color="black",size=10), axis.title = element_text(color="black", size=12), panel.grid = element_blank(), strip.text = element_text(size=12, color="black"))
+  theme(axis.text = element_text(color="black",size=10), axis.title = element_text(color="black", size=12), panel.grid = element_blank(), strip.text = element_text(size=12, color="black"), legend.text=element_text(size=14), legend.title=element_text(size=16))
+
+png("figures/final/rwi_byprov.png", width=18, height=10, res=500, units="in")
+rwi_by_prov
+dev.off()
 
 growth.detrended.ave <- growth.detrended.df %>% 
   group_by(year) %>% 
   summarize(meanrwi = mean(rw_spline, na.rm=T), sd=sd(rw_spline, na.rm=T))
 
-ggplot(growth.detrended.ave, aes(x=year, y=meanrwi-1))+
+rwi_simple_plot<- ggplot(growth.detrended.ave, aes(x=year, y=meanrwi-1))+
   geom_bar(data=plantation_vpd_scaled, aes(x=year, y=vpdmax_scale_1, color=droughtyr), stat="identity", fill=NA)+
   #geom_bar(data=plantation_vpd_scaled, aes(x=year, y=vpdmax_scale_1), stat="identity", fill="gray20")+
   scale_color_manual(values=c("gray20","red"), name="Drought Year")+
@@ -4576,7 +4628,11 @@ ggplot(growth.detrended.ave, aes(x=year, y=meanrwi-1))+
   geom_line(linewidth=1)+
   geom_hline(yintercept=0, linetype=2)+
   theme_bw()+
-  theme(axis.text = element_text(color="black",size=10), axis.title = element_text(color="black", size=12), panel.grid = element_blank())
+  theme(axis.text = element_text(color="black",size=10), axis.title = element_text(color="black", size=12), panel.grid = element_blank(), legend.text=element_text(size=11))
+
+png("figures/final/rwi_simple_plot.png", width=7, height=5, units="in", res=500)
+rwi_simple_plot
+dev.off()
 
 ##ANOVA
 
@@ -5178,7 +5234,7 @@ cor_means <- cor_clean %>%
 ) %>% 
   mutate(sig=ifelse(pvalue<0.05, "*", ""))
 
-ggplot(cor_means, aes(x=factor(time_season, levels=c("priorsp","priorsm","priorfa","priorwt","NAsp","NAsm"), labels= c("priorsp","priorsm","priorfa","priorwt","sp","sm")), y=estimate,col=mean.cor>0))+
+cor_means_fig <- ggplot(cor_means, aes(x=factor(time_season, levels=c("priorsp","priorsm","priorfa","priorwt","NAsp","NAsm"), labels= c("priorsp","priorsm","priorfa","priorwt","sp","sm")), y=estimate,col=mean.cor>0))+
   geom_point(position=position_dodge(1), size=3)+
   geom_errorbar(aes(ymin=lwr, ymax=upr),width=0.5)+
   geom_text(aes(y=0.25, label=sig), size=5)+
@@ -5190,6 +5246,10 @@ ggplot(cor_means, aes(x=factor(time_season, levels=c("priorsp","priorsm","priorf
   ylim(c(-0.15, 0.3))+
   xlab("")+ylab("Mean Pearson's r")+
   theme(axis.text.x=element_text(angle=45, hjust=1))
+
+png("figures/final/cor_means_fig.png", width=6.5, height=5, units="in", res=500)
+cor_means_fig
+dev.off()
 
 sig_trees_per_clim <- cor_clean %>% 
   filter(p.value<0.05) %>% 
@@ -5293,7 +5353,7 @@ sig.cors.byprov <- cor_clean %>% left_join(ttestdata %>% filter(pvalue < 0.05)) 
   filter(!time_season=="priorsp") %>% 
   filter(!var=="spei")#getting rid of prior spring and SPEI just to simplify
 
-ggplot(data=sig.cors.byprov, aes(x=factor(code, levels=provs_bylat$code), y=estimate))+
+gc_cors_allprovs<- ggplot(data=sig.cors.byprov, aes(x=factor(code, levels=provs_bylat$code), y=estimate))+
     geom_jitter(data= cor_clean  %>% left_join(prov_names), aes(x=factor(code, levels=provs_bylat$code), y=cor, color=p.value<0.05),size=2, height=0, width=0.1, alpha=0.2)+
     geom_text(data=cor_means , aes(x="RoNF", y=0.95,label=paste0("mean r = ",round(mean.cor,2)," \u00B1 ",round(sd.cor,2)), col=mean.cor<0))+
     geom_text(data=sig_trees_per_clim , aes(x="RoNF", y=0.7,label=paste0("N[p<0.05] = ",n_sig_trees)))+
@@ -5309,12 +5369,16 @@ ggplot(data=sig.cors.byprov, aes(x=factor(code, levels=provs_bylat$code), y=esti
   xlab("")+
   ylim(c(-.6,1))+
   theme_bw()+
-  theme(axis.text.x = element_text(angle=45, hjust=1, size=12, color="black"),
+  theme(axis.text.x = element_text(angle=55, hjust=1, size=12, color="black"),
         axis.text.y = element_text(size=12, color="black"),
         axis.title = element_text(size=12, color="black"),
         legend.position = "none",
         strip.text = element_text(color="black", size=12),
         panel.grid = element_blank())
+
+png("figures/final/gc_cors_allprovs.png", width=19, height=12, units="in", res=500)
+gc_cors_allprovs
+dev.off()
 ```
 
 ```{r}
@@ -5611,5 +5675,9 @@ cwd_sp_pcadist2d_plot <- ggplot()+
   theme(legend.position="top")+
   ggtitle("")
 
-ggarrange(cwd_sp_MCMT_plot, cwd_sp_CMD_plot, cwd_sp_pcadist2d_plot, nrow=1, common.legend = TRUE)
+gc_cor_fig<- ggarrange(cwd_sp_MCMT_plot, cwd_sp_CMD_plot, cwd_sp_pcadist2d_plot, nrow=1, common.legend = TRUE)
+
+png("figures/final/gc_cor_fig.png", width=8, height=3.5, units="in", res=500)
+gc_cor_fig
+dev.off()
 ```
