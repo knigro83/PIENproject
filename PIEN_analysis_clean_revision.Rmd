@@ -261,7 +261,7 @@ png("figures/final/prov_climvars_plot.png", width=20, height=9, units="in", res=
 prov_climvars_plot
 dev.off()
 
-ggplot(prov_vars %>% filter(!Provenance=="Gila NF") %>% filter(var=="smrpb"), aes(x=factor(Provenance, levels=order), y=value, col=factor(Provenance, levels=order)))+
+ggplot(prov_vars %>% filter(!Provenance=="Gila NF") %>% filter(var=="smrpb"), aes(x=factor(Provenance, levels=provs_bylat$Provenance), y=value, col=factor(Provenance, levels=provs_bylat$Provenance)))+
   geom_point(size=4)+
   geom_hline(data=prov_vars %>% filter(Provenance=="Plantation")%>% filter(var=="smrpb"),aes(yintercept = value, group=var), col=unname(stepped())[9])+
   facet_wrap(~var, scales="free_y")+
@@ -409,19 +409,19 @@ for(j in 1:length(months)){
 
 ##append 1969
 ppt_comb_plantation <- bind_rows(as.data.frame(ppt_data_1969) %>% filter(CN == "Plantation") %>%
-  mutate(date=as.character(as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")), ppt=as.numeric(ppt), year=as.integer(year), month=as.integer(month)), ppt_comb_plantation %>% dplyr::select(-c(X.1, X))) 
+  mutate(date=as.character(as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")), ppt=as.numeric(ppt), year=as.integer(year), month=as.integer(month)), ppt_comb_plantation) 
 
 tmax_comb_plantation <- bind_rows(as.data.frame(tmax_data_1969) %>% filter(CN == "Plantation") %>%
-  mutate(date=as.character(as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")), tmax=as.numeric(tmax), year=as.integer(year), month=as.integer(month)), tmax_comb_plantation %>% dplyr::select(-X))
+  mutate(date=as.character(as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")), tmax=as.numeric(tmax), year=as.integer(year), month=as.integer(month)), tmax_comb_plantation)
 
 tmean_comb_plantation <- bind_rows(as.data.frame(tmean_data_1969) %>% filter(CN == "Plantation") %>%
-  mutate(date=as.character(as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")), tmean=as.numeric(tmean), year=as.integer(year), month=as.integer(month)), tmean_comb_plantation %>% dplyr::select(-X)) 
+  mutate(date=as.character(as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")), tmean=as.numeric(tmean), year=as.integer(year), month=as.integer(month)), tmean_comb_plantation) 
 
 tmin_comb_plantation <- bind_rows(as.data.frame(tmin_data_1969) %>% filter(CN == "Plantation") %>%
-  mutate(date=as.character(as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")), tmin=as.numeric(tmin), year=as.integer(year), month=as.integer(month)), tmin_comb_plantation%>% dplyr::select(-X)) 
+  mutate(date=as.character(as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")), tmin=as.numeric(tmin), year=as.integer(year), month=as.integer(month)), tmin_comb_plantation) 
 
 vpdmax_comb_plantation <- bind_rows(as.data.frame(vpdmax_data_1969) %>% filter(CN == "Plantation") %>%
-  mutate(date=as.character(as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")), vpdmax=as.numeric(vpdmax), year=as.integer(year), month=as.integer(month)), vpdmax_comb_plantation%>% dplyr::select(-X)) 
+  mutate(date=as.character(as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")), vpdmax=as.numeric(vpdmax), year=as.integer(year), month=as.integer(month)), vpdmax_comb_plantation) 
 
 vpdmin_comb_plantation <- bind_rows(as.data.frame(vpdmin_data_1969) %>% filter(CN == "Plantation") %>%
   mutate(date=as.character(as.Date(paste(month,"01",year,sep="/"), "%m/%d/%Y")), vpdmin=as.numeric(vpdmin), year=as.integer(year), month=as.integer(month)), vpdmin_comb_plantation%>% dplyr::select(-X))
@@ -1368,6 +1368,18 @@ ggplot()+
   geom_spatvector(data=pien_mathys_little_ca_points_crop %>% project(crs(canada)), size=0.05)+
   geom_spatvector(data = canada, fill=NA, color="red")+
   geom_spatvector(data=westernus, fill=NA, color="red")
+
+ggplot(clim_pien, aes(x=NFFD, y=CMD))+
+  geom_density_2d_filled()+
+  geom_point(data=plantation_all %>% filter(period=="1970s"), size=3, color="white")+
+  #geom_point(data=plantation_all %>% filter(period=="2080s"), size=3, color="pink3")+
+  #geom_point(data=prov_clim_adjusted_bi %>% filter(!Provenance=="Plantation"), size=2, color="gray70")+
+  #geom_point(data=prov_clim_adjusted_bi %>% filter(Provenance %in% c("Larimer 2","Routt NF","Gunnison NF","Dixie NF","Wallowa-Whitman NF")), size=2, color="orange")+
+  theme_bw()+
+  xlab("# Frost-free days")+
+  ylab("Climate Moisture Deficit")
+
+
 ```
 
 ## PCA
@@ -1845,6 +1857,13 @@ CLD_dbh_aov14 #payette greater than 15, gila less than 13
 dbh14_letter_df<- as.data.frame(CLD_dbh_aov14) %>% 
   rename(letters = `.group`) %>% 
   mutate(year="DBH14")
+
+ggplot(dbh_numeric14, aes(x=smrpb, y=DBH))+
+  geom_point()+
+  theme_bw()+
+  xlab("Provenance Summer to Spring Precip Ratio")+
+  ylab("DBH (cm)")+
+  ggtitle("2014 Diameter at Breast Height (DBH)")
 
 
 prov_dbh_order<- dbh_numeric %>% 
@@ -2429,7 +2448,18 @@ ggplot(data=nursery_ht_clim_long %>% filter(name=="smrpb" & !Provenance=="Gila N
   xlab("Summer Precip Ratio")+
   ylab("Nursery Height (m)")
 
-```
+ggplot(data=nursery_ht_clim_long %>% filter(name=="smrpb") %>% mutate(model="with Gila"), aes(x=value, y=nursery_ht_m, color=model))+
+  geom_smooth(method="lm")+
+    geom_point(data=nursery_ht_clim_long %>% filter(name=="smrpb") %>% mutate(model="with Gila"))+
+  geom_smooth(method="lm", data=nursery_ht_clim_long_nog %>% filter(name=="smrpb") %>% mutate(model="without Gila"), aes(x=value, y=nursery_ht_m, color=model))+
+  scale_color_manual(values=c("grey","black"))+
+  geom_point(data=nursery_ht_clim_long_nog %>% filter(name=="smrpb") %>% mutate(model="without Gila"))+
+  theme_bw()+
+  xlab("Summer to Spring Precip Ratio")+
+  ylab("Nursery Height (m)")+
+  ggtitle("Average Provenance Nursery Height")
+  
+ ```
 
 ####effect on absolute ht
 ```{r}
@@ -2855,6 +2885,14 @@ ht_mods_quad <- bind_rows(ht_mods_quad, data.frame(var=transfer_vars[i], pvalue1
 }
 
 ht_mods_quad %>% arrange(pvalue2_nog) #nothing significant
+
+
+ggplot(ht_data_year_clim_long_transfer %>% filter(name=="smrpb", year==2014), aes(x=value, y=ht))+
+  geom_point()+
+  theme_bw()+
+  xlab("Provenance Summer to Spring Precip Ratio")+
+  ylab("Height (m)")+
+  ggtitle("2014 Height (m)")
 ```
 
 ###relative height growth
@@ -4836,7 +4874,7 @@ summary(gini_surv14_mod_nog)
 
 ```
 
- ###Resistance vs. Resilience
+###Resistance vs. Resilience
 
 ####long pre-drought
 
