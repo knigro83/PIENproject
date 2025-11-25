@@ -271,6 +271,22 @@ ggplot(prov_vars %>% filter(!Provenance=="Gila NF") %>% filter(var=="smrpb"), ae
   theme(legend.position="none", axis.text.x = element_text(angle=45, hjust=1, color="black", size=12))+
   xlab("Provenance")+
   ylab("Summer to Spring Precip Ratio")
+
+ggplot(prov_vars %>% filter(var=="MCMT" & !Provenance=="Plantation"), aes(x=factor(code, levels=provs_bylat$code), y=value, col=factor(code, levels=provs_bylat$code)))+
+    geom_hline(data=prov_vars %>% filter(Provenance=="Plantation"& var=="MCMT"),aes(yintercept = value, group=var), linetype=2, linewidth=1)+
+  geom_point(size=4)+
+  facet_wrap(~var, scales="free_y")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle=55,hjust=1, size=10), legend.position = 'none', strip.text=element_text(size=12), axis.title.x = element_blank(), axis.text.y = element_text(size=12), axis.title.y=element_text(size=12))
+
+ggplot(prov_vars %>% filter(var=="smrpb" & !Provenance=="Plantation"), aes(x=factor(code, levels=provs_bylat$code), y=value, col=factor(code, levels=provs_bylat$code)))+
+    geom_hline(data=prov_vars %>% filter(Provenance=="Plantation"& var=="smrpb"),aes(yintercept = value, group=var), linetype=2, linewidth=1)+
+  geom_point(size=4)+
+  facet_wrap(~var, scales="free_y")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle=55,hjust=1, size=10), legend.position = 'none', strip.text=element_text(size=12), axis.title.x = element_blank(), axis.text.y = element_text(size=12), axis.title.y=element_text(size=12))
 ```
 
 
@@ -1369,17 +1385,6 @@ ggplot()+
   geom_spatvector(data = canada, fill=NA, color="red")+
   geom_spatvector(data=westernus, fill=NA, color="red")
 
-ggplot(clim_pien, aes(x=NFFD, y=CMD))+
-  geom_density_2d_filled()+
-  geom_point(data=plantation_all %>% filter(period=="1970s"), size=3, color="white")+
-  #geom_point(data=plantation_all %>% filter(period=="2080s"), size=3, color="pink3")+
-  #geom_point(data=prov_clim_adjusted_bi %>% filter(!Provenance=="Plantation"), size=2, color="gray70")+
-  #geom_point(data=prov_clim_adjusted_bi %>% filter(Provenance %in% c("Larimer 2","Routt NF","Gunnison NF","Dixie NF","Wallowa-Whitman NF")), size=2, color="orange")+
-  theme_bw()+
-  xlab("# Frost-free days")+
-  ylab("Climate Moisture Deficit")
-
-
 ```
 
 ## PCA
@@ -1597,6 +1602,20 @@ figpca_legend <- get_legend( ggplot(as.data.frame(clim_pca_big$x[-(1:5),]), aes(
   theme(legend.position = "right", axis.text = element_text(color="black", size=6), axis.title = element_text(size=8)) )
 ```
 
+```{r}
+##plot of pien climate niche with plantation points
+
+ggplot(clim_pien, aes(x=NFFD, y=CMD))+
+  geom_density_2d_filled()+
+  geom_point(data=plantation_all %>% filter(period=="1970s"), size=3, color="white")+
+  #geom_point(data=plantation_all %>% filter(period=="2080s"), size=3, color="pink3")+
+  #geom_point(data=prov_clim_adjusted_bi %>% filter(!Provenance=="Plantation"), size=2, color="gray70")+
+  #geom_point(data=prov_clim_adjusted_bi %>% filter(Provenance %in% c("Larimer 2","Routt NF","Gunnison NF","Dixie NF","Wallowa-Whitman NF")), size=2, color="orange")+
+  theme_bw()+
+  xlab("# Frost-free days")+
+  ylab("Climate Moisture Deficit")
+
+```
 
 Put it all together with a map of the provenances
 
@@ -1646,6 +1665,36 @@ map <- ggplot()+
 png("figures/final/map_and_bigpca_bluewhite.png", width=9, height=7, res=500, units = "in")
 ggarrange(map,ggarrange(pc1_pc2_niche_plot, contrib.plot, nrow=2, ncol=1, labels=c("B)","C)")), labels=c("A)",""), ncol=2, nrow=1)
 dev.off()
+
+##map without white and blue spruce ranges
+
+map_simple <- ggplot()+
+  geom_spatvector(data=westernus, col="grey", fill="gray100")+
+  geom_spatvector(data=canada_crop, col="grey", fill="gray100")+
+  geom_spatvector(data=pien_little_map_prj_crop, fill="wheat", col="wheat")+
+  geom_spatvector(data=adjusted_provs %>% left_join(prov_names) %>% filter(!Provenance == "Plantation"), aes(fill=factor(Provenance, levels=provs_bylat$Provenance)), shape=24, size=1.5)+
+    scale_fill_manual(values=unname(stepped()), name="Provenance")+
+  geom_spatvector(data=adjusted_provs %>% left_join(prov_names) %>% filter(Provenance == "Plantation"), color="black", size=1.5)+
+  geom_spatvector_text(data=adjusted_provs %>% left_join(prov_names)%>% filter(!Provenance == "Plantation"), aes(label=code), hjust=c(1.2,-.2,-.2,1.1,-.2,-.2,1,.1,0,1.2,-0.2,1.0, 1.1,1.0,0,1,-0.2,1.2,1,1.2), vjust=c(.4,0,0,0,0,0,1.3,1.4,1.3,rep(0,5),1.3,0,-.2,0,0,0), size=2.5)+
+    geom_spatvector_text(data=adjusted_provs %>% left_join(prov_names)%>% filter(Provenance == "Plantation"), aes(label="Plantation"), hjust = 1, vjust=-0.4, col="black", size=2.5)+
+  theme(panel.grid = element_blank(), legend.position = "none", axis.title=element_blank(), axis.text = element_text(color="black", size=8))+
+  # ggspatial::annotation_scale(
+  #   location = "bl",
+  #   bar_cols = c("black", "white"),
+  #     height = unit(0.1, "cm"),
+  #   text_cex = 0.5) +
+  ggspatial::annotation_north_arrow(
+    location = "bl", which_north = "true",
+    pad_x = unit(0.1, "in"), pad_y = unit(0.2, "in"),
+    style=north_arrow_fancy_orienteering(text_size=8, line_width = 0.8),
+    height=unit(.25, "in"),
+    width=unit(.25, "in"))
+
+
+png("figures/map_simple.png", width=3, height=3, res=300, units = "in")
+map_simple
+dev.off()
+
 ```
 
 ```{r}
@@ -2459,7 +2508,7 @@ ggplot(data=nursery_ht_clim_long %>% filter(name=="smrpb") %>% mutate(model="wit
   ylab("Nursery Height (m)")+
   ggtitle("Average Provenance Nursery Height")
   
- ```
+```
 
 ####effect on absolute ht
 ```{r}
@@ -3896,6 +3945,18 @@ png("figures/final/cone_effects_plot.png", width=9, height=3.5, units="in", res=
 cone_effects_plot
 dev.off()
 
+
+##plot with vertical line
+ggplot(cone_ht_pptsm_quad_nog_newdata3, aes(x = transfer, y = PredictedProb)) +
+  geom_ribbon(aes(ymin = LL,ymax = UL), alpha = 0.2) + 
+  geom_line(linewidth = 1)+
+  geom_rug(data=cone_clim_long_transfer_nog %>% filter(name=="PPTsm") %>% mutate(PredictedProb=0.5), sides="b", linewidth=1, color="black", alpha=0.5)+
+  geom_vline(xintercept=0, linetype=2, linewidth=1)+
+  ylim(c(0,1))+
+  xlab("Summer precip transfer")+
+  ylab("Predicted Probability of Cones at 3.9m")+
+  theme_bw()+
+  theme(legend.position="top")
 ```
 
 ##Survival 2014
