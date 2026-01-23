@@ -3788,6 +3788,15 @@ p=0.75
 height = (log(p/(1-p))-b0)/b1
 height
 
+ht_data %>% 
+  filter(value>5.08) %>% 
+  group_by(name) %>% 
+  summarise(n=n()) %>% 
+  left_join(ht_data %>% 
+  group_by(name) %>% 
+  summarise(n_total=n())) %>% 
+  mutate(percent=n/n_total*100)
+
 #95%
 p=0.95
 height = (log(p/(1-p))-b0)/b1
