@@ -287,6 +287,22 @@ ggplot(prov_vars %>% filter(var=="smrpb" & !Provenance=="Plantation"), aes(x=fac
   scale_color_manual(values=unname(stepped()), name="Provenance")+
   theme_bw()+
   theme(axis.text.x = element_text(angle=55,hjust=1, size=10), legend.position = 'none', strip.text=element_text(size=12), axis.title.x = element_blank(), axis.text.y = element_text(size=12), axis.title.y=element_text(size=12))
+
+
+prov_vars_english <- prov_vars %>% filter(var %in% c("smrpb","NFFD","MAP","MCMT")) %>% 
+  mutate(value = case_when(var=="MCMT" ~ value*(9/5) + 32,
+                           var=="MAP" ~ value/25.4,
+                          TRUE ~ value))
+
+ggplot(prov_vars_english %>% filter(!Provenance=="Plantation"), aes(x=factor(code, levels=provs_bylat$code), y=value, col=factor(code, levels=provs_bylat$code)))+
+    geom_hline(data=prov_vars_english %>% filter(Provenance=="Plantation"),aes(yintercept = value, group=var), linetype=2, linewidth=1)+
+  geom_point(size=4)+
+  facet_wrap(~factor(var, levels=c("MCMT","MAP","NFFD","smrpb"),
+                     labels = c("Mean Temp Coldest Month (F)", "Mean Annual Precip (in)", "# Frost-free Days","Summer-Spring Precip Ratio")), scales="free_y")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  ylab("")+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle=55,hjust=1, size=10), legend.position = 'none', strip.text=element_text(size=12), axis.title.x = element_blank(), axis.text.y = element_text(size=12), axis.title.y=element_text(size=12))
 ```
 
 
@@ -4389,6 +4405,40 @@ png("figures/final/recent_means_fig.png", width=8, height=5.5, units="in", res=5
 recent_means_fig
 dev.off()
 
+###english units
+
+recent_means_english<- survival_means %>% filter(year==2014) %>% dplyr::select(Provenance, prop.surv.since.1970) %>% 
+  left_join(ht_data_aves_forfig %>% ungroup() %>% filter(name=="HT14") %>% dplyr::select(Provenance, meantotht, seTH)) %>% 
+  left_join(dbh_aves %>% filter(year==2014) %>% dplyr::select(Provenance, meanDBH, se_DBH)) %>% 
+  left_join(cone_sum_forfig %>% filter(year==2006) %>% dplyr::select(Provenance, prop.w.cones)) %>% 
+  pivot_longer(c(prop.surv.since.1970,meantotht,meanDBH,prop.w.cones)) %>% 
+  mutate(seTH = ifelse(name=="meantotht", seTH, NA), se_DBH = ifelse(name=="meanDBH", se_DBH, NA)) %>%  
+  mutate(value = case_when(name=="meantotht" ~ value*3.281,
+                           name=="meanDBH" ~ value/2.54,
+                           TRUE ~ value),
+         seTH = seTH*3.281,
+         se_DBH = se_DBH/2.54) %>% 
+  mutate(name = case_when(name=="meanDBH" ~ "DBH (in) - 2014",
+                          name=="meantotht" ~ "Height (ft) - 2014",
+                          name=="prop.surv.since.1970" ~ "Proportion Survival 1970 - 2014",
+                          name=="prop.w.cones" ~ "Proportion with Cones - 2006")) 
+
+recent_means_fig_english<- ggplot(recent_means_english, aes(x=factor(Provenance, levels=provs_bylat$Provenance, labels=provs_bylat$code), y=value, col=factor(Provenance, levels=provs_bylat$Provenance, labels=provs_bylat$code)))+
+  geom_point(size=3)+
+  geom_errorbar(aes(ymax=value+se_DBH, ymin=value-se_DBH))+
+  geom_errorbar(aes(ymax=value+seTH, ymin=value-seTH))+
+  facet_wrap(~name, scales="free_y")+
+  scale_color_manual(values=unname(stepped()), name="Provenance")+
+  xlab("Provenance")+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle=45, hjust=1, color="black"), axis.title.y=element_blank(),
+        axis.text.y = element_text(color="black"),
+        strip.text = element_text(size=12, color="black"))
+  
+png("figures/recent_means_fig_english.png", width=7.8, height=5.5, units="in", res=500)
+recent_means_fig_english
+dev.off()
+
 ```
 
 ##RWI
@@ -5349,6 +5399,27 @@ cor_means_fig <- ggplot(cor_means, aes(x=factor(time_season, levels=c("priorsp",
 png("figures/final/cor_means_fig.png", width=6.5, height=5, units="in", res=500)
 cor_means_fig
 dev.off()
+
+###smaller version
+vpd_cor_fig<- ggplot(cor_means %>% filter(var=="vpdmax"), aes(x=factor(time_season, levels=c("priorsp","priorsm","priorfa","priorwt","NAsp","NAsm"), labels= c("priorsp","priorsm","priorfa","priorwt","sp","sm")), y=estimate,col=mean.cor>0))+
+  geom_point(position=position_dodge(1), size=3)+
+  geom_errorbar(aes(ymin=lwr, ymax=upr),width=0.5)+
+  geom_text(aes(y=0.25, label=sig), size=5)+
+  scale_color_manual(values=c("red","black"))+
+  scale_shape_manual(values=c(1,13))+
+  geom_hline(yintercept=0)+
+  facet_wrap(~factor(var, labels=c("Max Vapor Pressure Deficit")), nrow=3)+
+  theme_bw()+
+  ylim(c(-0.15, 0.3))+
+  xlab("")+ylab("Mean Pearson's r")+
+  theme(axis.text.x=element_text(angle=45, hjust=1, color="black"),
+        axis.text.y=element_text(color="black"))
+
+png("figures/cor_means_fig_justvpd.png", width=4, height=3, units="in", res=500)
+vpd_cor_fig
+dev.off()
+
+###
 
 sig_trees_per_clim <- cor_clean %>% 
   filter(p.value<0.05) %>% 
