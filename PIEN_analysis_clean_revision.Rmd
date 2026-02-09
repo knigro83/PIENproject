@@ -4448,6 +4448,41 @@ png("figures/recent_means_fig_english.png", width=7.8, height=5.5, units="in", r
 recent_means_fig_english
 dev.off()
 
+
+##figure out a transfer limit
+
+surv_means_transfer <- moniger_survival_byyr_binom_zeros_2014 %>% 
+  group_by(Provenance, year) %>% 
+  summarise(alive=sum(alive), died=sum(died)) %>% 
+  mutate(prop.surv=alive/(alive+died)) %>% 
+  left_join(survival14_transfer %>% 
+  ungroup() %>% 
+  dplyr::select(Provenance, name, value, transfer) %>% 
+  unique(), by="Provenance") %>% 
+  mutate(surv.percentile = prop.surv/0.9375)
+
+ggplot(surv_means_transfer %>% filter(name=="NFFD") %>% filter(!Provenance=="Gila NF"))+
+  geom_point(aes(x=transfer, y=surv.percentile))
+
+
+
+surv2014_NFFD_nog_newdata3_scaled<- surv2014_NFFD_nog_newdata3 %>% 
+  mutate(scaled_surv = PredictedProb/max(surv2014_NFFD_nog_newdata3$PredictedProb))
+
+nffd_surv14_plot_scaled <- ggplot(surv2014_NFFD_nog_newdata3_scaled, aes(x = transfer, y = scaled_surv)) + #geom_ribbon(aes(ymin = LL,
+ #   ymax = UL), alpha = 0.2) + 
+  geom_line(linewidth = 1)+
+    geom_vline(xintercept = 0, color="black", linetype=2)+
+    geom_rug(data=survival14_transfer %>% filter(name=="NFFD") %>% filter(!Provenance=="Gila NF") %>%  mutate(fit=0.7), aes(x=transfer,y=fit), linewidth=1, sides="b")+
+    ylim(c(0.5,1))+
+  geom_hline(yintercept = 0.9, col="red")+
+  geom_vline(xintercept = 39.706, col="red")+
+  xlab("NFFD transfer")+
+      ylab("Predicted Probability of Survival")+
+  theme_bw()
+
+nffd_surv14_plot_scaled ##to be in the top 10% of survival, NFFD transfer can be +40FFD.
+
 ```
 
 ##RWI
